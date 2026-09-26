@@ -2,7 +2,7 @@
 
 import { ArrowLeftRight } from "lucide-react";
 import { highlightPhrases, useSourceDrawer } from "@/components/shared/source-drawer";
-import { NEW_ITEM_PRIOR, type RadarCard, type RadarChange } from "@/data/radar";
+import { NEW_ITEM_PRIOR, REMOVED_ITEM_CURRENT, type RadarCard, type RadarChange } from "@/data/radar";
 import { cn } from "@/lib/utils";
 
 const KIND = {
@@ -14,11 +14,18 @@ const KIND = {
 export function ChangeItem({ card, change }: { card: RadarCard; change: RadarChange }) {
   const open = useSourceDrawer((s) => s.open);
   const kind = KIND[change.kind];
+  // A removed risk only exists in the prior filing, so that is the wording to show.
+  const removed = change.kind === "removed";
+  const shown = removed ? (change.prior ?? "") : change.current;
 
   function compare() {
     open({
-      source: { ...card.source, excerpt: change.current, highlight: change.highlight[0] },
-      compare: { prior: change.prior ?? NEW_ITEM_PRIOR, current: change.current, highlight: change.highlight },
+      source: { ...card.source, excerpt: shown, highlight: change.highlight[0] },
+      compare: {
+        prior: change.prior ?? NEW_ITEM_PRIOR,
+        current: removed ? REMOVED_ITEM_CURRENT : change.current,
+        highlight: removed ? [] : change.highlight,
+      },
     });
   }
 
@@ -40,8 +47,13 @@ export function ChangeItem({ card, change }: { card: RadarCard; change: RadarCha
           Compare wording
         </button>
       </div>
-      <blockquote className="border-l-2 border-border-strong pl-3 text-[14px] leading-[22px] text-text-muted">
-        {highlightPhrases(change.current, change.highlight)}
+      <blockquote
+        className={cn(
+          "border-l-2 border-border-strong pl-3 text-[14px] leading-[22px] text-text-muted",
+          removed && "line-through decoration-text-subtle/60",
+        )}
+      >
+        {highlightPhrases(shown, change.highlight)}
       </blockquote>
     </li>
   );

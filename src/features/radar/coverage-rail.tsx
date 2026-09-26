@@ -2,7 +2,8 @@
 
 import { RefreshCw } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { HIGH_SEVERITY_EXPOSURE, RADAR_LAST_CHECKED, type Severity } from "@/data/radar";
+import type { ReactNode } from "react";
+import type { Severity } from "@/data/radar";
 import { cn } from "@/lib/utils";
 import { formatPct } from "./format";
 
@@ -18,14 +19,24 @@ export function CoverageRail({
   checking,
   checked,
   onRecheck,
+  highExposure,
+  lastChecked,
+  checkedMessage = "No new filings since the last check.",
+  children,
 }: {
   counts: Partial<Record<Severity, number>>;
   filings: number;
   checking: boolean;
   checked: boolean;
   onRecheck: () => void;
+  // Share of the portfolio in companies with a high-severity change.
+  highExposure: number;
+  lastChecked: string;
+  checkedMessage?: string;
+  // Extra notes under the counts (companies the live Radar couldn't cover).
+  children?: ReactNode;
 }) {
-  const pct = formatPct(HIGH_SEVERITY_EXPOSURE);
+  const pct = formatPct(highExposure);
 
   return (
     <aside className="flex flex-col gap-5 bg-surface-1 p-5 xl:sticky xl:top-[88px]">
@@ -56,7 +67,9 @@ export function CoverageRail({
         </p>
       </div>
 
-      <p className="text-[12px] text-text-subtle">Last checked {RADAR_LAST_CHECKED}</p>
+      {children}
+
+      <p className="text-[12px] text-text-subtle">Last checked {lastChecked}</p>
 
       <div className="flex flex-col gap-2">
         <button
@@ -78,7 +91,7 @@ export function CoverageRail({
               transition={{ duration: 0.2 }}
               className="text-center text-[12px] text-text-muted"
             >
-              No new filings since the last check.
+              {checkedMessage}
             </motion.p>
           ) : null}
         </AnimatePresence>

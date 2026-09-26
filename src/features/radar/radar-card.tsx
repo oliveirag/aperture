@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
-import { ChevronDown, Target } from "lucide-react";
+import { ChevronDown, RefreshCw, Target } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { SeverityBadge } from "@/components/shared/severity-badge";
 import { SourceChip } from "@/components/shared/source-chip";
@@ -34,11 +34,16 @@ export function RadarCard({
   expanded,
   onToggle,
   index,
+  onRefresh,
+  refreshing = false,
 }: {
   card: RadarCardData;
   expanded: boolean;
   onToggle: () => void;
   index: number;
+  // Live cards only: re-check SEC for a newer filing of this company.
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }) {
   const reduce = useReducedMotion();
   const panelId = `radar-${card.id}-changes`;
@@ -93,7 +98,21 @@ export function RadarCard({
       </div>
 
       <div className="flex items-center justify-between gap-3 px-5 py-4">
-        <SourceChip payload={{ source: card.source }} label={`${card.filingType} · ${card.company}`} />
+        <div className="flex min-w-0 items-center gap-2">
+          <SourceChip payload={{ source: card.source }} label={`${card.filingType} · ${card.company}`} />
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={onRefresh}
+              disabled={refreshing}
+              aria-label={`Refresh ${card.company} filings`}
+              className="inline-flex h-6 items-center gap-1.5 px-2 text-[12px] font-medium text-text-muted transition-[color,opacity] duration-150 ease-out hover:text-text disabled:opacity-60"
+            >
+              <RefreshCw aria-hidden className={cn("size-3", refreshing && "animate-spin")} />
+              {refreshing ? "Checking" : "Refresh"}
+            </button>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={onToggle}

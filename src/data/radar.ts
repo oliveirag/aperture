@@ -10,6 +10,7 @@ export type RadarChange = {
   kind: "new" | "changed" | "removed";
   label: string;
   prior?: string;
+  // Empty for a removed risk; its wording is in `prior`.
   current: string;
   highlight: string[];
 };
@@ -224,3 +225,5 @@ export const HIGH_SEVERITY_EXPOSURE = lookthroughWeight("NVDA") + lookthroughWei
 export const RADAR_LAST_CHECKED = "Sep 26, 2026, 6:00 AM";
 
 export const NEW_ITEM_PRIOR = "Not present in the prior filing.";
+
+export const REMOVED_ITEM_CURRENT = "Not present in the latest filing.";

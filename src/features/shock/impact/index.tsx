@@ -14,7 +14,7 @@ import { shortLabelAt, useEvidenceSync } from "./use-evidence-sync";
 
 function Card({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border bg-surface-1 p-5">
+    <section className="bg-surface-1 p-5">
       {title ? <h2 className="mb-3 text-[13px] font-medium text-text-muted">{title}</h2> : null}
       {children}
     </section>
@@ -25,14 +25,14 @@ function EmptyState() {
   return (
     <Card>
       <Activity aria-hidden className="size-5 text-text-muted" />
-      <p className="mt-3 text-[15px] font-semibold text-text">Results appear here</p>
+      <p className="mt-3 text-[15px] font-medium text-text">Results appear here</p>
       <p className="mt-1 text-[13px] leading-5 text-text-muted">
         Pick a scenario on the left. Every number traces back to a source.
       </p>
       <div aria-hidden className="mt-5 flex flex-col gap-3 opacity-40">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-center gap-3">
-            <div className="size-8 rounded-[8px] bg-surface-3" />
+            <div className="size-8 bg-surface-3" />
             <div className="h-3 flex-1 rounded-full bg-surface-3" />
             <div className="h-3 w-12 rounded-full bg-surface-3" />
           </div>
@@ -71,7 +71,7 @@ export function ShockImpact() {
   return (
     <aside aria-label="Shock Test results" className="flex flex-col gap-4 xl:sticky xl:top-[72px] xl:self-start">
       <Card title="Portfolio impact">
-        <p className="text-[40px] leading-none font-semibold tracking-[-0.03em] text-negative">
+        <p className="display text-[64px] leading-none text-negative tabular-nums">
           <AnimatedNumber value={totals.pct} from={0} format={(v) => formatSignedPct(v)} />
         </p>
         <p className="mt-2 text-[16px] font-medium text-negative">

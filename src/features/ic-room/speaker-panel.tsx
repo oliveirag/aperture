@@ -39,13 +39,13 @@ export function SpeakerPanel({
       <header className="flex items-center gap-2.5">
         <span
           aria-hidden
-          className="flex size-7 items-center justify-center rounded-full text-[13px] font-semibold"
+          className="flex size-7 items-center justify-center rounded-full text-[13px] font-medium"
           style={{ color: s.color, backgroundColor: `color-mix(in srgb, ${s.color} 16%, transparent)` }}
         >
           {s.name[0]}
         </span>
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold" style={{ color: s.color }}>
+          <p className="text-[13px] font-medium" style={{ color: s.color }}>
             {s.name}
           </p>
           <p className="text-[12px] text-text-subtle">{s.role}</p>

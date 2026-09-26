@@ -138,7 +138,7 @@ export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done,
 
       {!hasRun ? (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <p className="rounded-full border border-border bg-surface-1/90 px-4 py-2 text-[13px] text-text-muted">
+          <p className="border border-border bg-surface-1/90 px-4 py-2 text-[13px] text-text-muted">
             Pick a scenario to trace it through your holdings
           </p>
         </div>

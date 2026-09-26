@@ -34,7 +34,7 @@ export function LevelOptions({ value, onChange }: { value: Level | null; onChang
       role="radiogroup"
       aria-label="Investing experience"
       onKeyDown={onKeyDown}
-      className="grid w-full max-w-[1008px] gap-4 md:grid-cols-3"
+      className="grid w-full gap-4 md:grid-cols-3"
     >
       {OPTIONS.map((o, i) => {
         const selected = o.value === value;
@@ -51,20 +51,21 @@ export function LevelOptions({ value, onChange }: { value: Level | null; onChang
             tabIndex={i === focusIndex ? 0 : -1}
             onClick={() => onChange(o.value)}
             className={cn(
-              "relative flex min-h-[180px] flex-col items-start rounded-2xl border p-6 text-left transition-[border-color,background-color,transform] duration-150 ease-out active:scale-[0.99]",
-              selected ? "border-accent bg-surface-2" : "border-border bg-surface-1 hover:border-border-strong",
+              // The chosen level inverts into a black band, the way the site marks emphasis.
+              "relative flex min-h-[260px] flex-col items-start p-8 text-left transition-[background-color,color,transform] duration-300 ease-out active:scale-[0.99]",
+              selected ? "theme-dark" : "bg-surface-1 hover:bg-surface-2",
             )}
           >
-            <span
-              className={cn(
-                "inline-flex size-9 items-center justify-center rounded-lg transition-colors duration-150",
-                selected ? "bg-accent/15 text-accent" : "bg-surface-2 text-text-muted",
-              )}
-            >
-              <Icon aria-hidden className="size-5" />
+            <span className="flex w-full items-center justify-between">
+              <span className="display text-[40px] leading-none text-text tabular-nums">{String(i + 1).padStart(2, "0")}</span>
+              <Icon
+                aria-hidden
+                strokeWidth={1.25}
+                className={cn("size-6 text-text-muted transition-opacity duration-150", selected && "opacity-0")}
+              />
             </span>
-            <span className="mt-auto pt-8 text-[17px] font-semibold text-text">{o.title}</span>
-            <span className="mt-1 text-[14px] leading-[22px] text-text-muted">{o.body}</span>
+            <span className="display mt-auto pt-10 text-[30px] leading-tight text-text">{o.title}</span>
+            <span className="mt-2 text-[16px] leading-[1.55] text-text-muted">{o.body}</span>
 
             <AnimatePresence>
               {selected ? (
@@ -74,7 +75,7 @@ export function LevelOptions({ value, onChange }: { value: Level | null; onChang
                   animate={{ opacity: 1, transform: "scale(1)" }}
                   exit={{ opacity: 0, transition: { duration: 0.1 } }}
                   transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
-                  className="absolute top-5 right-5 inline-flex size-5 items-center justify-center rounded-full bg-accent text-bg"
+                  className="absolute top-8 right-8 inline-flex size-6 items-center justify-center rounded-full bg-text text-bg"
                 >
                   <Check className="size-3.5" strokeWidth={3} />
                 </motion.span>

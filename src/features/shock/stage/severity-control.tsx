@@ -20,7 +20,7 @@ export function SeverityControl({
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
       <p className="shrink-0 text-[14px] text-text-muted sm:w-[250px]" id="severity-label">
-        <span className="font-semibold text-text tabular-nums">{severity}%</span> {scenario.severityLabel}
+        <span className="font-medium text-text tabular-nums">{severity}%</span> {scenario.severityLabel}
       </p>
       <div className="min-w-0 flex-1 pb-4">
         <SliderPrimitive.Root

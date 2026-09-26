@@ -64,9 +64,9 @@ export function TopTen() {
                   <td className="px-2">
                     <div className="flex items-center gap-2.5">
                       <span className="w-11 text-right font-medium text-text tabular-nums">{formatPct(w)}</span>
-                      <span className="h-1 w-20 overflow-hidden rounded-[2px] bg-surface-3">
+                      <span className="h-1 w-20 overflow-hidden bg-surface-3">
                         <span
-                          className="block h-full rounded-[2px]"
+                          className="block h-full"
                           style={{
                             width: `${(w / MAX_WEIGHT) * 100}%`,
                             backgroundColor: flagged ? "var(--chart-1)" : "var(--chart-2)",
@@ -87,7 +87,7 @@ export function TopTen() {
                         {e.sources.map((s) => (
                           <span
                             key={s.via}
-                            className="inline-flex h-5 items-center rounded-full border border-border px-1.5 text-[11px] text-text-muted"
+                            className="inline-flex h-5 items-center border border-border px-1.5 text-[11px] text-text-muted"
                           >
                             {s.via}
                           </span>

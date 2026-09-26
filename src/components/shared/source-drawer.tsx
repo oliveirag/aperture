@@ -68,7 +68,7 @@ export function SourceDrawer() {
                 </span>
                 <span className="tabular-nums">{formatSourceDate(source.date)}</span>
               </div>
-              <SheetTitle className="text-[18px] leading-6 font-semibold tracking-[-0.01em] text-text">
+              <SheetTitle className="text-[18px] leading-6 font-medium tracking-[-0.01em] text-text">
                 {source.title}
               </SheetTitle>
               <SheetDescription className="mt-1 text-[13px] text-text-muted">

@@ -45,13 +45,13 @@ export function ShockInput({ onRun }: { onRun: (id: ScenarioId, severity: number
             placeholder="Describe a shock…"
             autoComplete="off"
             aria-describedby={miss ? "shock-input-miss" : undefined}
-            className="h-10 w-full rounded-full border border-border bg-surface-1 pr-11 pl-4 text-[14px] text-text transition-[border-color] duration-150 outline-none placeholder:text-text-subtle hover:border-border-strong focus-visible:border-accent/60"
+            className="h-12 w-full border-0 border-b border-border-strong bg-surface-1 pr-12 pl-4 text-[16px] font-light text-text transition-[border-color] duration-200 outline-none placeholder:text-text-subtle hover:border-text focus-visible:border-text"
           />
           <button
             type="submit"
             aria-label="Run shock"
             disabled={!text.trim()}
-            className="absolute top-1 right-1 flex size-8 items-center justify-center rounded-full bg-accent text-bg transition-[opacity,transform] duration-150 ease-out active:scale-[0.94] disabled:opacity-30"
+            className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full border border-text text-text transition-[opacity,transform,background-color,color] duration-150 ease-out hover:bg-text hover:text-bg active:scale-[0.94] disabled:opacity-30"
           >
             <ArrowUp aria-hidden className="size-4" />
           </button>
@@ -65,7 +65,7 @@ export function ShockInput({ onRun }: { onRun: (id: ScenarioId, severity: number
                 setText(s);
                 submit(s);
               }}
-              className="inline-flex h-7 items-center rounded-full border border-border px-3 text-[12px] text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+              className="inline-flex h-7 items-center border border-border px-3 text-[12px] text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
             >
               {s}
             </button>

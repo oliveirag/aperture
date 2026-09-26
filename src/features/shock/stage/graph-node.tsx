@@ -101,7 +101,7 @@ export function DriverNode({
         />
       </motion.g>
       <foreignObject x={node.x - DRIVER_R} y={node.y - 12} width={DRIVER_R * 2} height={24} pointerEvents="none">
-        <div className="flex h-full items-center justify-center text-[17px] font-semibold text-accent tabular-nums">{sub}</div>
+        <div className="flex h-full items-center justify-center text-[17px] font-medium text-accent tabular-nums">{sub}</div>
       </foreignObject>
       <foreignObject x={node.x - 90} y={node.y + DRIVER_R + 8} width={180} height={44}>
         <p className="text-center text-[15px] leading-5 font-medium text-balance text-text">{withTerms(node.label)}</p>
@@ -125,7 +125,7 @@ export function ChannelNode({ node, lit, dim, onHover }: Common) {
     >
       <div
         className={cn(
-          "flex h-full flex-col justify-center rounded-[12px] border bg-surface-2 px-3 transition-[border-color] duration-200",
+          "flex h-full flex-col justify-center border bg-surface-2 px-3 transition-[border-color] duration-200",
           lit ? "border-accent/50" : "border-border",
         )}
       >
@@ -180,13 +180,13 @@ export function HoldingNode({
           onSelect(ticker);
         }}
         className={cn(
-          "flex h-full w-full items-center gap-2 rounded-[12px] border bg-surface-2 px-2.5 text-left transition-[border-color,background-color,transform] duration-150 ease-out outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent/60",
+          "flex h-full w-full items-center gap-2 border bg-surface-2 px-2.5 text-left transition-[border-color,background-color,transform] duration-150 ease-out outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent/60",
           selected ? "border-accent bg-surface-3" : lit ? "border-accent/50 hover:bg-surface-3" : "border-border",
         )}
       >
         <TickerMark ticker={ticker} color={color} size={24} />
         <span className="min-w-0 flex-1">
-          <span className="block text-[17px] leading-5 font-semibold text-text">{ticker}</span>
+          <span className="block text-[17px] leading-5 font-medium text-text">{ticker}</span>
           {/* Category only; the portfolio weight is in the title (space is tight once the graph scales). */}
           <span title={sub.join(", ")} className="block truncate text-[12px] leading-4 text-text-muted">
             {withTerms(sub[0] ?? "")}
@@ -194,7 +194,7 @@ export function HoldingNode({
         </span>
         {ret !== null && dollar !== null ? (
           <span className="text-right text-negative tabular-nums">
-            <AnimatedNumber value={ret} from={0} duration={countMs} format={(v) => formatSignedPct(v)} className="block text-[16px] leading-5 font-semibold" />
+            <AnimatedNumber value={ret} from={0} duration={countMs} format={(v) => formatSignedPct(v)} className="block text-[16px] leading-5 font-medium" />
             <AnimatedNumber value={dollar} from={0} duration={countMs} format={(v) => formatSignedUSD(v)} className="block text-[12.5px] leading-4" />
           </span>
         ) : null}

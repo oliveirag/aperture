@@ -47,7 +47,7 @@ export function LookthroughIllustration() {
       <div
         role="img"
         aria-label={`NVIDIA reaches you through NVDA directly, QQQ and VOO: ${formatPct(NVIDIA_WEIGHT)} of your money across 3 positions.`}
-        className="rounded-2xl border border-border bg-surface-1 p-6 sm:p-8"
+        className="bg-surface-1 p-6 sm:p-8"
       >
         <div className="flex flex-col gap-6 sm:grid sm:grid-cols-[188px_120px_minmax(0,1fr)] sm:items-center sm:gap-0">
           <ul className="flex flex-col" style={{ gap: GAP }}>
@@ -63,7 +63,7 @@ export function LookthroughIllustration() {
                 <TickerMark ticker={p.ticker} color={p.color} size={32} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-baseline justify-between gap-2">
-                    <span className="text-[14px] font-semibold text-text">{p.ticker}</span>
+                    <span className="text-[14px] font-medium text-text">{p.ticker}</span>
                     <span className="text-[13px] text-text tabular-nums">{p.value}</span>
                   </p>
                   <p className="text-[12px] text-text-muted">{p.kind}</p>
@@ -109,17 +109,17 @@ export function LookthroughIllustration() {
             initial={{ opacity: 0, transform: "scale(0.96)" }}
             animate={{ opacity: 1, transform: "scale(1)" }}
             transition={still ? INSTANT : { duration: 0.35, delay: 1.2, ease: EASE_OUT }}
-            className="rounded-xl border border-accent/40 bg-surface-2 px-5 py-4 sm:ml-2"
+            className="border border-accent/40 bg-surface-2 px-6 py-5 sm:ml-2 sm:max-w-[300px]"
           >
-            <p className="flex items-center gap-2 text-[14px] font-semibold text-text">
+            <p className="flex items-center gap-2 text-[14px] font-medium text-text">
               <TickerMark ticker="NVDA" color={NVIDIA.color} size={24} />
               NVIDIA
             </p>
-            <p className="mt-3 text-[36px] leading-none font-semibold tracking-[-0.03em] text-text">
+            <p className="display mt-3 text-[56px] leading-none text-text tabular-nums">
               <AnimatedNumber value={pct} format={(v) => `${v.toFixed(1)}%`} duration={600} />
             </p>
             <p className="mt-1.5 text-[13px] text-text-muted">of your money</p>
-            <p className="mt-3 inline-flex rounded-full border border-border-strong px-2 py-0.5 text-[12px] text-text-muted">
+            <p className="mt-3 inline-flex border border-border-strong px-2 py-0.5 text-[12px] text-text-muted">
               3 positions
             </p>
           </motion.div>

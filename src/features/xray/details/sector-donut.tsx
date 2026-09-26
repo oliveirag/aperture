@@ -61,7 +61,7 @@ export function SectorDonut() {
             </PieChart>
           </ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-            <span className="text-[28px] leading-8 font-semibold tracking-[-0.02em] text-text tabular-nums">
+            <span className="display text-[34px] leading-9 text-text tabular-nums">
               {formatPct(slice.weight)}
             </span>
             <span className="mt-0.5 max-w-[110px] text-[12px] leading-4 text-text-muted">{slice.sector}</span>
@@ -78,7 +78,7 @@ export function SectorDonut() {
                 hovered !== null && hovered !== i && "opacity-50",
               )}
             >
-              <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ backgroundColor: COLORS[i] }} />
+              <span aria-hidden className="size-2 shrink-0" style={{ backgroundColor: COLORS[i] }} />
               <span className="min-w-0 flex-1 truncate text-text">{s.sector}</span>
               {s.weight > SECTOR_THRESHOLD ? (
                 <span className="text-[11px] font-medium whitespace-nowrap text-sev-medium">

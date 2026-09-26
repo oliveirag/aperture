@@ -3,9 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight } from "lucide-react";
-import { motion } from "motion/react";
+import { CircleArrow } from "@/components/shared/circle-arrow";
 import { Wordmark } from "@/components/shared/lens-mark";
+import { MaskLine, Reveal } from "@/components/shared/reveal";
 import { useLevel, type Level } from "@/lib/level";
 import { cn } from "@/lib/utils";
 import { LevelOptions } from "./level-options";
@@ -23,45 +23,48 @@ export function Onboarding() {
   }
 
   return (
-    <motion.main
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="mx-auto flex min-h-dvh max-w-[1200px] flex-col px-6 sm:px-8"
-    >
-      <header className="flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="rounded-md">
-          <Wordmark />
+    <main className="flex min-h-dvh flex-col">
+      <header className="bx-container flex h-24 items-center justify-between gap-6 lg:h-[132px]">
+        <Link href="/" aria-label="Lookthrough home">
+          <Wordmark size="sm" className="sm:hidden" />
+          <Wordmark className="hidden sm:inline-flex" />
         </Link>
         <StepIndicator current={1} />
       </header>
 
-      <section className="flex flex-1 flex-col items-center justify-center py-16">
-        <h1 className="text-center text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] text-text sm:text-[40px]">
-          What&apos;s your investing experience?
-        </h1>
-        <p className="mt-3 text-center text-[16px] text-text-muted">
-          This changes how much we explain. The numbers stay the same.
-        </p>
-
-        <div className="mt-12 flex w-full justify-center">
-          <LevelOptions value={choice} onChange={setChoice} />
+      <section className="bx-container flex flex-1 flex-col pt-10 pb-24 lg:pt-16">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+          <h1 className="display text-[44px] leading-[1.08] text-text sm:text-[64px]">
+            <MaskLine>What&apos;s your</MaskLine>
+            <MaskLine delay={0.1}>investing experience?</MaskLine>
+          </h1>
+          <Reveal delay={0.35} className="lg:pb-3">
+            <p className="max-w-[34ch] text-[20px] leading-[1.5] font-light text-text">
+              This changes how much we explain. The numbers stay the same.
+            </p>
+          </Reveal>
         </div>
 
-        <button
-          type="button"
-          onClick={next}
-          disabled={!choice}
-          className={cn(
-            "group mt-10 inline-flex h-11 w-[220px] items-center justify-center gap-2 rounded-lg text-[15px] font-medium transition-[transform,background-color,color,opacity] duration-150 ease-out",
-            choice ? "bg-text text-bg hover:bg-white active:scale-[0.97]" : "cursor-not-allowed bg-surface-2 text-text-subtle",
-          )}
-        >
-          Continue
-          <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-out group-enabled:group-hover:translate-x-0.5" />
-        </button>
-        <p className="mt-4 text-[13px] text-text-subtle">You can switch levels anytime from the top bar.</p>
+        <Reveal delay={0.5} className="mt-16">
+          <LevelOptions value={choice} onChange={setChoice} />
+        </Reveal>
+
+        <div className="mt-12 flex flex-col gap-6 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[14px] text-text-muted">You can switch levels anytime from the masthead.</p>
+          <button
+            type="button"
+            onClick={next}
+            disabled={!choice}
+            className={cn(
+              "group inline-flex items-center gap-4 text-[18px] font-normal transition-opacity duration-200",
+              choice ? "text-text" : "cursor-not-allowed text-text-subtle",
+            )}
+          >
+            <span className={cn(choice && "link-underline", "pb-1")}>Continue</span>
+            <CircleArrow className={cn(!choice && "group-hover:bg-transparent group-hover:text-text-subtle")} />
+          </button>
+        </div>
       </section>
-    </motion.main>
+    </main>
   );
 }

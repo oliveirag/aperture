@@ -26,7 +26,7 @@ export function SourceChip({
       onClick={() => open(payload)}
       title={payload.source.title}
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-surface-2 px-2.5 text-[12px] font-medium whitespace-nowrap text-text-muted",
+        "inline-flex h-6 items-center gap-1.5 border border-border bg-surface-2 px-2.5 text-[12px] font-medium whitespace-nowrap text-text-muted",
         "transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]",
         className,
       )}

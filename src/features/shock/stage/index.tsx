@@ -67,7 +67,7 @@ export function ShockStage() {
           eyebrow="Shock Test"
           headline={
             answered ? (
-              <span className="block text-[32px] leading-[1.15] tracking-[-0.02em]">
+              <span className="block text-[32px] leading-[1.2] sm:text-[36px]">
                 <ShockHeadline
                   template={scenario.headline[level]}
                   severity={severity}
@@ -89,7 +89,7 @@ export function ShockStage() {
         <ShockInput onRun={run} />
       </div>
 
-      <div className="rounded-2xl border border-border bg-surface-1 p-4">
+      <div className="bg-surface-1 p-4">
         {hasRun ? (
           <div className="mb-2 border-b border-border px-1 pt-1 pb-3">
             <SeverityControl scenario={scenario} severity={severity} onChange={setSeverity} />

@@ -96,7 +96,7 @@ export function GraphEdge({ edge, geo, delayMs, reduce, state, hovered, advanced
       {tag ? (
         <foreignObject x={geo.mid.x - 130} y={geo.mid.y - 13} width={260} height={26} pointerEvents="none">
           <div className="flex h-full items-center justify-center">
-            <span className="rounded-full border border-border-strong bg-surface-3 px-2 py-0.5 text-[11px] leading-4 whitespace-nowrap text-text tabular-nums">
+            <span className="border border-border-strong bg-surface-3 px-2 py-0.5 text-[11px] leading-4 whitespace-nowrap text-text tabular-nums">
               {tag}
             </span>
           </div>

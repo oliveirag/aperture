@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import { parsePositionsCsv, type ParsedRow, type SkippedRow } from "./csv";
 import type { Phase } from "./drop-zone";
 
-// Matches the server's per-import limit (Finnhub's free rate limit).
-const MAX_POSITIONS = 25;
+// Matches the server's per-import limit; Finnhub calls queue behind a shared rate limit, so big files are slower, not refused.
+const MAX_POSITIONS = 50;
 const MAX_BYTES = 1024 * 1024;
 
 const EXAMPLE = "Symbol,Quantity\nVOO,75\nQQQ,60\nNVDA,110\nAAPL,50\n";

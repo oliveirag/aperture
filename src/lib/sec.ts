@@ -108,7 +108,7 @@ export function listFilings(cik: string): Promise<Filing[]> {
       });
     }
     return out.sort((a, b) => b.filedAt.localeCompare(a.filedAt));
-  });
+  }, { persist: true });
 }
 
 // The latest filing and the prior one of the same form. Annual reports are preferred: they carry the full risk factors.
@@ -332,7 +332,7 @@ export function fundamentals(cik: string): Promise<Fundamentals | null> {
       operatingCashFlow: annual(concept(facts, ["NetCashProvidedByUsedInOperatingActivities"]), 2),
       debt: latestInstant(facts, [["LongTermDebtNoncurrent", "LongTermDebtCurrent"], ["LongTermDebt"], ["LongTermDebtAndCapitalLeaseObligations"], ["DebtInstrumentCarryingAmount"]]),
     };
-  });
+  }, { persist: true });
 }
 
 export function filingIndexUrl(cik: string, accession: string) {

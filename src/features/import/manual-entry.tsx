@@ -6,7 +6,7 @@ import { TickerCombobox } from "@/components/shared/ticker-combobox";
 import { cn } from "@/lib/utils";
 import type { Phase } from "./drop-zone";
 
-const MAX_ROWS = 25;
+const MAX_ROWS = 50;
 const TICKER = /^[A-Z][A-Z.]{0,5}$/;
 
 export type ManualRow = { id: number; ticker: string; shares: string };

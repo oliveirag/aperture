@@ -253,7 +253,7 @@ export function buildFactPack(ticker: string, onStep: (index: number) => void = 
     const facts: Fact[] = [...filings, ...radar, ...funds, ...market, ...news].map((f, i) => ({ ...f, id: `F${i + 1}` }));
     if (facts.length === 0) throw new Error("no facts");
     return { ticker, name, profile, facts, notes };
-  });
+  }, { persist: true });
 }
 
 export class UnknownTicker extends Error {

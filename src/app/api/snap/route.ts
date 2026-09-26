@@ -1,5 +1,6 @@
 import { generate, geminiConfigured } from "@/lib/gemini";
 import { dedupeOverlap, priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 // Gemini retries plus pricing can run past the default on busy days.
@@ -65,6 +66,8 @@ function readImages(images: { mimeType: string; data: string }[]) {
 // Reads one to three brokerage screenshots with Gemini, then prices every position with Finnhub.
 // Images stay in memory only; they are never written or logged.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "snap");
+  if (limited) return limited;
   if (!geminiConfigured()) return fail("Screenshot import is not configured", 503);
 
   let form: FormData;

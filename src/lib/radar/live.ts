@@ -1,6 +1,6 @@
 // Server-only: the real Filing Radar. Finds a company's latest filing and the prior one of the same form, cuts out
 // the risk sections, asks Gemini what changed, and keeps only changes whose quotes are verbatim in the filings.
-import { forget, memo, peek } from "@/lib/cache";
+import { forget, memo, recall } from "@/lib/cache";
 import { generateJson } from "@/lib/gemini";
 import { companyFor, displayName, extractSection, filingPair, filingText, listFilings, type Filing } from "@/lib/sec";
 import type { RadarFiling } from "./types";
@@ -109,6 +109,7 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
   const name = displayName(company.name);
   const filing = await memo(`radar:${ticker}:${pair.latest.accession}:${pair.prior.accession}`, WEEK, () =>
     diff(ticker, name, pair.latest, pair.prior, onProgress),
+    { persist: true },
   );
   return { status: "ok", filing };
 }
@@ -117,8 +118,8 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
 export async function cachedRadarFor(ticker: string): Promise<RadarFiling | null> {
   const company = await companyFor(ticker).catch(() => null);
   if (!company) return null;
-  const filings = peek<Filing[]>(`sec:filings:${company.cik}`);
+  const filings = await recall<Filing[]>(`sec:filings:${company.cik}`);
   const pair = filings ? filingPair(filings) : null;
   if (!pair) return null;
-  return peek<RadarFiling>(`radar:${ticker}:${pair.latest.accession}:${pair.prior.accession}`) ?? null;
+  return (await recall<RadarFiling>(`radar:${ticker}:${pair.latest.accession}:${pair.prior.accession}`)) ?? null;
 }

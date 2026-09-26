@@ -1,6 +1,7 @@
 "use client";
 
 import { useLevel } from "@/lib/level";
+import { Holdings } from "./holdings";
 import { LearnCard } from "./learn-card";
 import { OverlapVenn } from "./overlap-venn";
 import { PerformanceChart } from "./performance-chart";
@@ -16,6 +17,7 @@ export function XrayDetails() {
         Breakdown
       </h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <Holdings />
         <TopTen />
         <SectorDonut />
         <OverlapVenn />

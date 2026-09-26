@@ -5,21 +5,22 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
-import { PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { POSITIONS_COUNT, UNDERLYING_COMPANIES, XRAY_HEADLINE, XRAY_SUBLINE } from "@/data/xray";
 import { formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
+import { useLiveHoldings } from "@/lib/market";
 import { cn } from "@/lib/utils";
 import { FlagsStrip } from "./flags-strip";
 import { LookthroughMap } from "./lookthrough-map";
 
 function HeaderStats() {
+  const { total } = useLiveHoldings();
   return (
     <div className="flex gap-8">
       <div>
         <p className="text-[12px] text-text-muted">Portfolio value</p>
         <p className="mt-0.5 text-[20px] font-semibold tracking-[-0.01em] text-text tabular-nums">
-          {formatUSD(PORTFOLIO_TOTAL)}
+          {formatUSD(total)}
         </p>
       </div>
       <div>

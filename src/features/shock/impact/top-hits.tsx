@@ -42,7 +42,7 @@ export function TopHits({ scenario, severity, colors }: { scenario: ShockScenari
               type="button"
               aria-expanded={open}
               onClick={() => selectHolding(open ? null : r.ticker)}
-              className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors duration-150 hover:bg-surface-2"
+              className="flex min-h-14 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-[color,background-color,border-color,scale] duration-150 hover:bg-surface-2 active:scale-[0.99]"
             >
               <TickerMark ticker={r.ticker} color={r.color} size={32} />
               <span className="min-w-0 flex-1">
@@ -86,7 +86,7 @@ export function TopHits({ scenario, severity, colors }: { scenario: ShockScenari
                             type="button"
                             onClick={() => selectEdge(id)}
                             className={cn(
-                              "mt-1.5 inline-flex h-6 items-center gap-1.5 border px-2.5 text-[12px] font-medium transition-[border-color,color,transform] duration-150 ease-out active:scale-[0.97]",
+                              "mt-1.5 inline-flex h-6 items-center gap-1.5 border px-2.5 text-[12px] font-medium transition-[border-color,color,transform,translate,scale] duration-150 ease-out active:scale-[0.97]",
                               active
                                 ? "border-accent/60 text-text"
                                 : "border-border text-text-muted hover:border-border-strong hover:text-text",

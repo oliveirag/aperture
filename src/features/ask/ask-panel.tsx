@@ -95,7 +95,7 @@ function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
         <Link
           href="/ic"
           onClick={onNavigate}
-          className="inline-flex h-8 w-fit items-center gap-2 border border-border-strong px-3 text-[13px] font-medium text-text transition-colors duration-150 hover:bg-surface-2"
+          className="inline-flex h-8 w-fit items-center gap-2 border border-border-strong px-3 text-[13px] font-medium text-text transition-[color,background-color,border-color,scale] duration-150 hover:bg-surface-2 active:scale-[0.97]"
         >
           Open the IC Room
         </Link>
@@ -163,7 +163,7 @@ export function AskPanel() {
                       type="button"
                       onClick={() => send(c)}
                       disabled={!context}
-                      className="inline-flex min-h-8 items-center border border-border px-3 py-1 text-left text-[13px] text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97] disabled:opacity-50"
+                      className="inline-flex min-h-8 items-center border border-border px-3 py-1 text-left text-[13px] text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97] disabled:opacity-50"
                     >
                       {c}
                     </button>
@@ -211,7 +211,7 @@ export function AskPanel() {
                 type="submit"
                 aria-label="Send question"
                 disabled={!draft.trim() || !context}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-text text-text transition-[opacity,background-color,color] duration-150 hover:bg-text hover:text-bg disabled:opacity-30"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-text text-text transition-[opacity,background-color,color,scale] duration-150 hover:bg-text active:scale-[0.95] hover:text-bg disabled:opacity-30"
               >
                 <ArrowUp aria-hidden className="size-4" />
               </button>
@@ -242,7 +242,7 @@ export function AskButton({ className }: { className?: string }) {
       onClick={() => setOpen(true)}
       aria-haspopup="dialog"
       className={cn(
-        "inline-flex h-9 items-center gap-2 border border-border-strong px-3 text-[14px] font-light text-text transition-colors duration-150 hover:bg-surface-1",
+        "inline-flex h-9 items-center gap-2 border border-border-strong px-3 text-[14px] font-light text-text transition-[color,background-color,border-color,scale] duration-150 hover:bg-surface-1 active:scale-[0.97]",
         className,
       )}
     >

@@ -580,7 +580,7 @@ export function GraphCanvas({ graph, settings, severity, baseSeverity, runStart,
             aria-label={label}
             title={label}
             onClick={() => onZoom(id)}
-            className="flex size-8 items-center justify-center text-[#8f8f8f] transition-colors duration-150 hover:bg-white/5 hover:text-[#dadada]"
+            className="flex size-8 items-center justify-center text-[#8f8f8f] transition-[color,background-color,border-color,scale] duration-150 hover:bg-white/5 active:scale-[0.95] hover:text-[#dadada]"
           >
             <Icon aria-hidden className="size-4" />
           </button>

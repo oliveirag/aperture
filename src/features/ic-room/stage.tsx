@@ -61,7 +61,7 @@ function Progress({ frame, status, onSkip }: { frame: Frame; status: RunStatus; 
         <button
           type="button"
           onClick={onSkip}
-          className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-text-muted transition-[color,background-color] duration-150 ease-out hover:bg-surface-2 hover:text-text"
+          className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-text-muted transition-[color,background-color,scale] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] hover:text-text"
         >
           <FastForward className="size-3.5" aria-hidden />
           Skip to memo
@@ -151,7 +151,7 @@ export function Stage({
             <button
               type="button"
               onClick={onRetry}
-              className="inline-flex h-8 items-center gap-2 bg-text px-3 text-[13px] font-medium text-bg transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+              className="inline-flex h-8 items-center gap-2 bg-text px-3 text-[13px] font-medium text-bg transition-[opacity,transform,translate,scale] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
             >
               <RotateCcw aria-hidden className="size-3.5" />
               Try again

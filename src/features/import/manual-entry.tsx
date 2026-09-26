@@ -125,7 +125,7 @@ export function ManualEntry({
         <button
           type="submit"
           disabled={locked}
-          className="inline-flex h-11 w-full items-center justify-center bg-text text-[15px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97] disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center bg-text text-[15px] font-medium text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97] disabled:opacity-60"
         >
           {phase === "extracted" || phase === "error" ? "Price again" : "Price my holdings"}
         </button>

@@ -20,7 +20,7 @@ export default function NotFound() {
         </p>
         <Link
           href="/xray"
-          className="group mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-text px-5 text-[15px] font-medium whitespace-nowrap text-bg transition-[transform,background-color] duration-150 ease-out hover:-translate-y-px hover:bg-text/85 active:scale-[0.97]"
+          className="group mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-text px-5 text-[15px] font-medium whitespace-nowrap text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:-translate-y-px hover:bg-text/85 active:scale-[0.97]"
         >
           Back to X-Ray
           <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />

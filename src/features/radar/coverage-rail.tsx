@@ -76,7 +76,7 @@ export function CoverageRail({
           type="button"
           onClick={onRecheck}
           disabled={checking}
-          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong text-[13px] font-medium text-text transition-[background-color,transform,opacity] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] disabled:opacity-60"
+          className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-border-strong text-[13px] font-medium text-text transition-[background-color,transform,translate,scale,opacity] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] disabled:opacity-60"
         >
           <RefreshCw aria-hidden className={cn("size-3.5", checking && "animate-spin")} />
           {checking ? "Checking filings" : "Re-check filings"}

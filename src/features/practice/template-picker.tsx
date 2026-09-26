@@ -75,7 +75,7 @@ export function TemplatePicker({
               tabIndex={selected ? 0 : -1}
               onClick={() => onChoice(o.id)}
               className={cn(
-                "relative flex min-h-[168px] flex-col items-start p-6 text-left transition-[background-color,color,transform] duration-300 ease-out active:scale-[0.99]",
+                "relative flex min-h-[168px] flex-col items-start p-6 text-left transition-[background-color,color,transform,translate,scale] duration-300 ease-out active:scale-[0.99]",
                 selected ? "theme-light" : "bg-surface-1 hover:bg-surface-2",
               )}
             >
@@ -123,7 +123,7 @@ export function TemplatePicker({
             />
             <button
               type="submit"
-              className="inline-flex h-10 items-center gap-1.5 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color] duration-150 hover:bg-text/85"
+              className="inline-flex h-10 items-center gap-1.5 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,scale] duration-150 hover:bg-text/85 active:scale-[0.97]"
             >
               <Plus aria-hidden className="size-4" />
               Add

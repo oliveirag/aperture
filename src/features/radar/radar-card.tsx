@@ -118,7 +118,7 @@ export function RadarCard({
           onClick={onToggle}
           aria-expanded={expanded}
           aria-controls={panelId}
-          className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-text-muted transition-[color,background-color] duration-150 ease-out hover:bg-surface-2 hover:text-text"
+          className="inline-flex h-7 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-text-muted transition-[color,background-color,scale] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] hover:text-text"
         >
           {expanded ? "Hide changes" : `Show changes (${card.changes.length})`}
           <ChevronDown

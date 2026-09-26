@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Check, LoaderCircle } from "lucide-react";
+import { ArrowRight, Check, LoaderCircle, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { TickerMark } from "@/components/shared/ticker-mark";
@@ -183,6 +183,12 @@ function Summary({ holdings, reduce, onContinue }: { holdings: ExtractedHolding[
         )}{" "}
         · {matched} of {holdings.length} matched
       </p>
+      {holdings[0]?.source === "live" ? (
+        <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-text-muted">
+          <Sparkles aria-hidden className="size-3.5" />
+          Extracted by Gemini
+        </p>
+      ) : null}
       <button
         type="button"
         onClick={onContinue}

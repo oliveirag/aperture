@@ -72,6 +72,11 @@ export function displayName(name: string) {
     .join(" ");
 }
 
+// Every SEC filer with a ticker (about 10,000), for local ticker search.
+export async function allCompanies(): Promise<Company[]> {
+  return [...(await tickerMap()).values()];
+}
+
 export async function companyFor(ticker: string): Promise<Company | null> {
   const map = await tickerMap();
   const t = ticker.toUpperCase();

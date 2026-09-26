@@ -2,6 +2,7 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
+import { TickerCombobox } from "@/components/shared/ticker-combobox";
 import { cn } from "@/lib/utils";
 import type { Phase } from "./drop-zone";
 
@@ -18,7 +19,7 @@ const cleanTicker = (t: string) => t.trim().toUpperCase().replace(/^\$/, "").rep
 // Why a row can't be priced, or null if it's fine. Empty rows are ignored rather than flagged.
 function problem(r: ManualRow): string | null {
   if (!r.ticker.trim() && !r.shares.trim()) return null;
-  if (!TICKER.test(cleanTicker(r.ticker))) return "Enter a ticker like AAPL or BRK.B";
+  if (!TICKER.test(cleanTicker(r.ticker))) return "Enter a ticker like AAPL or BRK.B, or pick a company from the list";
   const n = Number(r.shares);
   if (!(n > 0) || !Number.isFinite(n)) return "Enter a share count above 0";
   return null;
@@ -74,16 +75,14 @@ export function ManualEntry({
           return (
             <li key={r.id}>
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] items-center gap-2">
-                <input
+                <TickerCombobox
                   aria-labelledby={`${id}-t`}
                   aria-invalid={Boolean(err) && !TICKER.test(cleanTicker(r.ticker))}
                   value={r.ticker}
-                  onChange={(e) => update(r.id, { ticker: e.target.value.toUpperCase() })}
-                  placeholder={i === 0 ? "VOO" : ""}
-                  maxLength={7}
+                  onChange={(ticker) => update(r.id, { ticker: ticker.toUpperCase() })}
+                  placeholder={i === 0 ? "VOO or Apple" : ""}
+                  maxLength={40}
                   autoCapitalize="characters"
-                  autoComplete="off"
-                  spellCheck={false}
                   disabled={locked}
                   className={cn(INPUT, "font-medium", err && !TICKER.test(cleanTicker(r.ticker)) && "border-negative")}
                 />

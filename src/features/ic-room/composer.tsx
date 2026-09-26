@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 import { ArrowRight, Info, Loader2, RotateCcw } from "lucide-react";
+import { TickerCombobox } from "@/components/shared/ticker-combobox";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { IC_THESIS, IC_TICKER } from "@/data/ic-room";
 import { cn } from "@/lib/utils";
@@ -63,21 +64,19 @@ export function Composer({
         </label>
         <div className={cn(FIELD, "flex items-center gap-2 p-1.5 pr-2")}>
           {valid ? <TickerMark ticker={form.ticker} color={form.ticker === IC_TICKER.ticker ? IC_TICKER.color : undefined} size={24} /> : null}
-          <input
+          <TickerCombobox
             id={tickerId}
             value={form.ticker}
-            onChange={(e) => {
-              const ticker = e.target.value.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 6);
+            onChange={(value) => {
+              const ticker = value.toUpperCase().replace(/[^A-Z. &'-]/g, "").slice(0, 40);
               // The preset thesis is about AMD; don't let it ride along to another company.
               const thesis = ticker !== IC_TICKER.ticker && form.thesis === IC_THESIS ? "" : form.thesis;
               onChange({ ...form, ticker, thesis });
             }}
-            placeholder="Ticker, e.g. AMD"
-            autoComplete="off"
-            spellCheck={false}
+            placeholder="Ticker or company, e.g. AMD"
             aria-describedby={hintId}
             aria-invalid={(form.ticker !== "" && !valid) || undefined}
-            className="h-7 min-w-10 flex-1 bg-transparent px-1 text-[14px] font-medium text-text uppercase outline-none placeholder:font-normal placeholder:text-text-subtle placeholder:normal-case focus-visible:outline-none"
+            className="h-7 w-full min-w-10 bg-transparent px-1 text-[14px] font-medium text-text uppercase outline-none placeholder:font-normal placeholder:text-text-subtle placeholder:normal-case focus-visible:outline-none"
           />
         </div>
         <p id={hintId} aria-live="polite" className="mt-2 min-h-5 text-[12px] leading-5 text-text-muted">

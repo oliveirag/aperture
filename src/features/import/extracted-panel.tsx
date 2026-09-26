@@ -102,7 +102,7 @@ export function ExtractedPanel({
 
       <footer aria-live="polite" className="mt-auto flex h-[128px] flex-col justify-center border-t border-border px-5">
         {phase === "idle" ? (
-          <p className="text-[13px] text-text-subtle">Holdings appear here once the screenshot is read.</p>
+          <p className="text-[13px] text-text-subtle">Holdings appear here once your positions are read.</p>
         ) : phase === "scanning" ? (
           <ScanSteps stepMs={scanMs / STEPS.length} />
         ) : phase === "error" ? (
@@ -231,10 +231,10 @@ function Summary({
         )}{" "}
         · {matched} of {holdings.length} matched
       </p>
-      {holdings[0]?.source === "live" ? (
+      {holdings[0]?.source ? (
         <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-text-muted">
           <Sparkles aria-hidden className="size-3.5" />
-          Read by Gemini · priced live by Finnhub
+          {holdings[0].source === "gemini" ? "Read by Gemini · priced live by Finnhub" : "Priced live by Finnhub"}
         </p>
       ) : null}
       <button

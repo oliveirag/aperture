@@ -1,16 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { StepIndicator } from "@/features/onboarding/step-indicator";
+import { CsvZone, type CsvFile } from "./csv-zone";
 import { DropZone, type ImportImage, type Phase } from "./drop-zone";
 import { ExtractedPanel } from "./extracted-panel";
+import { ManualEntry, blankRow, type ManualRow } from "./manual-entry";
+import { ModeSwitch, type ImportMode } from "./mode-switch";
 import { HOLDINGS } from "@/data/portfolio";
 import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
-import { SCAN_MS, counts, extractHoldings, type ExtractedHolding, type ExtractResult } from "./extract";
+import { SCAN_MS, counts, extractHoldings, type ExtractedHolding, type ExtractResult, type TypedRow } from "./extract";
+
+// Typed and CSV rows skip the image scan, so a short beat is enough.
+const TYPED_MS = 900;
+
+type Input = { file?: File; sample?: boolean; rows?: TypedRow[] };
 
 // Reduced motion skips the sweep and lands on the result quickly.
 const REDUCED_SCAN_MS = 600;
@@ -40,14 +48,18 @@ function reducer(state: State, action: Action): State {
   }
 }
 
-// idle -> scanning -> extracted | error. A dropped image is read by Gemini and priced by Finnhub; the sample replays the demo portfolio.
+// idle -> scanning -> extracted | error. Three ways in: a screenshot (Gemini reads it), a CSV export, or typed rows.
+// Every position is priced live by Finnhub; the sample replays the demo portfolio.
 export function ImportFlow() {
   const router = useRouter();
   const reduce = useReducedMotion() ?? false;
   const scanMs = reduce ? REDUCED_SCAN_MS : SCAN_MS;
   const [state, dispatch] = useReducer(reducer, IDLE);
   const run = useRef(0);
-  const lastFile = useRef<File | null>(null);
+  const lastInput = useRef<Input | null>(null);
+  const [mode, setMode] = useState<ImportMode>("screenshot");
+  const [csvFile, setCsvFile] = useState<CsvFile | null>(null);
+  const [manualRows, setManualRows] = useState<ManualRow[]>(() => [blankRow(), blankRow(), blankRow()]);
   const setImported = usePortfolio((s) => s.setImported);
   const resetToDemo = usePortfolio((s) => s.resetToDemo);
   useHydratePortfolio();
@@ -76,24 +88,24 @@ export function ImportFlow() {
     if (state.phase === "extracted") router.prefetch("/xray");
   }, [state.phase, router]);
 
-  function start(input: { file?: File; sample?: boolean }) {
+  function start(input: Input) {
     releaseUrl();
-    lastFile.current = input.file ?? null;
-    let image: ImportImage = { kind: "sample" };
+    lastInput.current = input;
+    let image: ImportImage = input.rows ? { kind: "typed" } : { kind: "sample" };
     if (input.file) {
       objectUrl.current = URL.createObjectURL(input.file);
       image = { kind: "file", url: objectUrl.current, name: input.file.name };
     }
     const id = ++run.current;
     dispatch({ type: "start", image });
-    extractHoldings(input, { delayMs: scanMs }).then((result) => {
+    extractHoldings(input, { delayMs: input.rows ? Math.min(scanMs, TYPED_MS) : scanMs }).then((result) => {
       if (run.current === id) dispatch({ type: "done", result });
     });
   }
 
   // The sample is the demo portfolio; a real read becomes this session's portfolio.
   function confirm() {
-    if (state.image?.kind === "file" && !isDemoPortfolio(state.holdings)) {
+    if (state.image?.kind !== "sample" && !isDemoPortfolio(state.holdings)) {
       setImported(
         state.holdings
           .filter(counts)
@@ -106,8 +118,19 @@ export function ImportFlow() {
   }
 
   function retry() {
-    if (lastFile.current) start({ file: lastFile.current });
-    else start({ sample: true });
+    start(lastInput.current ?? { sample: true });
+  }
+
+  function startSample() {
+    setMode("screenshot");
+    start({ sample: true });
+  }
+
+  function changeMode(next: ImportMode) {
+    if (next === mode) return;
+    reset();
+    setCsvFile(null);
+    setMode(next);
   }
 
   function reset() {
@@ -134,18 +157,39 @@ export function ImportFlow() {
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
         <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
         <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
-          Drop a screenshot of your brokerage positions. Gemini reads every position and Finnhub prices it live; the image is never stored.
+          Drop a screenshot, upload your broker&apos;s CSV export, or type your positions. Finnhub prices every one live; nothing you upload is stored.
         </p>
       </section>
 
       <div className="bx-container mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[560px_minmax(0,1fr)]">
-        <DropZone
-          phase={state.phase}
-          image={state.image}
-          reduce={reduce}
-          onFile={(file) => start({ file })}
-          onSample={() => start({ sample: true })}
-        />
+        <div className="flex min-w-0 flex-col gap-4">
+          <ModeSwitch mode={mode} disabled={state.phase === "scanning"} onChange={changeMode} />
+          {mode === "screenshot" ? (
+            <DropZone
+              phase={state.phase}
+              image={state.image}
+              reduce={reduce}
+              onFile={(file) => start({ file })}
+              onSample={() => start({ sample: true })}
+            />
+          ) : mode === "csv" ? (
+            <CsvZone
+              phase={state.phase}
+              file={csvFile}
+              onRows={(file) => {
+                setCsvFile(file);
+                start({ rows: file.rows });
+              }}
+            />
+          ) : (
+            <ManualEntry
+              phase={state.phase}
+              rows={manualRows}
+              onRowsChange={setManualRows}
+              onSubmit={(rows) => start({ rows: rows.map((r) => ({ ...r, marketValue: null })) })}
+            />
+          )}
+        </div>
         <ExtractedPanel
           phase={state.phase}
           holdings={state.holdings}
@@ -154,8 +198,11 @@ export function ImportFlow() {
           reduce={reduce}
           onContinue={confirm}
           onRetry={retry}
-          onSample={() => start({ sample: true })}
-          onReset={reset}
+          onSample={startSample}
+          onReset={() => {
+            reset();
+            setCsvFile(null);
+          }}
         />
       </div>
     </motion.main>

@@ -25,7 +25,7 @@ export function edgeGeometry(from: ShockNode, to: ShockNode) {
   // Midpoint of a symmetric cubic at t = 0.5.
   const mid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 };
   const arrow = `${tip},${y2} ${x2 - 1},${y2 - 5} ${x2 - 1},${y2 + 5}`;
-  return { d, mid, arrow };
+  return { d, mid, arrow, span: dx };
 }
 
 export function strokeFor(edge: ShockEdge) {

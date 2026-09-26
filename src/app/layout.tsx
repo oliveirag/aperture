@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lookthrough",
+  title: { default: "Lookthrough", template: "%s · Lookthrough" },
   description: "See what you actually own.",
 };
 

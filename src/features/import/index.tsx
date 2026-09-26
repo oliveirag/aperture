@@ -95,14 +95,14 @@ export function ImportFlow() {
         <StepIndicator current={2} />
       </header>
 
-      <section className="pt-6">
-        <h1 className="text-[32px] leading-[1.15] font-semibold tracking-[-0.02em] text-text">Import your portfolio</h1>
+      <section className="pt-2">
+        <h1 className="text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] text-text sm:text-[40px]">Import your portfolio</h1>
         <p className="mt-2 max-w-[640px] text-[16px] text-text-muted">
           Drop a screenshot of your brokerage positions. Gemini reads the tickers and share counts; the image is never stored.
         </p>
       </section>
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-[560px_minmax(0,1fr)]">
+      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[560px_minmax(0,1fr)]">
         <DropZone
           phase={state.phase}
           image={state.image}

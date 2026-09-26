@@ -57,7 +57,7 @@ export function PortfolioMenu({ value, align = "end" }: { value: Value; align?: 
 
       <Menu.Portal>
         <Menu.Positioner side="bottom" align={align} sideOffset={10} className="z-50">
-          <Menu.Popup className="min-w-[288px] origin-[var(--transform-origin)] border border-border-strong bg-bg pb-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-[opacity,transform] duration-150 ease-out data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
+          <Menu.Popup className="min-w-[288px] origin-[var(--transform-origin)] border border-border-strong bg-bg pb-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-[opacity,transform,translate,scale] duration-150 ease-out data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
             <Menu.Group>
               <Menu.GroupLabel className={GROUP_LABEL}>Showing</Menu.GroupLabel>
               <Menu.Item className={ITEM} onClick={resetToDemo}>

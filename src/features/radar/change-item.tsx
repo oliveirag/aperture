@@ -41,7 +41,7 @@ export function ChangeItem({ card, change }: { card: RadarCard; change: RadarCha
         <button
           type="button"
           onClick={compare}
-          className="inline-flex h-6 shrink-0 items-center gap-1.5 border border-border px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+          className="inline-flex h-6 shrink-0 items-center gap-1.5 border border-border px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
         >
           <ArrowLeftRight className="size-3" aria-hidden />
           Compare wording

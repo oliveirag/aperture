@@ -201,7 +201,7 @@ export function PracticeBuilder() {
               type="button"
               onClick={start}
               disabled={!ready}
-              className="group inline-flex h-11 w-full items-center justify-center gap-2 bg-text text-[15px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97] disabled:opacity-40"
+              className="group inline-flex h-11 w-full items-center justify-center gap-2 bg-text text-[15px] font-medium text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97] disabled:opacity-40"
             >
               Look through my practice portfolio
               <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />

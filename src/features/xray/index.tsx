@@ -35,7 +35,7 @@ function Failed({ error, retry }: { error: string; retry: () => void }) {
         <button
           type="button"
           onClick={retry}
-          className="inline-flex h-10 items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
+          className="inline-flex h-10 items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
         >
           <RotateCcw aria-hidden className="size-4" />
           Try again
@@ -43,7 +43,7 @@ function Failed({ error, retry }: { error: string; retry: () => void }) {
         <button
           type="button"
           onClick={resetToDemo}
-          className="inline-flex h-10 items-center border border-border-strong px-4 text-[14px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-1 active:scale-[0.97]"
+          className="inline-flex h-10 items-center border border-border-strong px-4 text-[14px] font-medium text-text transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-surface-1 active:scale-[0.97]"
         >
           Switch to demo
         </button>

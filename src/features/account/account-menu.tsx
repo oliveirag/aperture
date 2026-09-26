@@ -63,7 +63,7 @@ export function AccountMenu({ className, align = "end" }: { className?: string; 
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner side="bottom" align={align} sideOffset={10} className="z-50">
-          <Menu.Popup className="max-h-[70dvh] min-w-[300px] origin-[var(--transform-origin)] overflow-y-auto border border-border-strong bg-bg pb-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-[opacity,transform] duration-150 ease-out data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
+          <Menu.Popup className="max-h-[70dvh] min-w-[300px] origin-[var(--transform-origin)] overflow-y-auto border border-border-strong bg-bg pb-2 shadow-[0_12px_32px_rgba(0,0,0,0.12)] transition-[opacity,transform,translate,scale] duration-150 ease-out data-[ending-style]:scale-[0.98] data-[ending-style]:opacity-0 data-[starting-style]:scale-[0.98] data-[starting-style]:opacity-0">
             <p className="truncate px-3 pt-3 pb-1 text-[13px] text-text-muted">{email}</p>
             {offerSave ? (
               <Menu.Item className={ITEM} onClick={() => saveCurrent()}>
@@ -130,7 +130,7 @@ export function AccountNotice() {
           <button
             type="button"
             onClick={() => saveCurrent()}
-            className="inline-flex h-8 items-center gap-2 bg-text px-3 text-[13px] font-medium text-bg transition-opacity duration-150 hover:opacity-90"
+            className="inline-flex h-8 items-center gap-2 bg-text px-3 text-[13px] font-medium text-bg transition-[opacity,scale] duration-150 hover:opacity-90 active:scale-[0.97]"
           >
             <Save aria-hidden className="size-3.5" />
             Save portfolio

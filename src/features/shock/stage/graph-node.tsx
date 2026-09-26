@@ -180,7 +180,7 @@ export function HoldingNode({
           onSelect(ticker);
         }}
         className={cn(
-          "flex h-full w-full items-center gap-2 border bg-surface-2 px-2.5 text-left transition-[border-color,background-color,transform] duration-150 ease-out outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent/60",
+          "flex h-full w-full items-center gap-2 border bg-surface-2 px-2.5 text-left transition-[border-color,background-color,transform,translate,scale] duration-150 ease-out outline-none active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-accent/60",
           selected ? "border-accent bg-surface-3" : lit ? "border-accent/50 hover:bg-surface-3" : "border-border",
         )}
       >

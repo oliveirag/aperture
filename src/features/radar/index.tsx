@@ -33,7 +33,7 @@ export function RadarPage() {
         <button
           type="button"
           onClick={xray.retry}
-          className="inline-flex h-10 w-fit items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
+          className="inline-flex h-10 w-fit items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
         >
           <RotateCcw aria-hidden className="size-4" />
           Try again

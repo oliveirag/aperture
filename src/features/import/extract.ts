@@ -74,7 +74,7 @@ async function readTyped(rows: TypedRow[]): Promise<ExtractResult> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ holdings: rows }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     });
     const data = (await res.json().catch(() => ({}))) as Partial<PriceResponse> & { error?: string };
     if (!res.ok || !Array.isArray(data.holdings)) return { ok: false, error: data.error ?? "Couldn't price these positions." };

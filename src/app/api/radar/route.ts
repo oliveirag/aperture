@@ -1,6 +1,7 @@
 import { geminiConfigured } from "@/lib/gemini";
 import { radarFor } from "@/lib/radar/live";
 import type { RadarEvent } from "@/lib/radar/types";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 // Two filings plus a long-context Gemini comparison.
@@ -16,6 +17,8 @@ function fail(error: string, status: number) {
 // Real Filing Radar for up to three tickers. Body: { tickers: string[], fresh?: boolean }.
 // Streams NDJSON RadarEvents: progress lines while it reads, then one result, unsupported or error per ticker.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "radar");
+  if (limited) return limited;
   if (!geminiConfigured()) return fail("Filing Radar is not configured", 503);
   let body: { tickers?: unknown; fresh?: unknown };
   try {

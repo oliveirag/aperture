@@ -1,7 +1,7 @@
 // Server-only: one IC Room run end to end, emitted as events. Runs are cached per (ticker, thesis, amount, portfolio, day)
 // together with the exact fact pack and fit they were built from (the audit trail).
 import { createHash } from "node:crypto";
-import { memo, peek, put } from "@/lib/cache";
+import { memo, put, recall } from "@/lib/cache";
 import { cleanName, type LookthroughInput } from "@/lib/xray/compute";
 import { lookthroughInputs, modelFor, type PositionInput } from "@/lib/xray/live";
 import { argue, chair, testAssumptions, type Context } from "./committee";
@@ -15,7 +15,8 @@ const COLOR = "#E5484D";
 export const FIT_STEP = "Checking your look-through exposure";
 
 export type RunInput = { ticker: string; thesis: string; amount: number; holdings: Map<string, PositionInput> };
-export type AuditRecord = { runId: string; createdAt: string; input: { ticker: string; thesis: string; amount: number; holdings: [string, PositionInput][] }; facts: Fact[]; events: IcEvent[] };
+// The portfolio itself is not stored: the run id hashes it, and the fit rows in `events` carry what the memo used.
+export type AuditRecord = { runId: string; createdAt: string; input: { ticker: string; thesis: string; amount: number }; facts: Fact[]; events: IcEvent[] };
 
 export function runIdFor(input: RunInput) {
   const day = new Date().toISOString().slice(0, 10);
@@ -23,8 +24,8 @@ export function runIdFor(input: RunInput) {
   return createHash("sha256").update(JSON.stringify([input.ticker, input.thesis.trim(), input.amount, day, holdings])).digest("hex").slice(0, 16);
 }
 
-export function auditFor(runId: string) {
-  return peek<AuditRecord>(`ic:audit:${runId}`) ?? null;
+export async function auditFor(runId: string) {
+  return (await recall<AuditRecord>(`ic:audit:${runId}`)) ?? null;
 }
 
 async function portfolioFit(input: RunInput, name: string) {
@@ -54,7 +55,7 @@ function toSource(f: Fact) {
 // Streams a run. A cached run replays its events at once, so the AMD-style instant replay works for any ticker.
 export async function runCommittee(input: RunInput, send: (e: IcEvent) => void): Promise<void> {
   const runId = runIdFor(input);
-  const cached = peek<AuditRecord>(`ic:audit:${runId}`);
+  const cached = await recall<AuditRecord>(`ic:audit:${runId}`);
   if (cached) {
     cached.events.forEach(send);
     return;
@@ -84,7 +85,7 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
   // A cached fact pack finishes without step callbacks.
   factSteps(input.ticker).forEach((_, i) => finishStep(i));
 
-  const fit = await memo(`ic:fit:${runId}`, RUN_TTL, () => portfolioFit(input, pack.name)).catch(() => {
+  const fit = await memo(`ic:fit:${runId}`, RUN_TTL, () => portfolioFit(input, pack.name), { persist: true }).catch(() => {
     throw new RunError("Couldn't price the portfolio fit right now. Try again in a moment.");
   });
   finishStep(steps.length - 1);
@@ -129,10 +130,11 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
     {
       runId,
       createdAt: new Date().toISOString(),
-      input: { ticker: input.ticker, thesis: input.thesis, amount: input.amount, holdings: [...input.holdings] },
+      input: { ticker: input.ticker, thesis: input.thesis, amount: input.amount },
       facts: pack.facts,
       events,
     },
     RUN_TTL,
+    { persist: true },
   );
 }

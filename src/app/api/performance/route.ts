@@ -1,6 +1,7 @@
 import { getWeekly, historyConfigured, type Weekly } from "@/lib/history";
 import { buildPerformance, type PerformanceHolding } from "@/lib/performance";
 import { MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 // Alpha Vantage calls are spaced about a second apart on a cold cache.
@@ -13,6 +14,8 @@ function fail(error: string, status: number) {
 // Portfolio value over the last year from weekly closes, at today's share counts. Body: { holdings: [{ ticker, shares, price }] },
 // where price is the current (live or import-time) price. Positions without history are excluded and named.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "data");
+  if (limited) return limited;
   if (!historyConfigured()) return fail("Price history is not configured", 503);
   let body: { holdings?: unknown };
   try {

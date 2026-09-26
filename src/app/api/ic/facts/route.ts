@@ -1,4 +1,5 @@
 import { buildFactPack, UnknownTicker } from "@/lib/ic/facts";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -12,6 +13,8 @@ function fail(error: string, status: number) {
 // The IC Room fact pack for a ticker: SEC filing and XBRL facts, Finnhub market data and cited recent news, ids F1..Fn.
 // Body: { ticker }. Cached per ticker and day.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "ic");
+  if (limited) return limited;
   let body: { ticker?: unknown };
   try {
     body = await request.json();

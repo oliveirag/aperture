@@ -1,5 +1,6 @@
 // Server-only ETF look-through data: the committed seed first, then Alpha Vantage live (reads ALPHA_VANTAGE_API_KEY).
 import seed from "@/data/etf-seed.json";
+import { memo } from "@/lib/cache";
 import { sectorFromGics, type SectorLabel } from "@/lib/sectors";
 
 export interface EtfHolding {
@@ -22,9 +23,11 @@ const TIMEOUT_MS = 8000;
 const TTL_MS = 24 * 60 * 60 * 1000;
 const TICKER = /^[A-Z][A-Z.]{0,5}$/;
 
-// Alpha Vantage's free key allows 25 calls a day, so every answer (including "not an ETF") is cached.
-const cache = new Map<string, { expires: number; value: EtfProfile | null }>();
-const inflight = new Map<string, Promise<EtfProfile | null>>();
+
+// Seeded funds have look-through data but never a Finnhub company profile, so callers can skip that lookup.
+export function isSeededEtf(ticker: string) {
+  return Boolean(SEED[normalizeTicker(ticker)]);
+}
 
 export function normalizeTicker(t: string) {
   return t.trim().toUpperCase().replace(/[/-]/g, ".");
@@ -93,21 +96,9 @@ export async function getEtfProfile(ticker: string): Promise<EtfProfile | null> 
   const t = normalizeTicker(ticker);
   if (SEED[t]) return parseProfile(t, SEED[t], "seed");
 
-  const hit = cache.get(t);
-  if (hit && hit.expires > Date.now()) return hit.value;
-  const pending = inflight.get(t);
-  if (pending) return pending;
-
-  const p = fetchLive(t)
-    .then((value) => {
-      cache.set(t, { expires: Date.now() + TTL_MS, value });
-      return value;
-    })
-    .catch((err) => {
-      console.error(`[etf] ${t}:`, err instanceof Error ? err.message : "unknown");
-      return null;
-    })
-    .finally(() => inflight.delete(t));
-  inflight.set(t, p);
-  return p;
+  // Alpha Vantage's free key allows 25 calls a day, so every answer (including "not an ETF") is cached, across cold starts too.
+  return memo(`etf:${t}`, TTL_MS, () => fetchLive(t), { persist: true }).catch((err) => {
+    console.error(`[etf] ${t}:`, err instanceof Error ? err.message : "unknown");
+    return null;
+  });
 }

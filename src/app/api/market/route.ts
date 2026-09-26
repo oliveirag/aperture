@@ -1,4 +1,5 @@
 import { finnhubConfigured, getProfile, getQuote, type MarketResponse } from "@/lib/finnhub";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -11,6 +12,8 @@ function fail(error: string, status: number) {
 
 // Live quotes and company profiles for a small set of symbols. A symbol that fails is left out; the client keeps its snapshot value.
 export async function GET(request: Request) {
+  const limited = await rateLimit(request, "market");
+  if (limited) return limited;
   if (!finnhubConfigured()) return fail("Market data is not configured", 503);
 
   const raw = new URL(request.url).searchParams.get("symbols") ?? "";

@@ -44,5 +44,5 @@ export function getWeekly(ticker: string): Promise<Weekly | null> {
     const raw = (await res.json()) as Raw;
     if (raw.Information || raw.Note) throw new Error("alphavantage limit");
     return parseWeekly(raw);
-  });
+  }, { persist: true });
 }

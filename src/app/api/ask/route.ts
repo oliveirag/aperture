@@ -1,6 +1,7 @@
 import { DECLINE, DISCLAIMER, isBuySellQuestion, systemPrompt } from "@/lib/ask/prompt";
 import { geminiConfigured, streamText } from "@/lib/gemini";
 import type { Level } from "@/lib/level";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -21,6 +22,8 @@ const TEXT = { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no
 // Chat grounded in the user's own portfolio. Body: { question, level, context, history? }, where context is the compact
 // JSON the page already computed (X-Ray, Radar, IC memos). Streams plain text; X-Ask-Declined marks a buy/sell refusal.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "ask");
+  if (limited) return limited;
   let body: { question?: unknown; level?: unknown; context?: unknown; history?: unknown };
   try {
     body = await request.json();

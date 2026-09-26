@@ -1,6 +1,6 @@
 // Server-only ticker search: Finnhub /search when it's configured, SEC's ticker list plus the seeded ETFs otherwise.
 import { memo } from "@/lib/cache";
-import { finnhubConfigured } from "@/lib/finnhub";
+import { finnhubConfigured, takeToken } from "@/lib/finnhub";
 import { allCompanies, displayName } from "@/lib/sec";
 
 export type SearchResult = { ticker: string; name: string; type: "stock" | "etf" };
@@ -62,6 +62,7 @@ async function viaFinnhub(q: string): Promise<SearchResult[]> {
   const url = new URL("https://finnhub.io/api/v1/search");
   url.searchParams.set("q", q);
   url.searchParams.set("exchange", "US");
+  await takeToken();
   const res = await fetch(url, { headers: { "X-Finnhub-Token": process.env.FINNHUB_API_KEY ?? "" }, signal: AbortSignal.timeout(4000), cache: "no-store" });
   if (!res.ok) throw new Error(`finnhub /search ${res.status}`);
   const data = (await res.json()) as { result?: FinnhubResult[] };
@@ -87,5 +88,5 @@ export function searchTickers(query: string): Promise<SearchResult[]> {
     if (finnhubConfigured()) results = await viaFinnhub(q).catch(() => []);
     if (results.length === 0) results = await viaLocal(q);
     return rank(results, q);
-  });
+  }, { persist: true });
 }

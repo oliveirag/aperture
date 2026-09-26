@@ -5,14 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
-import { DAY_CHANGE, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
-
-const PORTFOLIO_VALUE = formatUSD(PORTFOLIO_TOTAL);
-const DAY_CHANGE_LABEL = `${formatSignedUSD(DAY_CHANGE.value)} (${formatSignedPct(DAY_CHANGE.pct, 2)})`;
+import { usePortfolioValue } from "./use-portfolio-value";
 
 function useIsActive() {
   const pathname = usePathname();
@@ -24,6 +21,7 @@ function useIsActive() {
 export function SiteHeader() {
   const isActive = useIsActive();
   const [scrolled, setScrolled] = useState(false);
+  const value = usePortfolioValue();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 4);
@@ -62,11 +60,16 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-8 md:flex lg:border-l lg:border-border lg:pl-8">
-          <div className="hidden text-right leading-tight sm:block">
-            <p className="text-[11px] font-normal tracking-[0.08em] text-text-muted uppercase">Demo portfolio</p>
+          <div className="hidden text-right leading-tight sm:block" title={value.asOf}>
+            <p className="flex items-center justify-end gap-1.5 text-[11px] font-normal tracking-[0.08em] text-text-muted uppercase">
+              {value.live ? <span aria-label="Live prices" className="size-1.5 rounded-full bg-positive" /> : null}
+              {value.label}
+            </p>
             <p className="mt-0.5 whitespace-nowrap tabular-nums">
-              <span className="text-[17px] font-normal text-text">{PORTFOLIO_VALUE}</span>
-              <span className="ml-2 hidden text-[13px] text-positive xl:inline">{DAY_CHANGE_LABEL}</span>
+              <span className="text-[17px] font-normal text-text">{formatUSD(value.total)}</span>
+              <span className={cn("ml-2 hidden text-[13px] xl:inline", value.change < 0 ? "text-negative" : "text-positive")}>
+                {formatSignedUSD(value.change)} ({formatSignedPct(value.pct, 2)})
+              </span>
             </p>
           </div>
           <LevelSwitcher />

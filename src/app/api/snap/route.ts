@@ -1,13 +1,30 @@
 import { GoogleGenAI } from "@google/genai";
+import { HOLDINGS } from "@/data/portfolio";
+import { finnhubConfigured, getProfile, getQuote } from "@/lib/finnhub";
 
 export const runtime = "nodejs";
+// Gemini retries plus pricing can run past the default on busy days.
+export const maxDuration = 60;
 
-const MODEL = "gemini-3.8-flash";
+// Each wave races its models in parallel and keeps the first valid answer. The free tier often answers 503
+// "high demand" or stalls, so a second wave tries other models. Lite models are fast but read a little less carefully.
+const WAVES = [
+  ["gemini-3.8-flash", "gemini-flash-latest", "gemini-flash-lite-latest"],
+  ["gemini-3.7-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"],
+];
+// Before accepting a lite answer, give the full models this long to finish.
+const PREFER_FULL_MS = 4000;
 const MAX_BYTES = 5 * 1024 * 1024;
-const TIMEOUT_MS = 7500;
+const WAVE_TIMEOUT_MS = 22000;
+const TOTAL_BUDGET_MS = 45000;
+// Keeps a single import under Finnhub's 60 calls/min free limit.
+const MAX_HOLDINGS = 25;
 
 const PROMPT =
-  "Extract the stock and ETF positions visible in this brokerage screenshot. Return only ticker and share quantity for each position. Ignore account numbers, names, balances and any personal information.";
+  "Extract every stock and ETF position visible in this brokerage screenshot, top to bottom, including rows that are partly visible. " +
+  "For each position return the ticker symbol, the share quantity, the market value in USD if shown, and the security name if shown. " +
+  "Use null for anything not visible. Do not include cash, totals, options or crypto. " +
+  "Ignore account numbers, owner names, balances and any other personal information.";
 
 const SCHEMA = {
   type: "object",
@@ -16,24 +33,159 @@ const SCHEMA = {
       type: "array",
       items: {
         type: "object",
-        properties: { ticker: { type: "string" }, shares: { type: "number" } },
-        required: ["ticker", "shares"],
+        properties: {
+          ticker: { type: "string" },
+          shares: { type: ["number", "null"] },
+          marketValue: { type: ["number", "null"] },
+          name: { type: ["string", "null"] },
+        },
+        required: ["ticker", "shares", "marketValue", "name"],
       },
     },
   },
   required: ["holdings"],
 };
 
-type SnapHolding = { ticker: string; shares: number };
+// Finnhub has no profile for ETFs; these names cover the demo ETFs when the screenshot shows none.
+const KNOWN_NAMES = new Map(HOLDINGS.map((h) => [h.ticker, h.name]));
+
+type RawHolding = { ticker: string; shares: number | null; marketValue: number | null; name: string | null };
+
+// "matched": Finnhub knows the ticker and priced it. "unpriced": no quote, value read from the screenshot.
+// "unknown": no quote and no value to fall back on; the row is shown but left out of the total.
+export type SnapHolding = {
+  ticker: string;
+  name: string;
+  industry: string | null;
+  shares: number;
+  price: number | null;
+  value: number;
+  status: "matched" | "unpriced" | "unknown";
+};
+
+export type SnapResponse = { holdings: SnapHolding[]; model: string };
 
 function fail(error: string, status: number) {
   return Response.json({ error }, { status });
 }
 
-// Reads one brokerage screenshot with Gemini. The image stays in memory only; it is never written or logged.
+const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
+
+// Brokerages write class shares as BRK.B, BRK/B or BRK-B; Finnhub wants BRK.B.
+function normalizeTicker(t: string) {
+  return t.trim().toUpperCase().replace(/^\$/, "").replace(/[/-]/g, ".");
+}
+
+async function readWith(ai: GoogleGenAI, model: string, mimeType: string, data: string, signal: AbortSignal) {
+  const response = await ai.models.generateContent({
+    model,
+    contents: [{ role: "user", parts: [{ inlineData: { mimeType, data } }, { text: PROMPT }] }],
+    config: { responseMimeType: "application/json", responseJsonSchema: SCHEMA, abortSignal: signal },
+  });
+  const parsed: unknown = JSON.parse(response.text ?? "");
+  const raw = (parsed as { holdings?: unknown })?.holdings;
+  if (!Array.isArray(raw)) throw new Error("no holdings array");
+  return { model, raw: raw as RawHolding[] };
+}
+
+type Read = { model: string; raw: RawHolding[] };
+
+// Races one wave. A full model's answer wins immediately; a lite answer waits up to PREFER_FULL_MS for a full one.
+function raceWave(ai: GoogleGenAI, models: string[], mimeType: string, data: string, timeoutMs: number): Promise<Read> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return new Promise<Read>((resolve, reject) => {
+    let pending = models.length;
+    let liteAnswer: Read | null = null;
+    let settled = false;
+    const finish = (r: Read) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      controller.abort();
+      resolve(r);
+    };
+    for (const model of models) {
+      readWith(ai, model, mimeType, data, controller.signal)
+        .then((r) => {
+          if (!model.includes("lite")) return finish(r);
+          liteAnswer = r;
+          setTimeout(() => finish(r), PREFER_FULL_MS);
+        })
+        .catch((err) => {
+          if (!settled) console.error(`[snap] ${model} failed:`, err instanceof Error ? err.message.slice(0, 120) : "unknown");
+        })
+        .finally(() => {
+          pending--;
+          if (pending > 0 || settled) return;
+          if (liteAnswer) return finish(liteAnswer);
+          clearTimeout(timer);
+          reject(new Error("all models in wave failed"));
+        });
+    }
+  });
+}
+
+async function readImage(apiKey: string, mimeType: string, data: string) {
+  const ai = new GoogleGenAI({ apiKey });
+  const deadline = Date.now() + TOTAL_BUDGET_MS;
+  let lastError: unknown;
+  for (const wave of WAVES) {
+    const remaining = deadline - Date.now();
+    if (remaining < 3000) break;
+    try {
+      return await raceWave(ai, wave, mimeType, data, Math.min(WAVE_TIMEOUT_MS, remaining));
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error("no model attempted");
+}
+
+// Merges repeated tickers, prices each one with Finnhub, and fills in missing share counts from market value.
+async function price(raw: RawHolding[]): Promise<SnapHolding[]> {
+  const merged = new Map<string, RawHolding>();
+  for (const h of raw) {
+    if (typeof h?.ticker !== "string") continue;
+    const ticker = normalizeTicker(h.ticker);
+    if (!/^[A-Z][A-Z.]{0,5}$/.test(ticker)) continue;
+    const prev = merged.get(ticker);
+    merged.set(ticker, {
+      ticker,
+      shares: positive(h.shares) ? (prev?.shares ?? 0) + h.shares : (prev?.shares ?? null),
+      marketValue: positive(h.marketValue) ? (prev?.marketValue ?? 0) + h.marketValue : (prev?.marketValue ?? null),
+      name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name.trim() : null),
+    });
+  }
+  const rows = [...merged.values()].slice(0, MAX_HOLDINGS);
+
+  const live = finnhubConfigured();
+  const quotes = await Promise.allSettled(rows.map((h) => (live ? getQuote(h.ticker) : Promise.resolve(null))));
+  const profiles = await Promise.allSettled(rows.map((h) => (live ? getProfile(h.ticker) : Promise.resolve(null))));
+
+  const out: SnapHolding[] = [];
+  rows.forEach((h, i) => {
+    const q = quotes[i].status === "fulfilled" ? quotes[i].value : null;
+    const p = profiles[i].status === "fulfilled" ? profiles[i].value : null;
+    let shares = positive(h.shares) ? h.shares : null;
+    if (shares === null && q && positive(h.marketValue)) shares = h.marketValue / q.price;
+    if (shares === null) return;
+
+    const name = p?.name ?? h.name ?? KNOWN_NAMES.get(h.ticker) ?? h.ticker;
+    const industry = p?.industry || null;
+    if (q) out.push({ ticker: h.ticker, name, industry, shares, price: q.price, value: shares * q.price, status: "matched" });
+    else if (positive(h.marketValue))
+      out.push({ ticker: h.ticker, name, industry, shares, price: h.marketValue / shares, value: h.marketValue, status: "unpriced" });
+    else out.push({ ticker: h.ticker, name, industry, shares, price: null, value: 0, status: "unknown" });
+  });
+  return out;
+}
+
+// Reads one brokerage screenshot with Gemini, then prices every position with Finnhub.
+// The image stays in memory only; it is never written or logged.
 export async function POST(request: Request) {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return fail("Live import is not configured", 503);
+  if (!apiKey) return fail("Screenshot import is not configured", 503);
 
   let form: FormData;
   try {
@@ -49,29 +201,16 @@ export async function POST(request: Request) {
   if (file.size === 0) return fail("Image is empty", 400);
   if (file.size > MAX_BYTES) return fail("Image is larger than 5MB", 413);
 
+  let read: { model: string; raw: RawHolding[] };
   try {
     const data = Buffer.from(await file.arrayBuffer()).toString("base64");
-    const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: MODEL,
-      contents: [{ role: "user", parts: [{ inlineData: { mimeType: file.type, data } }, { text: PROMPT }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: SCHEMA,
-        abortSignal: AbortSignal.timeout(TIMEOUT_MS),
-      },
-    });
-
-    const parsed: unknown = JSON.parse(response.text ?? "");
-    const raw = (parsed as { holdings?: unknown })?.holdings;
-    if (!Array.isArray(raw)) return fail("Model returned no holdings", 502);
-    const holdings: SnapHolding[] = raw
-      .filter((h): h is SnapHolding => typeof h?.ticker === "string" && typeof h?.shares === "number")
-      .map((h) => ({ ticker: h.ticker.trim().toUpperCase(), shares: h.shares }));
-    return Response.json({ holdings });
-  } catch (err) {
-    // Log only the failure kind, never the request body.
-    console.error("[snap] gemini failed:", err instanceof Error ? err.name : "unknown");
-    return fail("Could not read the screenshot", 502);
+    read = await readImage(apiKey, file.type, data);
+  } catch {
+    return fail("Gemini couldn't read the screenshot right now. Try again in a moment.", 502);
   }
+
+  const holdings = await price(read.raw);
+  if (holdings.length === 0) return fail("No positions found in this screenshot", 422);
+  const body: SnapResponse = { holdings, model: read.model };
+  return Response.json(body);
 }

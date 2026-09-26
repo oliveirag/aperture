@@ -1,24 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowRight, ChevronDown } from "lucide-react";
+import { ArrowRight, ChevronDown, Info } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
-import { PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { POSITIONS_COUNT, UNDERLYING_COMPANIES, XRAY_HEADLINE, XRAY_SUBLINE } from "@/data/xray";
 import { formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
+import { useLiveHoldings } from "@/lib/market";
+import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import { FlagsStrip } from "./flags-strip";
 import { LookthroughMap } from "./lookthrough-map";
 
 function HeaderStats() {
+  const { total } = useLiveHoldings();
   return (
     <div className="flex flex-wrap gap-x-12 gap-y-6">
       <div>
         <p className="text-[14px] font-normal text-text">Portfolio value</p>
-        <p className="display mt-1 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">{formatUSD(PORTFOLIO_TOTAL)}</p>
+        <p className="display mt-1 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">{formatUSD(total)}</p>
       </div>
       <div>
         <p className="text-[14px] font-normal text-text">Look-through</p>
@@ -64,11 +66,34 @@ function BeginnerExplainer() {
   );
 }
 
+// Look-through data exists only for the demo portfolio, so say so when the user's own holdings are loaded.
+function ImportedNotice() {
+  const imported = usePortfolio((s) => s.imported !== null);
+  const resetToDemo = usePortfolio((s) => s.resetToDemo);
+  if (!imported) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-surface-1 px-4 py-3 text-[13px] text-text-muted">
+      <Info aria-hidden className="size-4 shrink-0 text-accent" />
+      <span className="min-w-0 flex-1">
+        Your imported holdings drive the portfolio value and the Holdings table. The look-through analysis still shows the demo portfolio.
+      </span>
+      <button
+        type="button"
+        onClick={resetToDemo}
+        className="rounded-md font-medium text-text transition-colors duration-150 hover:text-accent"
+      >
+        Switch to demo
+      </button>
+    </div>
+  );
+}
+
 export function XrayHero() {
   const level = useLevel((s) => s.level);
 
   return (
     <section className="flex flex-col gap-6 [@media(max-height:800px)]:gap-5">
+      <ImportedNotice />
       <PageHeader
         eyebrow="X-Ray"
         headline={XRAY_HEADLINE[level]}

@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useEnter } from "./enter";
 
@@ -15,15 +15,21 @@ export function SpeakerPanel({
   text,
   chars,
   entered,
+  speaking = null,
 }: {
   side: keyof typeof SPEAKERS;
   text: string;
   chars: number;
   entered: boolean;
+  // Listen mode: share of the statement read aloud so far, or null when this analyst isn't speaking.
+  speaking?: number | null;
 }) {
   const enter = useEnter();
+  const reduce = useReducedMotion();
   const s = SPEAKERS[side];
   const typing = entered && chars < text.length;
+  // Reduced motion keeps the speaker's panel highlighted but doesn't follow the words.
+  const spoken = speaking === null || reduce ? null : Math.round(text.length * speaking);
   const thinking = entered && chars === 0;
 
   return (
@@ -32,9 +38,9 @@ export function SpeakerPanel({
       {...enter}
       className={cn(
         "flex min-w-0 flex-col gap-3 rounded-xl border bg-surface-1 p-4 transition-[border-color] duration-200",
-        typing ? "border-border-strong" : "border-border",
+        typing || speaking !== null ? "border-border-strong" : "border-border",
       )}
-      style={typing ? { borderColor: `color-mix(in srgb, ${s.color} 45%, transparent)` } : undefined}
+      style={typing || speaking !== null ? { borderColor: `color-mix(in srgb, ${s.color} ${speaking !== null ? 80 : 45}%, transparent)` } : undefined}
     >
       <header className="flex items-center gap-2.5">
         <span
@@ -60,7 +66,14 @@ export function SpeakerPanel({
         <p className="absolute inset-0 text-text">
           {!entered ? <span className="text-text-subtle">Waiting for the bull case…</span> : null}
           {thinking ? <span className="text-text-subtle">Thinking…</span> : null}
-          {text.slice(0, chars)}
+          {spoken !== null && !typing ? (
+            <>
+              <span>{text.slice(0, spoken)}</span>
+              <span className="text-text-muted">{text.slice(spoken)}</span>
+            </>
+          ) : (
+            text.slice(0, chars)
+          )}
           {typing && !thinking ? (
             <span
               aria-hidden

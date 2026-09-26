@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
+import { AccountMenu } from "@/features/account/account-menu";
 import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
-import { AccountButton } from "./account-button";
 import { PortfolioMenu } from "./portfolio-menu";
 import { usePortfolioValue } from "./use-portfolio-value";
 
@@ -65,7 +65,7 @@ export function SiteHeader() {
           <AskButton />
           <PortfolioMenu value={value} />
           <LevelSwitcher />
-          <AccountButton />
+          <AccountMenu />
         </div>
       </div>
 
@@ -74,11 +74,11 @@ export function SiteHeader() {
         <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
           <PortfolioMenu value={value} align="start" />
           <AskButton className="h-8" />
+          <AccountMenu align="start" />
           {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />
           </LayoutGroup>
-          <AccountButton />
         </div>
         <ul className="bx-container flex gap-7 overflow-x-auto py-3">
           {NAV_ITEMS.map(({ href, label }) => (

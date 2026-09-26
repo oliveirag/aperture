@@ -1,6 +1,9 @@
 import { lookthrough, MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+// A 50-position portfolio can wait on the shared Finnhub rate limit.
+export const maxDuration = 60;
 
 type Body = { holdings?: unknown };
 
@@ -11,6 +14,8 @@ function fail(error: string, status: number) {
 // Real look-through for an imported portfolio: live Finnhub prices and profiles, ETF holdings from the seed or Alpha Vantage.
 // Body: { holdings: [{ ticker, shares, price?, name? }] }. `price` is the import-time fallback when there's no live quote.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "data");
+  if (limited) return limited;
   let body: Body;
   try {
     body = await request.json();

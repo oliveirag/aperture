@@ -1,12 +1,10 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, FlaskConical, LogIn, Sprout, Upload } from "lucide-react";
+import { Check, ChevronDown, FlaskConical, Sprout, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
-import { useAccount } from "@/lib/account";
 import { usePortfolio } from "@/lib/portfolio-store";
-import { SaveStatus } from "./account-button";
 import { cn } from "@/lib/utils";
 import type { usePortfolioValue } from "./use-portfolio-value";
 
@@ -27,8 +25,6 @@ export function PortfolioMenu({ value, align = "end" }: { value: Value; align?: 
   const stashed = usePortfolio((s) => s.stashed);
   const resetToDemo = usePortfolio((s) => s.resetToDemo);
   const restoreStashed = usePortfolio((s) => s.restoreStashed);
-  const accountStatus = useAccount((s) => s.status);
-  const signIn = useAccount((s) => s.signIn);
   const own = imported ? { count: imported.length, kind } : stashed ? { count: stashed.holdings.length, kind: stashed.kind } : null;
 
   return (
@@ -106,25 +102,6 @@ export function PortfolioMenu({ value, align = "end" }: { value: Value; align?: 
                 </span>
               </Menu.Item>
             </Menu.Group>
-
-            {/* Accounts: where your own portfolio is kept. Nothing here when accounts aren't configured. */}
-            {imported && accountStatus === "signed-in" ? (
-              <>
-                <Menu.Separator className="my-2 h-px bg-border" />
-                <SaveStatus className="px-3 py-1" />
-              </>
-            ) : own && accountStatus === "signed-out" ? (
-              <>
-                <Menu.Separator className="my-2 h-px bg-border" />
-                <Menu.Item className={ITEM} onClick={() => void signIn()}>
-                  <LogIn aria-hidden className="size-4 text-text-muted" />
-                  <span className="flex-1">
-                    Sign in to keep it
-                    <span className="block text-[12px] text-text-muted">Right now it only lives in this tab</span>
-                  </span>
-                </Menu.Item>
-              </>
-            ) : null}
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>

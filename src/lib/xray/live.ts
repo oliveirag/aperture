@@ -1,7 +1,7 @@
 // Server-only: the real look-through for a list of positions (live Finnhub prices and profiles, ETF holdings
 // from the seed or Alpha Vantage). Shared by /api/lookthrough and the IC Room's portfolio fit.
 import { HOLDINGS } from "@/data/portfolio";
-import { getEtfProfile, normalizeTicker } from "@/lib/etf";
+import { getEtfProfile, isSeededEtf, normalizeTicker } from "@/lib/etf";
 import { finnhubConfigured, getProfile, getQuote } from "@/lib/finnhub";
 import { computeXray, type LookthroughInput } from "@/lib/xray/compute";
 import type { XrayModel } from "@/lib/xray/types";
@@ -11,7 +11,7 @@ const KNOWN_COLORS = new Map(HOLDINGS.map((h) => [h.ticker, h.color]));
 // `price` is the import-time fallback when there's no live quote.
 export type PositionInput = { shares: number; price: number | null; name: string | null };
 
-export const MAX_POSITIONS = 25;
+export const MAX_POSITIONS = 50;
 const TICKER = /^[A-Z][A-Z.]{0,5}$/;
 
 // Request body rows ({ ticker, shares, price?, name? }) to positions, merging repeated tickers. Invalid rows are skipped.
@@ -37,7 +37,7 @@ export async function lookthroughInputs(merged: Map<string, PositionInput>): Pro
   const live = finnhubConfigured();
   const [quotes, profiles] = await Promise.all([
     Promise.allSettled(tickers.map((t) => (live ? getQuote(t) : Promise.resolve(null)))),
-    Promise.allSettled(tickers.map((t) => (live ? getProfile(t) : Promise.resolve(null)))),
+    Promise.allSettled(tickers.map((t) => (live && !isSeededEtf(t) ? getProfile(t) : Promise.resolve(null)))),
   ]);
 
   // A Finnhub company profile means a stock; no profile, try it as an ETF.

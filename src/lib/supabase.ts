@@ -1,14 +1,17 @@
+// Browser Supabase client for accounts. Null when NEXT_PUBLIC_SUPABASE_URL / _ANON_KEY aren't set: the demo and
+// session-only portfolios keep working without accounts.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let client: SupabaseClient | null | undefined;
 
-// Browser client with the PKCE OAuth flow; the session lives in localStorage. Every table is protected by
-// Row Level Security, so the anon key is safe to ship. Null when accounts aren't configured: the app then runs
-// exactly as before (demo, session-only portfolios) with no sign-in UI.
-export const supabase: SupabaseClient | null =
-  url && anonKey && typeof window !== "undefined"
-    ? createClient(url, anonKey, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true, autoRefreshToken: true } })
-    : null;
+export function supabase(): SupabaseClient | null {
+  if (client !== undefined) return client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  client = url && key && typeof window !== "undefined" ? createClient(url, key, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true } }) : null;
+  return client;
+}
 
-export const accountsConfigured = Boolean(url && anonKey);
+export function accountsConfigured() {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+}

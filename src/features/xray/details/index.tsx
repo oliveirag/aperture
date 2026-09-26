@@ -5,6 +5,8 @@ import type { XrayModel } from "@/lib/xray/types";
 import { Holdings } from "./holdings";
 import { LearnCard } from "./learn-card";
 import { OverlapVenn } from "./overlap-venn";
+import { PERFORMANCE } from "@/data/performance";
+import { LivePerformance } from "./live-performance";
 import { PerformanceChart } from "./performance-chart";
 import { SectorDonut } from "./sector-donut";
 import { TopTen } from "./top-ten";
@@ -22,8 +24,8 @@ export function XrayDetails({ model }: { model: XrayModel }) {
         <TopTen model={model} />
         <SectorDonut sectors={model.sectors} />
         <OverlapVenn model={model} />
-        {/* The weekly series only exists for the demo portfolio; price history is premium on Finnhub. */}
-        {model.mode === "demo" ? <PerformanceChart /> : null}
+        {/* Demo: the canon weekly series. Your own portfolio: weekly closes from Alpha Vantage (Finnhub candles are premium). */}
+        {model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />}
         {level === "beginner" ? <LearnCard /> : null}
       </div>
     </section>

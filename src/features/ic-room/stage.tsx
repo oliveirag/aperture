@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { AssumptionCard } from "./assumption-card";
 import { useEnter } from "./enter";
 import { FactPack } from "./fact-pack";
+import { ListenControl, useListen } from "./listen";
 import { MemoCard } from "./memo-card";
 import { useIcData } from "./run-data";
 import { SpeakerPanel } from "./speaker-panel";
@@ -100,7 +101,10 @@ export function Stage({
   onRetry?: () => void;
 }) {
   const data = useIcData();
+  const listen = useListen({ bull: data.bullStatement, bear: data.bearStatement });
   if (status === "idle" || !frame) return <EmptyStage />;
+  const spoken = (side: "bull" | "bear") => (listen.state.speaker === side && listen.state.status !== "idle" ? listen.state.progress : null);
+  const debateDone = frame.bearChars >= data.bearStatement.length && data.bearStatement.length > 0;
 
   return (
     <div className="flex min-w-0 flex-col gap-8">
@@ -129,9 +133,10 @@ export function Stage({
 
       {frame.debate ? (
         <Step id={DEBATE_ID} title="Debate">
+          {debateDone ? <ListenControl listen={listen} /> : null}
           <div className="grid gap-3 xl:grid-cols-2">
-            <SpeakerPanel side="bull" text={data.bullStatement} chars={frame.bullChars} entered />
-            <SpeakerPanel side="bear" text={data.bearStatement} chars={frame.bearChars} entered={frame.bearEntered} />
+            <SpeakerPanel side="bull" text={data.bullStatement} chars={frame.bullChars} entered speaking={spoken("bull")} />
+            <SpeakerPanel side="bear" text={data.bearStatement} chars={frame.bearChars} entered={frame.bearEntered} speaking={spoken("bear")} />
           </div>
         </Step>
       ) : null}

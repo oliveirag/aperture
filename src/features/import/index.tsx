@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { StepIndicator } from "@/features/onboarding/step-indicator";
 import { CsvZone, type CsvFile } from "./csv-zone";
-import { DropZone, type ImportImage, type Phase } from "./drop-zone";
+import { DropZone, MAX_IMAGE_BYTES, MAX_SCREENSHOTS, releaseStaged, type ImportImage, type Phase } from "./drop-zone";
 import { ExtractedPanel } from "./extracted-panel";
 import { ManualEntry, blankRow, type ManualRow } from "./manual-entry";
 import { ModeSwitch, type ImportMode } from "./mode-switch";
@@ -18,7 +18,7 @@ import { SCAN_MS, counts, extractHoldings, type ExtractedHolding, type ExtractRe
 // Typed and CSV rows skip the image scan, so a short beat is enough.
 const TYPED_MS = 900;
 
-type Input = { file?: File; sample?: boolean; rows?: TypedRow[] };
+type Input = { files?: File[]; sample?: boolean; rows?: TypedRow[] };
 
 // Reduced motion skips the sweep and lands on the result quickly.
 const REDUCED_SCAN_MS = 600;
@@ -63,11 +63,13 @@ export function ImportFlow() {
   const setImported = usePortfolio((s) => s.setImported);
   const resetToDemo = usePortfolio((s) => s.resetToDemo);
   useHydratePortfolio();
-  const objectUrl = useRef<string | null>(null);
+  const objectUrls = useRef<string[]>([]);
+  const [staged, setStaged] = useState<File[]>([]);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const releaseUrl = useCallback(() => {
-    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
-    objectUrl.current = null;
+    objectUrls.current.forEach((u) => URL.revokeObjectURL(u));
+    objectUrls.current = [];
   }, []);
 
   // Free the last dropped image when the page goes away.
@@ -92,10 +94,13 @@ export function ImportFlow() {
     releaseUrl();
     lastInput.current = input;
     let image: ImportImage = input.rows ? { kind: "typed" } : { kind: "sample" };
-    if (input.file) {
-      objectUrl.current = URL.createObjectURL(input.file);
-      image = { kind: "file", url: objectUrl.current, name: input.file.name };
+    if (input.files?.length) {
+      objectUrls.current = input.files.map((f) => URL.createObjectURL(f));
+      image = { kind: "files", images: input.files.map((f, i) => ({ url: objectUrls.current[i], name: f.name })) };
     }
+    releaseStaged(staged);
+    setStaged([]);
+    setNotice(null);
     const id = ++run.current;
     dispatch({ type: "start", image });
     extractHoldings(input, { delayMs: input.rows ? Math.min(scanMs, TYPED_MS) : scanMs }).then((result) => {
@@ -117,6 +122,23 @@ export function ImportFlow() {
     router.push("/xray");
   }
 
+  // One screenshot reads straight away, as before; two or three are staged so they can be checked and removed first.
+  function addFiles(files: File[]) {
+    const fits = files.filter((f) => f.size <= MAX_IMAGE_BYTES);
+    const all = [...staged, ...fits];
+    const kept = all.slice(0, MAX_SCREENSHOTS);
+    const notes = [
+      fits.length < files.length ? "Each screenshot must be 5MB or smaller." : "",
+      all.length > MAX_SCREENSHOTS ? `Up to ${MAX_SCREENSHOTS} screenshots; kept the first ${MAX_SCREENSHOTS}.` : "",
+    ].filter(Boolean);
+    setNotice(notes.join(" ") || null);
+    if (staged.length === 0 && kept.length === 1 && notes.length === 0) {
+      start({ files: kept });
+      return;
+    }
+    setStaged(kept);
+  }
+
   function retry() {
     start(lastInput.current ?? { sample: true });
   }
@@ -136,6 +158,9 @@ export function ImportFlow() {
   function reset() {
     run.current++;
     releaseUrl();
+    releaseStaged(staged);
+    setStaged([]);
+    setNotice(null);
     dispatch({ type: "reset" });
   }
 
@@ -172,7 +197,14 @@ export function ImportFlow() {
               phase={state.phase}
               image={state.image}
               reduce={reduce}
-              onFile={(file) => start({ file })}
+              staged={staged}
+              notice={notice}
+              onFiles={addFiles}
+              onRemove={(i) => {
+                releaseStaged([staged[i]]);
+                setStaged(staged.filter((_, j) => j !== i));
+              }}
+              onRead={() => staged.length && start({ files: staged })}
               onSample={() => start({ sample: true })}
             />
           ) : mode === "csv" ? (

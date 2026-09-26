@@ -1,6 +1,9 @@
 import { MAX_HOLDINGS, priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
+// A 50-position portfolio can wait on the shared Finnhub rate limit.
+export const maxDuration = 60;
 
 export type PriceResponse = { holdings: SnapHolding[] };
 
@@ -24,6 +27,8 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : n
 // Body: { holdings: [{ ticker, shares?, marketValue?, name? }] }, at least one of shares or marketValue per row.
 // `name` (a CSV description) only fills in when Finnhub has no profile, as for ETFs.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "data");
+  if (limited) return limited;
   let body: { holdings?: unknown };
   try {
     body = await request.json();

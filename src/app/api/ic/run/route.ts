@@ -2,6 +2,7 @@ import { geminiConfigured } from "@/lib/gemini";
 import { auditFor, RunError, runCommittee } from "@/lib/ic/run";
 import type { IcEvent } from "@/lib/ic/types";
 import { MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,6 +17,8 @@ function fail(error: string, status: number) {
 // Runs the investment committee on any ticker. Body: { ticker, thesis, amount, holdings: [{ ticker, shares, price?, name? }] }.
 // Streams NDJSON IcEvents: fact pack steps, facts and fit, assumptions, bull, bear, then the chair's memo.
 export async function POST(request: Request) {
+  const limited = await rateLimit(request, "ic");
+  if (limited) return limited;
   if (!geminiConfigured()) return fail("The IC Room is not configured", 503);
   let body: { ticker?: unknown; thesis?: unknown; amount?: unknown; holdings?: unknown };
   try {
@@ -52,7 +55,7 @@ export async function POST(request: Request) {
 // Audit trail: GET /api/ic/run?id=<runId> returns the inputs, fact pack and output of a cached run.
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id") ?? "";
-  const record = /^[0-9a-f]{16}$/.test(id) ? auditFor(id) : null;
+  const record = /^[0-9a-f]{16}$/.test(id) ? await auditFor(id) : null;
   if (!record) return fail("Run not found (runs are kept for a day)", 404);
   return Response.json(record);
 }

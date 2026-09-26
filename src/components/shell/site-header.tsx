@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
-import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
+import { PortfolioMenu } from "./portfolio-menu";
 import { usePortfolioValue } from "./use-portfolio-value";
 
 function useIsActive() {
@@ -60,25 +60,15 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-8 md:flex lg:border-l lg:border-border lg:pl-8">
-          <div className="hidden text-right leading-tight sm:block" title={value.asOf}>
-            <p className="flex items-center justify-end gap-1.5 text-[11px] font-normal tracking-[0.08em] text-text-muted uppercase">
-              {value.live ? <span aria-label="Live prices" className="size-1.5 rounded-full bg-positive" /> : null}
-              {value.label}
-            </p>
-            <p className="mt-0.5 whitespace-nowrap tabular-nums">
-              <span className="text-[17px] font-normal text-text">{formatUSD(value.total)}</span>
-              <span className={cn("ml-2 hidden text-[13px] xl:inline", value.change < 0 ? "text-negative" : "text-positive")}>
-                {formatSignedUSD(value.change)} ({formatSignedPct(value.pct, 2)})
-              </span>
-            </p>
-          </div>
+          <PortfolioMenu value={value} />
           <LevelSwitcher />
         </div>
       </div>
 
       {/* Under 1024px the destinations move to a scrollable row under the masthead. */}
       <nav aria-label="Primary" className="border-t border-border lg:hidden">
-        <div className="bx-container flex justify-end border-b border-border py-3 md:hidden">
+        <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
+          <PortfolioMenu value={value} align="start" />
           {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />

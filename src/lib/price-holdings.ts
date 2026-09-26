@@ -29,6 +29,25 @@ export function normalizeTicker(t: string) {
   return t.trim().toUpperCase().replace(/^\$/, "").replace(/[/-]/g, ".");
 }
 
+// Overlapping screenshots of one account show the same row twice: keep one row per ticker with the larger share count
+// and the larger value, instead of summing them the way priceHoldings does for separate lots in one screenshot.
+export function dedupeOverlap(raw: RawHolding[]): RawHolding[] {
+  const larger = (a: number | null, b: number | null) => (positive(a) && (!positive(b) || a > b) ? a : positive(b) ? b : null);
+  const best = new Map<string, RawHolding>();
+  for (const h of raw) {
+    if (typeof h?.ticker !== "string") continue;
+    const ticker = normalizeTicker(h.ticker);
+    const prev = best.get(ticker);
+    best.set(ticker, {
+      ticker,
+      shares: larger(h.shares, prev?.shares ?? null),
+      marketValue: larger(h.marketValue, prev?.marketValue ?? null),
+      name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name : null),
+    });
+  }
+  return [...best.values()];
+}
+
 // Merges repeated tickers, prices each one with Finnhub, and fills in missing share counts from market value.
 export async function priceHoldings(raw: RawHolding[]): Promise<SnapHolding[]> {
   const merged = new Map<string, RawHolding>();

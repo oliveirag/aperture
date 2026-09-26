@@ -1,13 +1,16 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState, type DragEvent } from "react";
-import { ImageUp } from "lucide-react";
+import { ImagePlus, ImageUp, ScanLine, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SampleBrokerageScreenshot } from "./sample-screenshot";
 import { ScanOverlay, SWEEP_S } from "./scan-overlay";
 
-// What the user handed us: a screenshot, the sample, or typed/CSV rows (no image).
-export type ImportImage = { kind: "file"; url: string; name: string } | { kind: "sample" } | { kind: "typed" };
+// What the user handed us: one to three screenshots, the sample, or typed/CSV rows (no image).
+export type ImportImage = { kind: "files"; images: { url: string; name: string }[] } | { kind: "sample" } | { kind: "typed" };
+
+export const MAX_SCREENSHOTS = 3;
+export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 export type Phase = "idle" | "scanning" | "extracted" | "error";
 
 // Time into a sweep at which motion's easeInOut, cubic-bezier(0.42, 0, 0.58, 1), reaches progress p.
@@ -23,21 +26,71 @@ function sweepTimeAt(p: number) {
   return curve(0.42, 0.58, lo) * SWEEP_S;
 }
 
-function firstImage(files: FileList | null | undefined) {
-  return Array.from(files ?? []).find((f) => f.type.startsWith("image/"));
+function images(files: FileList | null | undefined) {
+  return Array.from(files ?? []).filter((f) => f.type.startsWith("image/"));
+}
+
+// One object URL per staged file, made on first render and released when the file leaves staging (releaseStaged).
+const stagedUrls = new WeakMap<File, string>();
+function urlFor(file: File) {
+  let url = stagedUrls.get(file);
+  if (!url) {
+    url = URL.createObjectURL(file);
+    stagedUrls.set(file, url);
+  }
+  return url;
+}
+
+export function releaseStaged(files: File[]) {
+  for (const f of files) {
+    const url = stagedUrls.get(f);
+    if (url) URL.revokeObjectURL(url);
+    stagedUrls.delete(f);
+  }
+}
+
+// Screenshots picked but not read yet, as removable thumbnails.
+function Staged({ files, onRemove }: { files: File[]; onRemove: (i: number) => void }) {
+  return (
+    <ul aria-label="Screenshots to read" className="grid w-full grid-cols-3 gap-3">
+      {files.map((f, i) => (
+        <li key={`${f.name}-${i}`} className="relative aspect-[3/4] overflow-hidden border border-border-strong bg-surface-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={urlFor(f)} alt={`Screenshot ${i + 1}: ${f.name}`} className="size-full object-contain p-1.5" />
+          <button
+            type="button"
+            onClick={() => onRemove(i)}
+            aria-label={`Remove screenshot ${i + 1}`}
+            className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-bg/85 text-text transition-colors duration-150 hover:bg-bg"
+          >
+            <X aria-hidden className="size-4" />
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function DropZone({
   phase,
   image,
   reduce,
-  onFile,
+  staged,
+  notice,
+  onFiles,
+  onRemove,
+  onRead,
   onSample,
 }: {
   phase: Phase;
   image: ImportImage | null;
   reduce: boolean;
-  onFile: (file: File) => void;
+  // Screenshots waiting to be read (two or more were picked, or one was removed from a set).
+  staged: File[];
+  notice: string | null;
+  onFiles: (files: File[]) => void;
+  onRemove: (index: number) => void;
+  onRead: () => void;
   onSample: () => void;
 }) {
   const zoneRef = useRef<HTMLDivElement>(null);
@@ -75,8 +128,8 @@ export function DropZone({
     e.preventDefault();
     setDragOver(false);
     if (!idle) return;
-    const file = firstImage(e.dataTransfer.files);
-    if (file) onFile(file);
+    const files = images(e.dataTransfer.files);
+    if (files.length) onFiles(files);
   }
 
   return (
@@ -96,17 +149,50 @@ export function DropZone({
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple
         tabIndex={-1}
         className="sr-only"
         aria-hidden
         onChange={(e) => {
-          const file = firstImage(e.currentTarget.files);
+          const files = images(e.currentTarget.files);
           e.currentTarget.value = "";
-          if (file) onFile(file);
+          if (files.length) onFiles(files);
         }}
       />
 
-      {idle ? (
+      {idle && staged.length > 0 ? (
+        <div className="relative flex w-full flex-col items-center gap-5 px-6 py-8">
+          <Staged files={staged} onRemove={onRemove} />
+          {notice ? (
+            <p role="status" className="text-center text-[13px] text-sev-medium">
+              {notice}
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={onRead}
+              className="inline-flex h-10 items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+            >
+              <ScanLine aria-hidden className="size-4" />
+              Read {staged.length} {staged.length === 1 ? "screenshot" : "screenshots"}
+            </button>
+            {staged.length < MAX_SCREENSHOTS ? (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="inline-flex h-10 items-center gap-2 border border-border-strong px-4 text-[14px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97]"
+              >
+                <ImagePlus aria-hidden className="size-4" />
+                Add another
+              </button>
+            ) : null}
+          </div>
+          <p className="text-center text-[12px] text-text-subtle">
+            Up to {MAX_SCREENSHOTS} screenshots of one account. Overlapping rows are counted once.
+          </p>
+        </div>
+      ) : idle ? (
         <>
           {/* The whole zone picks a file; the sample button sits above it. */}
           <button
@@ -118,7 +204,12 @@ export function DropZone({
           <div className="pointer-events-none relative flex flex-col items-center px-6 text-center">
             <ImageUp aria-hidden className="size-7 text-text-muted" strokeWidth={1.5} />
             <p className="mt-4 text-[16px] font-medium text-text">Drop a screenshot here</p>
-            <p className="mt-1 text-[13px] text-text-muted">or click to choose a file</p>
+            <p className="mt-1 text-[13px] text-text-muted">or click to choose. Up to {MAX_SCREENSHOTS} if your positions span several screens</p>
+            {notice ? (
+              <p role="status" className="mt-2 text-[13px] text-sev-medium">
+                {notice}
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={onSample}
@@ -128,10 +219,14 @@ export function DropZone({
             </button>
           </div>
         </>
-      ) : image?.kind === "file" ? (
-        // A local object URL; next/image adds nothing for a blob that never leaves the browser.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={image.url} alt={`Uploaded screenshot: ${image.name}`} className="absolute inset-0 size-full object-contain p-4" />
+      ) : image?.kind === "files" ? (
+        <div className={cn("absolute inset-0 grid gap-2 p-4", image.images.length === 1 ? "grid-cols-1" : image.images.length === 2 ? "grid-cols-2" : "grid-cols-3")}>
+          {image.images.map((img, i) => (
+            // Local object URLs; next/image adds nothing for blobs that never leave the browser.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={img.url} src={img.url} alt={`Uploaded screenshot${image.images.length > 1 ? ` ${i + 1}` : ""}: ${img.name}`} className="size-full min-h-0 object-contain" />
+          ))}
+        </div>
       ) : (
         <div className="p-4">
           <SampleBrokerageScreenshot outlined={sweeping || phase === "extracted"} />

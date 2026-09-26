@@ -2,6 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent } from "react";
 import { Check, Plus, X } from "lucide-react";
+import { TickerCombobox } from "@/components/shared/ticker-combobox";
 import { MAX_PRACTICE_TICKERS, PRACTICE_TEMPLATES } from "@/data/practice";
 import { cn } from "@/lib/utils";
 
@@ -108,18 +109,17 @@ export function TemplatePicker({
             }}
             className="flex gap-2"
           >
-            <input
+            <TickerCombobox
               value={draft}
-              onChange={(e) => {
-                setDraft(e.target.value.toUpperCase());
+              onChange={(v) => {
+                setDraft(v.toUpperCase());
                 setError(null);
               }}
-              placeholder="Type a ticker, e.g. MSFT"
+              onSelect={(o) => add(o.ticker)}
+              placeholder="Type a ticker or company, e.g. MSFT"
               aria-label="Add a ticker"
               autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              className="h-10 min-w-0 flex-1 border border-border-strong bg-bg px-3 text-[15px] font-medium text-text outline-none placeholder:font-normal placeholder:text-text-subtle focus:border-text"
+              className="h-10 w-full min-w-0 border border-border-strong bg-bg px-3 text-[15px] font-medium text-text outline-none placeholder:font-normal placeholder:text-text-subtle focus:border-text"
             />
             <button
               type="submit"

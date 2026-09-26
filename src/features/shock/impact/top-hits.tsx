@@ -47,11 +47,11 @@ export function TopHits({ scenario, severity }: { scenario: ShockScenario; sever
             >
               <TickerMark ticker={r.ticker} color={r.color} size={32} />
               <span className="min-w-0 flex-1">
-                <span className="block text-[14px] font-semibold text-text">{r.ticker}</span>
+                <span className="block text-[14px] font-medium text-text">{r.ticker}</span>
                 <span className="block text-[12px] leading-4 text-text-muted">{r.pathLabel}</span>
               </span>
               <span className="text-right tabular-nums">
-                <span className="block text-[14px] font-semibold text-negative">{formatSignedPct(r.ret)}</span>
+                <span className="block text-[14px] font-medium text-negative">{formatSignedPct(r.ret)}</span>
                 <span className="block text-[12px] text-negative">{formatSignedUSD(r.dollar)}</span>
               </span>
             </button>
@@ -87,7 +87,7 @@ export function TopHits({ scenario, severity }: { scenario: ShockScenario; sever
                             type="button"
                             onClick={() => selectEdge(id)}
                             className={cn(
-                              "mt-1.5 inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[12px] font-medium transition-[border-color,color,transform] duration-150 ease-out active:scale-[0.97]",
+                              "mt-1.5 inline-flex h-6 items-center gap-1.5 border px-2.5 text-[12px] font-medium transition-[border-color,color,transform] duration-150 ease-out active:scale-[0.97]",
                               active
                                 ? "border-accent/60 text-text"
                                 : "border-border text-text-muted hover:border-border-strong hover:text-text",

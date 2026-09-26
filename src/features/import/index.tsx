@@ -121,23 +121,24 @@ export function ImportFlow() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col px-4 pb-10 sm:px-8"
+      className="flex min-h-dvh w-full flex-col pb-16"
     >
-      <header className="flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="rounded-md">
-          <Wordmark />
+      <header className="bx-container flex h-24 items-center justify-between gap-6">
+        <Link href="/" aria-label="Lookthrough home">
+          <Wordmark size="sm" className="sm:hidden" />
+          <Wordmark className="hidden sm:inline-flex" />
         </Link>
         <StepIndicator current={2} />
       </header>
 
-      <section className="pt-2">
-        <h1 className="text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] text-text sm:text-[40px]">Import your portfolio</h1>
-        <p className="mt-2 max-w-[640px] text-[16px] text-text-muted">
+      <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
+        <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
+        <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
           Drop a screenshot of your brokerage positions. Gemini reads every position and Finnhub prices it live; the image is never stored.
         </p>
       </section>
 
-      <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-[560px_minmax(0,1fr)]">
+      <div className="bx-container mt-10 grid grid-cols-1 gap-8 lg:grid-cols-[560px_minmax(0,1fr)]">
         <DropZone
           phase={state.phase}
           image={state.image}

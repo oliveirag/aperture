@@ -1,20 +1,18 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { CircleArrow } from "./circle-arrow";
 
+// Closing call to action: hairline above, a serif line to the next step, and the circle arrow.
 export function NextStepCTA({ href, label, description }: { href: string; label: string; description: string }) {
   return (
-    <Link
-      href={href}
-      className="group flex h-[72px] w-full items-center justify-between gap-4 rounded-xl border border-border bg-surface-1 px-6 transition-[border-color,transform] duration-150 ease-out hover:border-border-strong active:scale-[0.99]"
-    >
+    <Link href={href} className="group flex w-full items-center justify-between gap-8 border-t border-text pt-8">
       <span className="min-w-0">
-        <span className="block text-[15px] font-semibold text-text">{label}</span>
-        <span className="block truncate text-[13px] text-text-muted">{description}</span>
+        <span className="eyebrow">Next</span>
+        <span className="display mt-5 block text-[32px] leading-[1.2] text-text sm:text-[40px]">
+          <span className="link-underline pb-1">{label}</span>
+        </span>
+        <span className="mt-3 block text-[17px] text-text-muted">{description}</span>
       </span>
-      <ArrowRight
-        aria-hidden
-        className="size-4 shrink-0 text-text-muted transition-[transform,color] duration-200 ease-out group-hover:translate-x-1 group-hover:text-text"
-      />
+      <CircleArrow size={56} className="text-text" />
     </Link>
   );
 }

@@ -53,7 +53,7 @@ export function ExtractedPanel({
   const stagger = staggerFor(slots);
 
   return (
-    <section aria-label="Extracted holdings" className="flex min-w-0 flex-col rounded-2xl border border-border bg-surface-1">
+    <section aria-label="Extracted holdings" className="flex min-w-0 flex-col bg-surface-1">
       <header className="flex h-12 items-center justify-between px-5">
         <h2 className="text-[14px] font-medium text-text">Extracted holdings</h2>
         {extracted || phase === "error" ? (
@@ -87,7 +87,7 @@ export function ExtractedPanel({
                 className={cn(COLS, "absolute inset-0")}
               >
                 <span className="flex items-center gap-3">
-                  <span className={cn("size-8 shrink-0 rounded-[8px] bg-surface-2", phase === "scanning" && "animate-pulse")} />
+                  <span className={cn("size-8 shrink-0 bg-surface-2", phase === "scanning" && "animate-pulse")} />
                   <span className={cn("h-2.5 w-24 rounded-full bg-surface-2", phase === "scanning" && "animate-pulse")} />
                 </span>
                 <span className="ml-auto h-2.5 w-8 rounded-full bg-surface-2" />
@@ -146,7 +146,7 @@ function HoldingRow({ holding: h, delay, reduce }: { holding: ExtractedHolding; 
     >
       <span className="flex min-w-0 items-center gap-3">
         <TickerMark ticker={h.ticker} color={COLOR[h.ticker]} />
-        <span className="font-semibold text-text">{h.ticker}</span>
+        <span className="font-medium text-text">{h.ticker}</span>
         <span className="hidden truncate text-[13px] text-text-muted sm:inline">{h.name}</span>
       </span>
       <span className="text-right text-text tabular-nums">{formatShares(h.shares)}</span>
@@ -225,9 +225,9 @@ function Summary({
       <p className="text-[14px] text-text-muted">
         {holdings.length} holdings ·{" "}
         {shown ? (
-          <AnimatedNumber value={total} from={reduce ? total : 0} format={formatUSD} duration={700} className="text-[20px] font-semibold text-text" />
+          <AnimatedNumber value={total} from={reduce ? total : 0} format={formatUSD} duration={700} className="text-[20px] font-medium text-text" />
         ) : (
-          <span className="text-[20px] font-semibold text-text tabular-nums">{formatUSD(0)}</span>
+          <span className="text-[20px] font-medium text-text tabular-nums">{formatUSD(0)}</span>
         )}{" "}
         · {matched} of {holdings.length} matched
       </p>
@@ -241,7 +241,7 @@ function Summary({
         type="button"
         onClick={onContinue}
         disabled={!shown || counted.length === 0}
-        className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-text text-[15px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-white active:scale-[0.97]"
+        className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-text text-[15px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
       >
         Look through my portfolio
         <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
@@ -261,7 +261,7 @@ function ReadError({ message, onRetry, onSample }: { message: string; onRetry: (
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-text text-[14px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-white active:scale-[0.97]"
+          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-text text-[14px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
         >
           <RotateCcw aria-hidden className="size-4" />
           Try again

@@ -6,9 +6,9 @@ import { useMarket } from "@/lib/market";
 import { cn } from "@/lib/utils";
 
 const SIZES = {
-  24: "size-6 rounded-[6px] text-[8.5px]",
-  32: "size-8 rounded-[8px] text-[10px]",
-  40: "size-10 rounded-[10px] text-[11.5px]",
+  24: "size-6 text-[8.5px]",
+  32: "size-8 text-[10px]",
+  40: "size-10 text-[11.5px]",
 } as const;
 
 // Monogram tile in the company's color. The Finnhub logo fades in over it once loaded; ETFs and offline stay on the monogram.
@@ -34,13 +34,15 @@ export function TickerMark({
     <span
       aria-hidden
       className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border font-semibold tracking-[0.01em] tabular-nums select-none",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border font-medium tracking-[-0.03em] tabular-nums select-none",
         SIZES[size],
       )}
+      // Monochrome hairline monogram: the editorial palette allows no brand fills. The company color survives
+      // only as a 2px rule on the left edge.
       style={{
-        color,
-        backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`,
-        borderColor: `color-mix(in srgb, ${color} 32%, transparent)`,
+        color: "var(--text)",
+        borderColor: "var(--border-strong)",
+        boxShadow: `inset 2px 0 0 ${color}`,
       }}
     >
       <span className={className}>{ticker.replace(".", "").slice(0, 4)}</span>

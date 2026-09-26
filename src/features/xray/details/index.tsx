@@ -13,7 +13,7 @@ export function XrayDetails() {
 
   return (
     <section aria-labelledby="xray-breakdown" className="flex flex-col gap-4">
-      <h2 id="xray-breakdown" className="text-[20px] font-semibold tracking-[-0.01em] text-text">
+      <h2 id="xray-breakdown" className="text-[20px] font-medium tracking-[-0.01em] text-text">
         Breakdown
       </h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

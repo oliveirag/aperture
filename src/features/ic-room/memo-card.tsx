@@ -80,11 +80,11 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
       <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-[12px] font-medium tracking-[0.04em] text-text-subtle uppercase">Chair</p>
-          <h2 className="mt-1 text-[20px] leading-7 font-semibold tracking-[-0.01em] text-text">
+          <h2 className="mt-1 text-[20px] leading-7 font-medium tracking-[-0.01em] text-text">
             Investment Committee Memo · {IC_TICKER.ticker} · {formatSourceDate(IC_DATE)}
           </h2>
         </div>
-        <span className="inline-flex h-7 shrink-0 items-center self-start rounded-full border border-accent/70 px-3 text-[13px] font-medium text-accent">
+        <span className="inline-flex h-7 shrink-0 items-center self-start border border-accent/70 px-3 text-[13px] font-medium text-accent">
           {MEMO.stance}
         </span>
       </header>
@@ -98,7 +98,7 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
         </Section>
 
         {level === "beginner" ? (
-          <aside aria-label="Key terms" className="rounded-xl border border-border bg-surface-1 p-4">
+          <aside aria-label="Key terms" className="bg-surface-1 p-4">
             <p className="mb-3 text-[12px] font-medium tracking-[0.04em] text-text-subtle uppercase">Key terms</p>
             <dl className="flex flex-col gap-2.5 text-[14px] leading-[22px]">
               {KEY_TERMS.map((term) => (

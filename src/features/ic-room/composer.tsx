@@ -37,7 +37,7 @@ export function Composer({
   const running = status === "running";
 
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border border-border bg-surface-1 p-5">
+    <div className="flex flex-col gap-5 bg-surface-1 p-5">
       <div>
         <label htmlFor={tickerId} className={LABEL}>
           Ticker
@@ -95,7 +95,7 @@ export function Composer({
           <button
             type="button"
             onClick={() => setThesis(IC_THESIS)}
-            className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+            className="inline-flex h-6 items-center gap-1 border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
           >
             AMD share-gain thesis
           </button>
@@ -117,7 +117,7 @@ export function Composer({
           type="button"
           onClick={onRun}
           disabled={running}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-text text-[14px] font-semibold text-bg transition-[transform,opacity] duration-150 ease-out hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-text text-[14px] font-medium text-bg transition-[transform,opacity] duration-150 ease-out hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
         >
           {running ? (
             <>

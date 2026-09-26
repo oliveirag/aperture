@@ -18,7 +18,7 @@ function EmptyStage() {
       <span className="flex size-11 items-center justify-center rounded-full bg-surface-2 text-text-muted">
         <Users className="size-5" aria-hidden />
       </span>
-      <h2 className="text-[17px] font-semibold text-text">Your investment committee</h2>
+      <h2 className="text-[17px] font-medium text-text">Your investment committee</h2>
       <p className="max-w-[44ch] text-[14px] leading-[22px] text-pretty text-text-muted">
         Bull analyst, bear analyst and a chair review your idea against filings, news and what you already own.
       </p>

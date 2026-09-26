@@ -26,7 +26,7 @@ export function OverlapVenn() {
         {VOO_QQQ.sharedCompanies} of QQQ&apos;s {QQQ_COUNT} companies are also in VOO.
       </p>
       <div className="mt-4 flex items-center gap-6">
-        <p className="text-[32px] leading-none font-semibold tracking-[-0.02em] text-text tabular-nums">
+        <p className="display text-[48px] leading-none text-text tabular-nums">
           {formatPct(VOO_QQQ.overlap, 0)}
         </p>
         <svg viewBox="0 0 300 184" className="h-auto w-full max-w-[300px] min-w-0" role="img" aria-label="VOO and QQQ overlap diagram">
@@ -56,10 +56,10 @@ export function OverlapVenn() {
             clipPath="url(#venn-voo)"
             style={{ fill: "color-mix(in srgb, var(--accent) 25%, transparent)" }}
           />
-          <text x={CX_VOO - R_VOO / 2} y={CY + 4} textAnchor="middle" className="fill-text text-[13px] font-semibold">
+          <text x={CX_VOO - R_VOO / 2} y={CY + 4} textAnchor="middle" className="fill-text text-[13px] font-medium">
             VOO
           </text>
-          <text x={CX_QQQ + R_QQQ / 2} y={CY + 4} textAnchor="middle" className="fill-text text-[13px] font-semibold">
+          <text x={CX_QQQ + R_QQQ / 2} y={CY + 4} textAnchor="middle" className="fill-text text-[13px] font-medium">
             QQQ
           </text>
         </svg>

@@ -8,7 +8,7 @@ export function FlagsStrip() {
       {FLAGS.map((f) => (
         <li
           key={f.id}
-          className="inline-flex h-8 items-center gap-2 rounded-full border border-border bg-surface-1 px-3 text-[13px]"
+          className="inline-flex h-8 items-center gap-2 border border-border bg-surface-1 px-3 text-[13px]"
         >
           <AlertTriangle aria-hidden className="size-3.5 text-sev-medium" />
           <span className="font-medium text-text">

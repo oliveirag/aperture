@@ -22,7 +22,7 @@ function WhyText({ text, pct }: { text: string; pct: string }) {
       {parts.map((part, i) => (
         <Fragment key={i}>
           {part}
-          {i < parts.length - 1 ? <span className="font-semibold text-accent">{pct}</span> : null}
+          {i < parts.length - 1 ? <span className="font-medium text-accent">{pct}</span> : null}
         </Fragment>
       ))}
     </>
@@ -49,7 +49,7 @@ export function RadarCard({
       initial={reduce ? { opacity: 0 } : { opacity: 0, transform: "translateY(6px)" }}
       animate={reduce ? { opacity: 1 } : { opacity: 1, transform: "translateY(0px)" }}
       transition={{ duration: 0.3, delay: index * 0.04, ease: EASE_OUT }}
-      className="relative rounded-2xl border border-border bg-surface-1 transition-[border-color] duration-150 ease-out hover:border-border-strong"
+      className="relative bg-surface-1 transition-[border-color] duration-150 ease-out hover:border-border-strong"
     >
       {card.severity === "high" ? (
         <span aria-hidden className="absolute top-5 bottom-5 -left-px w-0.5 rounded-full bg-sev-high" />
@@ -65,7 +65,7 @@ export function RadarCard({
           <TickerMark ticker={card.ticker} color={card.color} size={32} />
           <div className="min-w-0 flex-1">
             <p className="flex items-baseline gap-2">
-              <span className="text-[15px] font-semibold text-text">{card.company}</span>
+              <span className="text-[15px] font-medium text-text">{card.company}</span>
               <span className="text-[13px] text-text-muted">{card.ticker}</span>
             </p>
             <p className="text-[12px] text-text-subtle tabular-nums">
@@ -76,7 +76,7 @@ export function RadarCard({
         </div>
 
         <p className="mt-4 text-[12px] font-medium text-text-subtle">{card.category}</p>
-        <h3 className="mt-1 text-[17px] leading-6 font-semibold tracking-[-0.01em] text-balance text-text">
+        <h3 className="mt-1 text-[17px] leading-6 font-medium tracking-[-0.01em] text-balance text-text">
           {card.title}
         </h3>
         <p className={cn("mt-1.5 text-[14px] leading-[22px] text-text-muted", !expanded && "line-clamp-2")}>
@@ -84,7 +84,7 @@ export function RadarCard({
         </p>
       </button>
 
-      <div className="mx-5 flex items-start gap-3 rounded-[10px] bg-surface-2 px-4 py-3">
+      <div className="mx-5 flex items-start gap-3 bg-surface-2 px-4 py-3">
         <Target className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
         <p className="text-[13px] leading-5 text-text-muted">
           <span className="font-medium text-text">Why this matters to you. </span>

@@ -185,7 +185,7 @@ export function getScenario(id: ScenarioId): ShockScenario {
 }
 
 // Portfolio impact at a given severity (linear in severity).
-export function scenarioTotals(s: ShockScenario, severity: number) {
+export function scenarioTotals(s: ShockScenario, severity: number, total = PORTFOLIO_TOTAL) {
   const dollar = s.impacts.reduce((sum, i) => sum + scaleShock(i.baseDollar, severity, s.baseSeverity), 0);
-  return { dollar, pct: dollar / PORTFOLIO_TOTAL };
+  return { dollar, pct: total > 0 ? dollar / total : 0 };
 }

@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { useSourceDrawer } from "@/components/shared/source-drawer";
-import { getScenario } from "@/data/shock";
 import { useShock } from "@/features/shock/store";
+import { scenarioIn, type ShockModel } from "@/features/shock/use-shock-model";
 import { useLevel } from "@/lib/level";
 
 // "CRE −20%" at severity 30 -> "CRE −30%"
@@ -12,7 +12,7 @@ export function shortLabelAt(shortLabel: string, severity: number) {
 }
 
 // Keeps the evidence drawer and the shared selectedEdgeId in step, whether the edge was picked here or in the graph.
-export function useEvidenceSync() {
+export function useEvidenceSync(model: ShockModel) {
   const edgeId = useShock((s) => s.selectedEdgeId);
   const scenarioId = useShock((s) => s.scenarioId);
   const severity = useShock((s) => s.severity);
@@ -20,7 +20,7 @@ export function useEvidenceSync() {
 
   useEffect(() => {
     if (!edgeId) return;
-    const scenario = getScenario(scenarioId);
+    const scenario = scenarioIn(model, scenarioId);
     const edge = scenario.edges.find((e) => e.id === edgeId);
     const source = edge && scenario.sources.find((s) => s.id === edge.sourceId);
     if (!edge || !source) return;
@@ -33,7 +33,7 @@ export function useEvidenceSync() {
       meta.push({ label: "Transmission weight", value: edge.weight.toFixed(2) }, { label: "Method", value: edge.method });
     }
     useSourceDrawer.getState().open({ source, meta });
-  }, [edgeId, scenarioId, severity, level]);
+  }, [edgeId, scenarioId, severity, level, model]);
 
   // Closing the drawer (X, Escape, overlay) clears the selected edge.
   useEffect(

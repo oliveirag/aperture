@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { getScenario, scenarioTotals } from "@/data/shock";
+import { useShockData } from "@/features/shock/model-context";
+import { scenarioIn } from "@/features/shock/use-shock-model";
 import { useShock } from "@/features/shock/store";
 import { useLevel } from "@/lib/level";
 import type { ScenarioId } from "@/types/demo";
@@ -24,6 +26,7 @@ export function ShockStage() {
   const setScenario = useShock((s) => s.setScenario);
   const setSeverity = useShock((s) => s.setSeverity);
   const level = useLevel((s) => s.level);
+  const model = useShockData();
   const reduce = useReducedMotion() ?? false;
   const [runKey, setRunKey] = useState(() => (useShock.getState().hasRun ? 1 : 0));
 
@@ -54,8 +57,8 @@ export function ShockStage() {
     }
   }, []);
 
-  const scenario = getScenario(scenarioId);
-  const totals = scenarioTotals(scenario, severity);
+  const scenario = scenarioIn(model, scenarioId);
+  const totals = scenarioTotals(scenario, severity, model.total);
   const timeline = useRunTimeline(scenario, hasRun ? runKey : 0, reduce);
   const answered = hasRun && timeline.headline;
   const countMs = timeline.done ? 250 : 500;
@@ -106,6 +109,7 @@ export function ShockStage() {
               done={timeline.done}
               reduce={reduce}
               level={level}
+              colors={model.colors}
             />
           </div>
         </div>

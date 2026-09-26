@@ -24,7 +24,7 @@ const NVIDIA_PIN: Selection = { kind: "exposure", id: "NVDA" };
 type Geo = { width: number; height: number; left: Record<string, number>; right: Record<string, number> };
 
 const ROW =
-  "relative flex h-12 w-full items-center gap-3 rounded-[10px] border border-transparent px-3 text-left transition-[background-color,border-color] duration-150 ease-out [@media(max-height:800px)]:h-10";
+  "relative flex h-12 w-full items-center gap-3 border border-transparent px-3 text-left transition-[background-color,border-color] duration-150 ease-out [@media(max-height:800px)]:h-10";
 
 function sourceLine(e: MapExposure, advanced: boolean) {
   if (advanced) return e.sources.map((s) => `${s.via} ${formatPct(s.value / PORTFOLIO_TOTAL)}`).join(" · ");
@@ -100,7 +100,7 @@ export function LookthroughMap() {
   return (
     <div
       onClick={() => setPinned(NVIDIA_PIN)}
-      className="rounded-2xl border border-border bg-surface-1 p-6 [@media(max-height:800px)]:p-4"
+      className="bg-surface-1 p-6 [@media(max-height:800px)]:p-4"
     >
       <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)_340px] lg:gap-0">
         {/* Your positions */}
@@ -124,7 +124,7 @@ export function LookthroughMap() {
                   >
                     <TickerMark ticker={p.ticker} color={p.color} size={32} />
                     <span className="min-w-0 flex-1">
-                      <span className="block text-[14px] font-semibold text-text">{p.ticker}</span>
+                      <span className="block text-[14px] font-medium text-text">{p.ticker}</span>
                       <span className="block truncate text-[12px] text-text-muted">{p.category}</span>
                     </span>
                     <span className="text-right">
@@ -209,17 +209,17 @@ export function LookthroughMap() {
                       {e.ticker ? (
                         <TickerMark ticker={e.ticker} color={e.color} size={32} />
                       ) : (
-                        <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-[8px] border border-border-strong text-text-muted">
+                        <span className="inline-flex size-8 shrink-0 items-center justify-center border border-border-strong text-text-muted">
                           <Layers aria-hidden className="size-4" />
                         </span>
                       )}
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[14px] font-semibold text-text">{e.name}</span>
+                        <span className="block text-[14px] font-medium text-text">{e.name}</span>
                         <span className="block truncate text-[12px] text-text-muted tabular-nums">
                           {sourceLine(e, advanced)}
                         </span>
                       </span>
-                      <span className={cn("text-[18px] font-semibold tabular-nums", lit ? "text-accent" : "text-text")}>
+                      <span className={cn("text-[18px] font-medium tabular-nums", lit ? "text-accent" : "text-text")}>
                         <AnimatedNumber value={phase >= 1 ? e.weight : 0} format={(v) => formatPct(v)} duration={500} />
                       </span>
                     </TooltipTrigger>

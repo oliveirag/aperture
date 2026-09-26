@@ -16,7 +16,7 @@ export const STATUS = {
 export function StatusPill({ status }: { status: AssumptionStatus | "testing" }) {
   if (status === "testing") {
     return (
-      <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-border px-2 text-[12px] font-medium text-text-subtle">
+      <span className="inline-flex h-6 shrink-0 items-center gap-1.5 border border-border px-2 text-[12px] font-medium text-text-subtle">
         <Loader2 className="size-3 animate-spin" aria-hidden />
         Testing
       </span>
@@ -26,7 +26,7 @@ export function StatusPill({ status }: { status: AssumptionStatus | "testing" })
   return (
     <span
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2 text-[12px] font-medium",
+        "inline-flex h-6 shrink-0 items-center gap-1.5 border px-2 text-[12px] font-medium",
         tone,
         border,
       )}
@@ -73,7 +73,7 @@ export function AssumptionCard({
   return (
     <motion.article
       {...enter}
-      className="rounded-xl border border-border bg-surface-1 p-4"
+      className="bg-surface-1 p-4"
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 font-mono text-[12px] font-medium text-text-subtle">{assumption.id}</span>

@@ -28,10 +28,10 @@ export function CoverageRail({
   const pct = formatPct(HIGH_SEVERITY_EXPOSURE);
 
   return (
-    <aside className="flex flex-col gap-5 rounded-2xl border border-border bg-surface-1 p-5 xl:sticky xl:top-[88px]">
+    <aside className="flex flex-col gap-5 bg-surface-1 p-5 xl:sticky xl:top-[88px]">
       <div>
         <p className="text-[13px] text-text-muted">Coverage</p>
-        <p className="mt-1 text-[20px] font-semibold tracking-[-0.01em] text-text">{filings} filings reviewed</p>
+        <p className="mt-1 text-[20px] font-medium tracking-[-0.01em] text-text">{filings} filings reviewed</p>
       </div>
 
       <ul className="flex flex-col gap-2 text-[13px]">
@@ -51,7 +51,7 @@ export function CoverageRail({
           <div className="h-full rounded-full bg-sev-high" style={{ width: pct }} />
         </div>
         <p className="mt-2 text-[13px] leading-5 text-text-muted">
-          <span className="font-semibold text-text tabular-nums">{pct}</span> of your money is in companies with
+          <span className="font-medium text-text tabular-nums">{pct}</span> of your money is in companies with
           high-severity changes
         </p>
       </div>

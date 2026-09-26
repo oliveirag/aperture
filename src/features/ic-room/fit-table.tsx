@@ -26,7 +26,7 @@ export function FitTable() {
     <div
       id={FIT_TABLE_ID}
       tabIndex={-1}
-      className="scroll-mt-24 rounded-xl border border-border bg-surface-1 outline-none transition-[box-shadow] duration-200 focus:shadow-[0_0_0_1px_var(--accent)]"
+      className="scroll-mt-24 bg-surface-1 outline-none transition-[box-shadow] duration-200 focus:shadow-[0_0_0_1px_var(--accent)]"
     >
       <table className="w-full text-[14px]">
         <caption className="sr-only">Portfolio before and after adding the position</caption>

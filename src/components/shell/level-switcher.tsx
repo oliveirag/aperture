@@ -11,7 +11,7 @@ const LEVELS: { value: Level; label: string }[] = [
   { value: "advanced", label: "Advanced" },
 ];
 
-// Segmented radio group. The pill glides between options with a critically damped spring (no overshoot).
+// Text radio group. A 1px rule glides under the active level on a critically damped spring (no overshoot).
 export function LevelSwitcher() {
   const level = useLevel((s) => s.level);
   const setLevel = useLevel((s) => s.setLevel);
@@ -27,12 +27,7 @@ export function LevelSwitcher() {
   }
 
   return (
-    <div
-      role="radiogroup"
-      aria-label="Experience level"
-      onKeyDown={onKeyDown}
-      className="flex h-8 items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-0.5"
-    >
+    <div role="radiogroup" aria-label="Experience level" onKeyDown={onKeyDown} className="flex items-center gap-5">
       {LEVELS.map((l, i) => {
         const active = l.value === level;
         return (
@@ -48,19 +43,19 @@ export function LevelSwitcher() {
             onPointerDown={() => setLevel(l.value)}
             onClick={() => setLevel(l.value)}
             className={cn(
-              "relative h-full rounded-md px-2.5 text-[12px] font-medium transition-colors duration-150 ease-out",
-              active ? "text-text" : "text-text-muted hover:text-text",
+              "relative py-1 text-[14px] transition-colors duration-200 ease-out",
+              active ? "font-normal text-text" : "font-light text-text-muted hover:text-text",
             )}
           >
+            {l.label}
             {active ? (
               <motion.span
-                layoutId="level-pill"
+                layoutId="level-rule"
                 aria-hidden
-                className="absolute inset-0 rounded-md bg-surface-3 shadow-[inset_0_0_0_1px_var(--border)]"
+                className="absolute inset-x-0 -bottom-px h-px bg-text"
                 transition={{ type: "spring", bounce: 0, duration: 0.25 }}
               />
             ) : null}
-            <span className="relative">{l.label}</span>
           </button>
         );
       })}

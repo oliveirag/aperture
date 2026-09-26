@@ -30,7 +30,7 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
   return (
     <div className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2 shadow-lg">
       <p className="text-[12px] text-text-muted">{fmt(p.date, { month: "short", day: "numeric", year: "numeric" })}</p>
-      <p className="text-[14px] font-semibold text-text tabular-nums">{formatUSD(p.value)}</p>
+      <p className="text-[14px] font-medium text-text tabular-nums">{formatUSD(p.value)}</p>
     </div>
   );
 }
@@ -59,7 +59,7 @@ export function PerformanceChart() {
         <Tabs.Root value={range} onValueChange={(v) => setRange(v as RangeId)}>
           <Tabs.List
             aria-label="Performance range"
-            className="relative flex h-7 items-center gap-0.5 rounded-lg border border-border bg-surface-1 p-0.5"
+            className="relative flex h-7 items-center gap-0.5 bg-surface-1 p-0.5"
           >
             {RANGES.map((r) => (
               <Tabs.Tab

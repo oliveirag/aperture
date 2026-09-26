@@ -2,48 +2,50 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *, .theme-dark *));
 
 /*
-  Lookthrough tokens. Dark only.
-  Cool graphite surfaces, one warm accent reserved for insight and focus.
-  Token names are a contract used by every feature ticket; values may be tuned, names may not.
+  Lookthrough tokens, after Blackstone's editorial system: paper-white pages, full-bleed black bands,
+  light serif display type over a light grotesk, square corners, hairline rules, one copper accent.
+  Light is the default; any subtree wrapped in .theme-dark becomes a black band with the same names.
+  Token names are a contract used by every feature; values may be tuned, names may not.
 */
 :root {
-  --bg: #0b0c0e;
-  --surface-1: #111316;
-  --surface-2: #171a1e;
-  --surface-3: #1f2328;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
-  --text: #ecedef;
-  --text-muted: #a3a7ae;
-  --text-subtle: #858a92;
-  --accent: #e2c08d;
-  --positive: #3fb68b;
-  --negative: #f0616d;
-  --sev-high: #f0616d;
-  --sev-medium: #e5a443;
-  --sev-low: #767b83;
-  --chart-1: #e2c08d;
-  --chart-2: #8fa3bf;
-  --chart-3: #7fb8a4;
-  --chart-4: #d98c6a;
-  --chart-5: #b4b4bc;
-  --chart-6: #5e6a7d;
+  --bg: #ffffff;
+  --surface-1: #f4f5f7;
+  --surface-2: #eceef1;
+  --surface-3: #e2e5ea;
+  --border: #d5d8df;
+  --border-strong: #9aa0a8;
+  --text: #000000;
+  --text-muted: #4a4f57;
+  --text-subtle: #6b7079;
+  --accent: #a4552a;
+  --positive: #1d7a4d;
+  --negative: #c0392b;
+  --sev-high: #c0392b;
+  --sev-medium: #9a6010;
+  --sev-low: #767676;
+  --chart-1: #b96634;
+  --chart-2: #2b333f;
+  --chart-3: #73859f;
+  --chart-4: #c39d78;
+  --chart-5: #9aa0a8;
+  --chart-6: #121317;
 
-  /* Motion (Emil Kowalski): strong custom curves, UI under 300ms */
+  /* Motion (Emil Kowalski): strong custom curves, UI under 300ms; editorial reveals run longer */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
   --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-editorial: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* shadcn variables mapped onto the tokens */
-  --radius: 0.75rem;
+  --radius: 0rem;
   --background: var(--bg);
   --foreground: var(--text);
   --card: var(--surface-1);
   --card-foreground: var(--text);
-  --popover: var(--surface-2);
+  --popover: var(--bg);
   --popover-foreground: var(--text);
   --primary: var(--text);
   --primary-foreground: var(--bg);
@@ -65,10 +67,39 @@
   --sidebar-ring: var(--accent);
 }
 
+/* A black band. Same names, inverted values; nests anywhere. */
+.theme-dark {
+  --bg: #000000;
+  --surface-1: #121317;
+  --surface-2: #1b1d22;
+  --surface-3: #25282e;
+  --border: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.34);
+  --text: #ffffff;
+  --text-muted: #b8bcc3;
+  --text-subtle: #8f949c;
+  --accent: #d08a5c;
+  --positive: #4cc08e;
+  --negative: #f0716a;
+  --sev-high: #f0716a;
+  --sev-medium: #e0a24a;
+  --sev-low: #8f949c;
+  --chart-1: #d08a5c;
+  --chart-2: #c7ccd4;
+  --chart-3: #73859f;
+  --chart-4: #c39d78;
+  --chart-5: #5d636c;
+  --chart-6: #ffffff;
+  color-scheme: dark;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
 @theme inline {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-display), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-serif);
 
   --color-bg: var(--bg);
   --color-surface-1: var(--surface-1);
@@ -120,12 +151,16 @@
   --ease-out: var(--ease-out);
   --ease-in-out: var(--ease-in-out);
   --ease-drawer: var(--ease-drawer);
+  --ease-editorial: var(--ease-editorial);
 
-  --radius-sm: 0.375rem;
-  --radius-md: 0.5rem;
-  --radius-lg: var(--radius);
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  /* Square corners everywhere, as on blackstone.com. rounded-full stays round (circle icons, dots). */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
 }
 
 @layer base {
@@ -134,7 +169,7 @@
   }
   html {
     @apply font-sans;
-    color-scheme: dark;
+    color-scheme: light;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -142,12 +177,13 @@
   body {
     background: var(--bg);
     color: var(--text);
-    font-size: 14px;
-    line-height: 1.45;
-    letter-spacing: -0.003em;
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 1.5;
+    letter-spacing: 0.02em;
   }
   ::selection {
-    background: color-mix(in srgb, var(--accent) 25%, transparent);
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
     color: var(--text);
   }
   :focus-visible {
@@ -155,10 +191,80 @@
     outline-offset: 2px;
   }
   mark {
-    background: color-mix(in srgb, var(--accent) 20%, transparent);
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
     color: var(--text);
-    border-radius: 3px;
     padding: 0 2px;
+  }
+}
+
+@layer components {
+  /* Page container: 1264px of content with Blackstone's 88px gutters at 1440. */
+  .bx-container {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-inline: clamp(16px, 6.1vw, 88px);
+  }
+
+  /* Serif display type (Blackstone's Sanomat role): light weight, slight positive tracking. */
+  .display {
+    font-family: var(--font-serif);
+    font-weight: 300;
+    letter-spacing: 0.008em;
+    font-optical-sizing: auto;
+  }
+
+  /* Eyebrow: tracked uppercase label followed by a 64x2 rule. */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 24px;
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .eyebrow::after {
+    content: "";
+    width: 64px;
+    height: 2px;
+    flex-shrink: 0;
+    background: currentColor;
+  }
+  /* Centered variant: the rule sits above the label. */
+  .eyebrow-center {
+    flex-direction: column-reverse;
+    gap: 40px;
+  }
+
+  /* Links underline from the left on hover (background-size 0 -> 100%), 300ms. */
+  .link-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    background-size: 0% 1px;
+    transition: background-size 250ms var(--ease-out);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .link-underline:hover,
+    .group:hover .link-underline {
+      background-size: 100% 1px;
+    }
+  }
+  .link-underline[aria-current="page"] {
+    background-size: 100% 1px;
+  }
+}
+
+/* Editorial marquee: one long serif line drifting left, as in Blackstone's closing band. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
   }
 }
 

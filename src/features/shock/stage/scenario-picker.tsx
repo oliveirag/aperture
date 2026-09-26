@@ -32,14 +32,14 @@ export function ScenarioPicker({
           >
             <span
               className={cn(
-                "flex size-9 shrink-0 items-center justify-center rounded-[10px] transition-colors duration-150",
+                "flex size-9 shrink-0 items-center justify-center transition-colors duration-150",
                 active ? "bg-accent/15 text-accent" : "bg-surface-2 text-text-muted",
               )}
             >
               <Icon aria-hidden className="size-[18px]" />
             </span>
             <span className="min-w-0 flex-1" title={s.description}>
-              <span className="block text-[14px] leading-5 font-semibold text-balance text-text">{s.label}</span>
+              <span className="block text-[14px] leading-5 font-medium text-balance text-text">{s.label}</span>
               <span className="mt-0.5 block text-[12px] leading-4 text-text-muted tabular-nums">{s.shortLabel}</span>
             </span>
           </button>

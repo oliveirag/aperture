@@ -15,16 +15,14 @@ import { LookthroughMap } from "./lookthrough-map";
 
 function HeaderStats() {
   return (
-    <div className="flex gap-8">
+    <div className="flex flex-wrap gap-x-12 gap-y-6">
       <div>
-        <p className="text-[12px] text-text-muted">Portfolio value</p>
-        <p className="mt-0.5 text-[20px] font-semibold tracking-[-0.01em] text-text tabular-nums">
-          {formatUSD(PORTFOLIO_TOTAL)}
-        </p>
+        <p className="text-[14px] font-normal text-text">Portfolio value</p>
+        <p className="display mt-1 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">{formatUSD(PORTFOLIO_TOTAL)}</p>
       </div>
       <div>
-        <p className="text-[12px] text-text-muted">Look-through</p>
-        <p className="mt-0.5 flex items-center gap-2 text-[20px] font-semibold tracking-[-0.01em] text-text tabular-nums">
+        <p className="text-[14px] font-normal text-text">Look-through</p>
+        <p className="display mt-1 flex items-center gap-3 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">
           {POSITIONS_COUNT} positions
           <ArrowRight aria-hidden className="size-4 text-text-muted" />
           {UNDERLYING_COMPANIES} companies

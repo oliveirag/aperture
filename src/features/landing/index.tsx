@@ -1,34 +1,51 @@
-"use client";
-
 import Link from "next/link";
-import { motion } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
+import { NAV_ITEMS } from "@/components/shell/nav-items";
+import { SiteFooter } from "@/components/shell/site-footer";
+import { Closing } from "./closing";
 import { Hero } from "./hero";
+import { Marquee } from "./marquee";
 import { Pillars } from "./pillars";
+import { Scale } from "./scale";
+import { Steps } from "./steps";
 import { TryDemoLink } from "./try-demo-link";
 
+// The front page, built like an editorial homepage: black hero, white "about", black two-up,
+// a marquee, white steps, a black closing band and the footer.
 export function Landing() {
   return (
-    <motion.main
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="mx-auto flex min-h-dvh max-w-[1200px] flex-col px-6 sm:px-8"
-    >
-      <header className="flex h-16 items-center justify-between">
-        <Link href="/" className="rounded-md">
-          <Wordmark />
-        </Link>
-        <TryDemoLink variant="nav" />
-      </header>
-
-      <Hero />
+    <div className="flex min-h-dvh flex-col">
+      <div className="theme-dark">
+        <header className="bx-container flex h-24 items-center justify-between gap-8 lg:h-[132px]">
+          <Link href="/" aria-label="Lookthrough home">
+            <Wordmark />
+          </Link>
+          <nav aria-label="Primary" className="hidden lg:block">
+            <ul className="flex items-center gap-9">
+              {NAV_ITEMS.map(({ href, label }) => (
+                <li key={href}>
+                  <Link href={href} className="link-underline pb-1 text-[17px] font-light text-text">
+                    {label}
+                  </Link>
+                </li>
+              ))}
+              <li className="border-l border-border pl-9">
+                <TryDemoLink variant="nav" />
+              </li>
+            </ul>
+          </nav>
+          <TryDemoLink variant="nav" className="lg:hidden" />
+        </header>
+        <main>
+          <Hero />
+        </main>
+      </div>
+      <Scale />
       <Pillars />
-
-      <footer className="mt-auto flex flex-wrap gap-x-6 gap-y-2 border-t border-border py-8 text-[12px] text-text-subtle">
-        <span>Built at ShellHacks 2026</span>
-        <span>Educational tool, not investment advice.</span>
-      </footer>
-    </motion.main>
+      <Marquee />
+      <Steps />
+      <Closing />
+      <SiteFooter />
+    </div>
   );
 }

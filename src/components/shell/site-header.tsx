@@ -39,20 +39,20 @@ export function SiteHeader() {
         scrolled ? "border-border" : "border-transparent",
       )}
     >
-      <div className="bx-container flex h-20 items-center justify-between gap-8 lg:h-24">
+      <div className="bx-container flex h-20 items-center justify-between gap-6 lg:h-24 2xl:gap-8">
         <Link href="/" aria-label="Lookthrough home" className="shrink-0">
           <Wordmark size="sm" className="lg:hidden" />
           <Wordmark className="hidden lg:inline-flex" />
         </Link>
 
-        <nav aria-label="Primary" className="hidden flex-1 lg:block">
-          <ul className="flex items-center justify-end gap-9">
+        <nav aria-label="Primary" className="hidden flex-1 min-[1400px]:block">
+          <ul className="flex items-center justify-end gap-6 2xl:gap-9">
             {NAV_ITEMS.map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}
                   aria-current={isActive(href) ? "page" : undefined}
-                  className="link-underline pb-1 text-[17px] font-light text-text"
+                  className="link-underline pb-1 text-[17px] font-light whitespace-nowrap text-text"
                 >
                   {label}
                 </Link>
@@ -61,7 +61,7 @@ export function SiteHeader() {
           </ul>
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-8 md:flex lg:border-l lg:border-border lg:pl-8">
+        <div className="hidden shrink-0 items-center gap-3 md:flex lg:gap-5 min-[1400px]:border-l min-[1400px]:border-border min-[1400px]:pl-6 2xl:gap-8 2xl:pl-8">
           <AskButton />
           <PortfolioMenu value={value} />
           <LevelSwitcher />
@@ -69,8 +69,8 @@ export function SiteHeader() {
         </div>
       </div>
 
-      {/* Under 1024px the destinations move to a scrollable row under the masthead. */}
-      <nav aria-label="Primary" className="border-t border-border lg:hidden">
+      {/* Below 1400px (masthead full with Ask, portfolio, level and account) the destinations move to a row underneath. */}
+      <nav aria-label="Primary" className="border-t border-border min-[1400px]:hidden">
         <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
           <PortfolioMenu value={value} align="start" />
           <AskButton className="h-8" />

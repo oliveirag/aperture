@@ -8,34 +8,49 @@ import { Wordmark } from "@/components/shared/lens-mark";
 import { StepIndicator } from "@/features/onboarding/step-indicator";
 import { DropZone, type ImportImage, type Phase } from "./drop-zone";
 import { ExtractedPanel } from "./extracted-panel";
-import { SCAN_MS, extractHoldings, type ExtractedHolding } from "./extract";
+import { HOLDINGS } from "@/data/portfolio";
+import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
+import { SCAN_MS, counts, extractHoldings, type ExtractedHolding, type ExtractResult } from "./extract";
 
 // Reduced motion skips the sweep and lands on the result quickly.
 const REDUCED_SCAN_MS = 600;
 
-type State = { phase: Phase; image: ImportImage | null; holdings: ExtractedHolding[] };
-type Action = { type: "start"; image: ImportImage } | { type: "done"; holdings: ExtractedHolding[] } | { type: "reset" };
+type State = { phase: Phase; image: ImportImage | null; holdings: ExtractedHolding[]; error: string | null };
+type Action = { type: "start"; image: ImportImage } | { type: "done"; result: ExtractResult } | { type: "reset" };
 
-const IDLE: State = { phase: "idle", image: null, holdings: [] };
+// A read of the demo screenshot keeps the demo portfolio, so the curated analysis still applies.
+function isDemoPortfolio(holdings: ExtractedHolding[]) {
+  const rows = holdings.filter(counts);
+  return rows.length === HOLDINGS.length && HOLDINGS.every((h) => rows.some((r) => r.ticker === h.ticker && r.shares === h.shares));
+}
+
+const IDLE: State = { phase: "idle", image: null, holdings: [], error: null };
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "start":
-      return { phase: "scanning", image: action.image, holdings: [] };
+      return { phase: "scanning", image: action.image, holdings: [], error: null };
     case "done":
-      return state.phase === "scanning" ? { ...state, phase: "extracted", holdings: action.holdings } : state;
+      if (state.phase !== "scanning") return state;
+      return action.result.ok
+        ? { ...state, phase: "extracted", holdings: action.result.holdings }
+        : { ...state, phase: "error", error: action.result.error };
     case "reset":
       return IDLE;
   }
 }
 
-// idle -> scanning -> extracted. Scripted: any image, or the sample, reads as the canon portfolio.
+// idle -> scanning -> extracted | error. A dropped image is read by Gemini and priced by Finnhub; the sample replays the demo portfolio.
 export function ImportFlow() {
   const router = useRouter();
   const reduce = useReducedMotion() ?? false;
   const scanMs = reduce ? REDUCED_SCAN_MS : SCAN_MS;
   const [state, dispatch] = useReducer(reducer, IDLE);
   const run = useRef(0);
+  const lastFile = useRef<File | null>(null);
+  const setImported = usePortfolio((s) => s.setImported);
+  const resetToDemo = usePortfolio((s) => s.resetToDemo);
+  useHydratePortfolio();
   const objectUrl = useRef<string | null>(null);
 
   const releaseUrl = useCallback(() => {
@@ -63,6 +78,7 @@ export function ImportFlow() {
 
   function start(input: { file?: File; sample?: boolean }) {
     releaseUrl();
+    lastFile.current = input.file ?? null;
     let image: ImportImage = { kind: "sample" };
     if (input.file) {
       objectUrl.current = URL.createObjectURL(input.file);
@@ -70,9 +86,28 @@ export function ImportFlow() {
     }
     const id = ++run.current;
     dispatch({ type: "start", image });
-    extractHoldings(input, { delayMs: scanMs }).then((holdings) => {
-      if (run.current === id) dispatch({ type: "done", holdings });
+    extractHoldings(input, { delayMs: scanMs }).then((result) => {
+      if (run.current === id) dispatch({ type: "done", result });
     });
+  }
+
+  // The sample is the demo portfolio; a real read becomes this session's portfolio.
+  function confirm() {
+    if (state.image?.kind === "file" && !isDemoPortfolio(state.holdings)) {
+      setImported(
+        state.holdings
+          .filter(counts)
+          .map((h) => ({ ticker: h.ticker, name: h.name, industry: h.industry, shares: h.shares, price: h.price ?? h.value / h.shares })),
+      );
+    } else {
+      resetToDemo();
+    }
+    router.push("/xray");
+  }
+
+  function retry() {
+    if (lastFile.current) start({ file: lastFile.current });
+    else start({ sample: true });
   }
 
   function reset() {
@@ -98,7 +133,7 @@ export function ImportFlow() {
       <section className="pt-2">
         <h1 className="text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] text-text sm:text-[40px]">Import your portfolio</h1>
         <p className="mt-2 max-w-[640px] text-[16px] text-text-muted">
-          Drop a screenshot of your brokerage positions. Gemini reads the tickers and share counts; the image is never stored.
+          Drop a screenshot of your brokerage positions. Gemini reads every position and Finnhub prices it live; the image is never stored.
         </p>
       </section>
 
@@ -113,9 +148,12 @@ export function ImportFlow() {
         <ExtractedPanel
           phase={state.phase}
           holdings={state.holdings}
+          error={state.error}
           scanMs={scanMs}
           reduce={reduce}
-          onContinue={() => router.push("/xray")}
+          onContinue={confirm}
+          onRetry={retry}
+          onSample={() => start({ sample: true })}
           onReset={reset}
         />
       </div>

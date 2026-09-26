@@ -7,7 +7,7 @@ import { SampleBrokerageScreenshot } from "./sample-screenshot";
 import { ScanOverlay, SWEEP_S } from "./scan-overlay";
 
 export type ImportImage = { kind: "file"; url: string; name: string } | { kind: "sample" };
-export type Phase = "idle" | "scanning" | "extracted";
+export type Phase = "idle" | "scanning" | "extracted" | "error";
 
 // Time into a sweep at which motion's easeInOut, cubic-bezier(0.42, 0, 0.58, 1), reaches progress p.
 function sweepTimeAt(p: number) {

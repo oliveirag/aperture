@@ -1,82 +1,76 @@
+import type { SnapHolding, SnapResponse } from "@/app/api/snap/route";
 import { HOLDINGS } from "@/data/portfolio";
+import type { MarketResponse } from "@/lib/finnhub";
 
-// `source` is "live" only when Gemini read the image; canned rows leave it unset.
-export type ExtractedHolding = { ticker: string; name: string; shares: number; value: number; confidence: number; source?: "live" };
+// `source` is "live" when Gemini read the image; the sample leaves it unset.
+// `status` mirrors /api/snap: only "matched" and "unpriced" rows count toward the total.
+export type ExtractedHolding = {
+  ticker: string;
+  name: string;
+  industry: string | null;
+  shares: number;
+  price: number | null;
+  value: number;
+  status: SnapHolding["status"];
+  source?: "live";
+};
 
-// The scripted read takes exactly this long.
+export type ExtractResult = { ok: true; holdings: ExtractedHolding[]; model?: string } | { ok: false; error: string };
+
+// The sample read takes exactly this long; a real read lasts at least this long.
 export const SCAN_MS = 2400;
 
-// Per-holding match confidence, in HOLDINGS order.
-const CONFIDENCE = [0.99, 0.99, 0.98, 0.98, 0.99, 0.97, 0.99];
+// Gemini retries across models server-side; give up a little after the server would.
+const LIVE_TIMEOUT_MS = 55000;
 
-// Below this a row would need review; every canon row clears it.
-export const MATCH_THRESHOLD = 0.9;
+export const counts = (h: ExtractedHolding) => h.status !== "unknown";
 
-// The live read gives up after this and falls back to the canned rows.
-const LIVE_TIMEOUT_MS = 8000;
-
-function canned(): ExtractedHolding[] {
-  return HOLDINGS.map((h, i) => ({
-    ticker: h.ticker,
-    name: h.name,
-    shares: h.shares,
-    value: h.value,
-    confidence: CONFIDENCE[i] ?? 0.99,
-  }));
+// The sample screenshot is the demo portfolio. Its values use live Finnhub prices when they're available.
+async function readSample(): Promise<ExtractResult> {
+  let quotes: MarketResponse["quotes"] = {};
+  try {
+    const res = await fetch(`/api/market?symbols=${HOLDINGS.map((h) => h.ticker).join(",")}&fields=quote`);
+    if (res.ok) quotes = ((await res.json()) as MarketResponse).quotes;
+  } catch {}
+  return {
+    ok: true,
+    holdings: HOLDINGS.map((h) => {
+      const price = quotes[h.ticker]?.price ?? h.price;
+      return { ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price, value: h.shares * price, status: "matched" };
+    }),
+  };
 }
 
-// Posts the image to /api/snap. Resolves to canon-shaped rows, or a reason string on any failure.
-async function readLive(file: File): Promise<ExtractedHolding[] | string> {
+// Posts the image to /api/snap: Gemini reads it, Finnhub prices it.
+async function readLive(file: File): Promise<ExtractResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LIVE_TIMEOUT_MS);
   try {
     const body = new FormData();
     body.append("file", file);
     const res = await fetch("/api/snap", { method: "POST", body, signal: controller.signal });
-    if (!res.ok) return `http ${res.status}`;
-    const data: unknown = await res.json();
-    const raw = (data as { holdings?: unknown })?.holdings;
-    if (!Array.isArray(raw)) return "bad response";
-
-    const shares = new Map<string, number>();
-    for (const h of raw) {
-      if (typeof h?.ticker !== "string" || typeof h?.shares !== "number") return "bad row";
-      if (!(h.shares > 0) || !Number.isFinite(h.shares)) return "bad shares";
-      shares.set(h.ticker.trim().toUpperCase(), h.shares);
+    const data = (await res.json().catch(() => ({}))) as Partial<SnapResponse> & { error?: string };
+    if (!res.ok || !Array.isArray(data.holdings)) {
+      return { ok: false, error: data.error ?? "Couldn't read the screenshot. Try again in a moment." };
     }
-    if (raw.length !== HOLDINGS.length || shares.size !== HOLDINGS.length) return "ticker count";
-    if (!HOLDINGS.every((h) => shares.has(h.ticker))) return "ticker mismatch";
-
-    // Names and prices come from canon; only share counts come from the image.
-    return HOLDINGS.map((h, i) => {
-      const n = shares.get(h.ticker)!;
-      return { ticker: h.ticker, name: h.name, shares: n, value: n * h.price, confidence: CONFIDENCE[i] ?? 0.99, source: "live" };
-    });
-  } catch (err) {
-    return controller.signal.aborted ? "timeout" : err instanceof Error ? err.name : "error";
+    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source: "live" as const })) };
+  } catch {
+    return {
+      ok: false,
+      error: controller.signal.aborted ? "Reading the screenshot took too long. Try again in a moment." : "Couldn't reach the server.",
+    };
   } finally {
     clearTimeout(timer);
   }
 }
 
-// The only place holdings are produced. Scripted by default: any image (or the sample) reads as the canon portfolio.
-// With NEXT_PUBLIC_LIVE_SNAP=1 a dropped file goes to Gemini; any failure falls back to the canned rows.
-// Either way the scan lasts at least delayMs.
+// The only place holdings are produced. A dropped file always goes to Gemini; the sample button replays the demo portfolio.
+// Either way the scan lasts at least delayMs so the animation can finish.
 export async function extractHoldings(
   input: { file?: File; sample?: boolean },
   { delayMs = SCAN_MS }: { delayMs?: number } = {},
-): Promise<ExtractedHolding[]> {
+): Promise<ExtractResult> {
   const wait = new Promise((resolve) => setTimeout(resolve, delayMs));
-  if (process.env.NEXT_PUBLIC_LIVE_SNAP !== "1" || !input.file) {
-    await wait;
-    return canned();
-  }
-
-  const [live] = await Promise.all([readLive(input.file), wait]);
-  if (typeof live === "string") {
-    console.info(`[snap] fallback: ${live}`);
-    return canned();
-  }
-  console.info("[snap] live");
-  return live;
+  const [result] = await Promise.all([input.file ? readLive(input.file) : readSample(), wait]);
+  return result;
 }

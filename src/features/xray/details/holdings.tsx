@@ -9,25 +9,25 @@ import { DetailCard } from "./card";
 
 const TH = "h-8 px-2 text-[11px] font-medium tracking-[0.06em] text-text-muted uppercase";
 
-function SourceStatus({ live }: { live: boolean }) {
+function SourceStatus({ live, imported }: { live: boolean; imported: boolean }) {
   return (
     <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 text-[12px] font-medium whitespace-nowrap text-text-muted">
       <span aria-hidden className={cn("size-1.5 rounded-full", live ? "bg-positive" : "bg-text-subtle")} />
-      {live ? "Live · Finnhub" : `Snapshot · ${AS_OF}`}
+      {live ? "Live · Finnhub" : imported ? "Prices at import" : `Snapshot · ${AS_OF}`}
     </span>
   );
 }
 
 // What the user bought, repriced with live quotes. Industry comes from the Finnhub company profile when there is one.
 export function Holdings() {
-  const { live, holdings, total } = useLiveHoldings();
+  const { live, imported, holdings, total } = useLiveHoldings();
   const profiles = useMarket((s) => s.profiles);
 
   return (
     <DetailCard
       title="Holdings"
-      headline={`${holdings.length} positions you bought`}
-      action={<SourceStatus live={live} />}
+      headline={`${holdings.length} positions ${imported ? "from your screenshot" : "you bought"}`}
+      action={<SourceStatus live={live} imported={imported} />}
       className="lg:col-span-12"
     >
       <div className="-mx-2 mt-4 overflow-x-auto">
@@ -58,8 +58,8 @@ export function Holdings() {
                       <span className="truncate text-text-muted">{profile?.name ?? h.name}</span>
                     </div>
                   </td>
-                  <td className="px-2 text-text-muted">{profile?.industry || h.category}</td>
-                  <td className="px-2 text-right text-text-muted tabular-nums">{h.shares}</td>
+                  <td className="px-2 text-text-muted">{profile?.industry || h.category || "–"}</td>
+                  <td className="px-2 text-right text-text-muted tabular-nums">{h.shares.toLocaleString("en-US", { maximumFractionDigits: 4 })}</td>
                   <td className="px-2 text-right text-text tabular-nums">{formatUSD(h.price, 2)}</td>
                   <td
                     className={cn(
@@ -70,7 +70,7 @@ export function Holdings() {
                     {h.live ? formatSignedPct(h.changePct, 2) : "–"}
                   </td>
                   <td className="px-2 text-right font-medium text-text tabular-nums">{formatUSD(h.value)}</td>
-                  <td className="px-2 text-right text-text-muted tabular-nums">{formatPct(h.value / total)}</td>
+                  <td className="px-2 text-right text-text-muted tabular-nums">{total ? formatPct(h.value / total) : "–"}</td>
                 </tr>
               );
             })}

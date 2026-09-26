@@ -1,22 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Tabs } from "@base-ui/react/tabs";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipContentProps } from "recharts";
 import type { NameType, ValueType } from "recharts/types/component/DefaultTooltipContent";
-import { PERFORMANCE, returnOver } from "@/data/performance";
 import { formatSignedPct, formatUSD } from "@/lib/format";
+import { RANGES, seriesReturn, type RangeId } from "@/lib/performance";
+import type { PerformancePoint } from "@/types/demo";
 import { DetailCard } from "./card";
-
-const RANGES = [
-  { id: "1M", weeks: 4 },
-  { id: "6M", weeks: 26 },
-  { id: "1Y", weeks: 52 },
-] as const;
-type RangeId = (typeof RANGES)[number]["id"];
 
 const fmt = (iso: string, opts: Intl.DateTimeFormatOptions) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", ...opts });
+
+// Headroom above and below the line: about 1% of the range's top value.
+function pad(points: PerformancePoint[]) {
+  return Math.max(1, Math.max(...points.map((p) => p.value)) * 0.01);
+}
+
+function axisLabel(v: number) {
+  return v >= 10000 ? `$${Math.round(v / 1000)}k` : v >= 1000 ? `$${(v / 1000).toFixed(1)}k` : `$${Math.round(v)}`;
+}
 
 // 4 evenly spaced ticks, first and last included.
 function ticksFor(dates: string[]) {
@@ -35,12 +38,13 @@ function ChartTooltip({ active, payload }: TooltipContentProps<ValueType, NameTy
   );
 }
 
-export function PerformanceChart() {
+// Weekly portfolio value with a 1M / 6M / 1Y switch. `children` renders under the chart (per-holding returns, notes).
+export function PerformanceChart({ series, children }: { series: PerformancePoint[]; children?: ReactNode }) {
   const [range, setRange] = useState<RangeId>("1Y");
   const weeks = RANGES.find((r) => r.id === range)!.weeks;
-  const data = PERFORMANCE.slice(-(weeks + 1));
-  const ret = returnOver(weeks);
-  const current = PERFORMANCE[PERFORMANCE.length - 1].value;
+  const data = series.slice(-(weeks + 1));
+  const ret = seriesReturn(series, weeks) ?? 0;
+  const current = series[series.length - 1].value;
   const tickOpts: Intl.DateTimeFormatOptions = weeks === 4 ? { month: "short", day: "numeric" } : { month: "short" };
 
   return (
@@ -98,9 +102,9 @@ export function PerformanceChart() {
               padding={{ left: 8, right: 8 }}
             />
             <YAxis
-              domain={["dataMin - 1500", "dataMax + 1500"]}
+              domain={[(min: number) => min - pad(data), (max: number) => max + pad(data)]}
               tickCount={4}
-              tickFormatter={(v: number) => `$${Math.round(v / 1000)}k`}
+              tickFormatter={axisLabel}
               axisLine={false}
               tickLine={false}
               tick={{ fill: "var(--text-subtle)", fontSize: 11 }}
@@ -119,6 +123,7 @@ export function PerformanceChart() {
           </AreaChart>
         </ResponsiveContainer>
       </div>
+      {children}
     </DetailCard>
   );
 }

@@ -9,6 +9,7 @@ import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
+import { AccountButton } from "./account-button";
 import { PortfolioMenu } from "./portfolio-menu";
 import { usePortfolioValue } from "./use-portfolio-value";
 
@@ -64,6 +65,7 @@ export function SiteHeader() {
           <AskButton />
           <PortfolioMenu value={value} />
           <LevelSwitcher />
+          <AccountButton />
         </div>
       </div>
 
@@ -76,6 +78,7 @@ export function SiteHeader() {
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />
           </LayoutGroup>
+          <AccountButton />
         </div>
         <ul className="bx-container flex gap-7 overflow-x-auto py-3">
           {NAV_ITEMS.map(({ href, label }) => (

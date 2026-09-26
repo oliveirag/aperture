@@ -8,6 +8,7 @@ import { Marquee } from "./marquee";
 import { Pillars } from "./pillars";
 import { Scale } from "./scale";
 import { Steps } from "./steps";
+import { AccountButton } from "@/components/shell/account-button";
 import { TryDemoLink } from "./try-demo-link";
 
 // The front page, built like an editorial homepage: black hero, white "about", black two-up,
@@ -31,6 +32,9 @@ export function Landing() {
               ))}
               <li className="border-l border-border pl-9">
                 <TryDemoLink variant="nav" />
+              </li>
+              <li>
+                <AccountButton />
               </li>
             </ul>
           </nav>

@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import { SourceDrawer } from "@/components/shared/source-drawer";
+import { AccountBoot } from "@/components/shell/account-boot";
 import { DemoKeys } from "@/components/shell/demo-keys";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
           <SourceDrawer />
           <DemoKeys />
+          <AccountBoot />
         </TooltipProvider>
       </body>
     </html>

@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+import { readNdjson } from "@/lib/ndjson";
 import type { RadarEvent, RadarFiling } from "@/lib/radar/types";
 
 export type LiveEntry =
@@ -28,33 +29,14 @@ async function readOne(ticker: string, fresh: boolean, set: (ticker: string, e: 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tickers: [ticker], fresh }),
     });
-    if (!res.ok || !res.body) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error ?? `Filing Radar failed (HTTP ${res.status})`);
-    }
-    const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-    let buffer = "";
-    let done = false;
     let answered = false;
-    while (!done) {
-      const chunk = await reader.read();
-      done = chunk.done;
-      buffer += chunk.value ?? "";
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        const e = JSON.parse(line) as RadarEvent;
-        if (e.type === "progress") {
-          set(e.ticker, loading(e.message));
-          continue;
-        }
-        answered = true;
-        if (e.type === "result") set(e.ticker, { status: "ready", filing: e.filing });
-        else if (e.type === "unsupported") set(e.ticker, { status: "unsupported", reason: e.reason });
-        else set(e.ticker, { status: "error", error: e.error });
-      }
-    }
+    await readNdjson<RadarEvent>(res, (e) => {
+      if (e.type === "progress") return set(e.ticker, loading(e.message));
+      answered = true;
+      if (e.type === "result") set(e.ticker, { status: "ready", filing: e.filing });
+      else if (e.type === "unsupported") set(e.ticker, { status: "unsupported", reason: e.reason });
+      else set(e.ticker, { status: "error", error: e.error });
+    });
     if (!answered) throw new Error("The connection closed before the comparison finished.");
   } catch (err) {
     set(ticker, { status: "error", error: err instanceof Error ? err.message : "Filing Radar failed" });

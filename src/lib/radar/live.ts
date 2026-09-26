@@ -2,7 +2,7 @@
 // the risk sections, asks Gemini what changed, and keeps only changes whose quotes are verbatim in the filings.
 import { forget, memo, peek } from "@/lib/cache";
 import { generateJson } from "@/lib/gemini";
-import { companyFor, extractSection, filingPair, filingText, listFilings, type Filing } from "@/lib/sec";
+import { companyFor, displayName, extractSection, filingPair, filingText, listFilings, type Filing } from "@/lib/sec";
 import type { RadarFiling } from "./types";
 import { parseProposed, verifyChanges } from "./verify";
 
@@ -106,7 +106,7 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
   if (opts.fresh) forget(`sec:filings:${company.cik}`);
   const pair = filingPair(await listFilings(company.cik));
   if (!pair) return { status: "unsupported", reason: "No two recent 10-K or 10-Q filings to compare." };
-  const name = prettyCompany(company.name);
+  const name = displayName(company.name);
   const filing = await memo(`radar:${ticker}:${pair.latest.accession}:${pair.prior.accession}`, WEEK, () =>
     diff(ticker, name, pair.latest, pair.prior, onProgress),
   );
@@ -121,14 +121,4 @@ export async function cachedRadarFor(ticker: string): Promise<RadarFiling | null
   const pair = filings ? filingPair(filings) : null;
   if (!pair) return null;
   return peek<RadarFiling>(`radar:${ticker}:${pair.latest.accession}:${pair.prior.accession}`) ?? null;
-}
-
-// "NVIDIA CORP" -> "Nvidia Corp"; mixed-case names are left alone.
-function prettyCompany(name: string) {
-  if (name !== name.toUpperCase()) return name;
-  return name
-    .toLowerCase()
-    .split(/\s+/)
-    .map((w) => (w.length <= 3 && /[&.]/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ");
 }

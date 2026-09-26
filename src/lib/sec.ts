@@ -62,6 +62,16 @@ function tickerMap() {
   });
 }
 
+// "ADVANCED MICRO DEVICES INC" -> "Advanced Micro Devices Inc"; mixed-case names are left alone.
+export function displayName(name: string) {
+  if (name !== name.toUpperCase()) return name;
+  return name
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => (w.length <= 3 && /[&.]/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+}
+
 export async function companyFor(ticker: string): Promise<Company | null> {
   const map = await tickerMap();
   const t = ticker.toUpperCase();
@@ -215,10 +225,111 @@ export function extractSection(text: string, form: FilingForm): Section {
   return { name: "Full filing", text: text.slice(0, MAX_SECTION * 2), found: false };
 }
 
+const BUSINESS_START = heading(`1${SEP}business`);
+const BUSINESS_END = heading(`1a${SEP}risk\\s+factors`);
+
+// Item 1. Business of a 10-K, or null when the heading isn't found.
+export function extractBusiness(text: string): string | null {
+  const span = longestSpan(text, BUSINESS_START, BUSINESS_END);
+  return span && span.end - span.start >= MIN_SECTION ? text.slice(span.start, span.end).trim() : null;
+}
+
 // Filing text, cached by accession: filings never change once published.
 export function filingText(filing: Filing): Promise<string> {
   return memo(`sec:text:${filing.accession}`, 7 * DAY, async () => {
     const res = await secFetch(filing.url);
     return htmlToText(await res.text());
   });
+}
+
+type XbrlPoint = { val: number; frame?: string; form: string; accn: string; start?: string; end: string; fp?: string };
+type XbrlConcept = { units?: { USD?: XbrlPoint[] } };
+
+export type Quarter = { period: string; value: number; end: string; accn: string; form: string };
+export interface Fundamentals {
+  // Newest last, keyed by period end. The fourth fiscal quarter is derived from the annual figure.
+  revenue: Quarter[];
+  netIncome: Quarter[];
+  // Fiscal years, newest last.
+  operatingCashFlow: Quarter[];
+  debt: Quarter | null;
+}
+
+const byFrame = (a: Quarter, b: Quarter) => a.end.localeCompare(b.end);
+
+function concept(facts: Record<string, XbrlConcept>, names: string[]) {
+  // Companies switch tags over the years; take whichever tag has the newest data.
+  let best: XbrlPoint[] = [];
+  let bestEnd = "";
+  for (const n of names) {
+    const pts = facts[n]?.units?.USD ?? [];
+    const end = pts.reduce((m, p) => (p.end > m ? p.end : m), "");
+    if (end > bestEnd) {
+      best = pts;
+      bestEnd = end;
+    }
+  }
+  return best;
+}
+
+const toQuarter = (p: XbrlPoint): Quarter => ({ period: p.frame!, value: p.val, end: p.end, accn: p.accn, form: p.form });
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const days = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / DAY_MS;
+
+// Last `n` quarters of a flow item, newest last. Companies rarely tag the fourth fiscal quarter on its own, so it is
+// derived as the fiscal year minus the three quarters inside it (works for any fiscal calendar).
+function quarters(points: XbrlPoint[], n: number): Quarter[] {
+  const q = new Map<string, Quarter>();
+  const years: XbrlPoint[] = [];
+  for (const p of points) {
+    if (!p.frame || !p.start) continue;
+    const span = days(p.start, p.end);
+    if (span > 80 && span < 100) q.set(p.end, toQuarter(p));
+    else if (span > 350 && span < 380) years.push(p);
+  }
+  for (const fy of years) {
+    if (q.has(fy.end)) continue;
+    const inside = [...q.values()].filter((x) => x.end > fy.start! && x.end < fy.end);
+    if (inside.length !== 3) continue;
+    q.set(fy.end, { ...toQuarter(fy), value: fy.val - inside.reduce((s, x) => s + x.value, 0) });
+  }
+  return [...q.values()].sort(byFrame).slice(-n);
+}
+
+function annual(points: XbrlPoint[], n: number): Quarter[] {
+  return points.filter((p) => p.frame && /^CY\d{4}$/.test(p.frame)).map(toQuarter).sort(byFrame).slice(-n);
+}
+
+// Latest balance-sheet value, summing current and noncurrent parts on the same date when both are tagged.
+// The tag set with the newest date wins; anything older than 18 months is too stale to show.
+function latestInstant(facts: Record<string, XbrlConcept>, groups: string[][]): Quarter | null {
+  let best: Quarter | null = null;
+  for (const names of groups) {
+    const series = names.map((n) => (facts[n]?.units?.USD ?? []).filter((p) => p.frame?.endsWith("I")));
+    const end = series[0].reduce((m, p) => (p.end > m ? p.end : m), "");
+    const at = series.map((s) => s.find((p) => p.end === end));
+    if (!end || !at[0] || (best && best.end >= end)) continue;
+    best = { period: at[0].frame!, value: at.reduce((s, p) => s + (p?.val ?? 0), 0), end, accn: at[0].accn, form: at[0].form };
+  }
+  return best && days(best.end, new Date().toISOString()) < 548 ? best : null;
+}
+
+// XBRL fundamentals from SEC companyfacts, cached a day.
+export function fundamentals(cik: string): Promise<Fundamentals | null> {
+  return memo(`sec:facts:${cik}`, DAY, async () => {
+    const res = await secFetch(`https://data.sec.gov/api/xbrl/companyfacts/CIK${cik}.json`);
+    const facts = ((await res.json()) as { facts?: { "us-gaap"?: Record<string, XbrlConcept> } }).facts?.["us-gaap"];
+    if (!facts) return null;
+    return {
+      revenue: quarters(concept(facts, ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "RevenuesNetOfInterestExpense", "SalesRevenueNet", "RevenueFromContractWithCustomerIncludingAssessedTax"]), 8),
+      netIncome: quarters(concept(facts, ["NetIncomeLoss", "ProfitLoss"]), 8),
+      operatingCashFlow: annual(concept(facts, ["NetCashProvidedByUsedInOperatingActivities"]), 2),
+      debt: latestInstant(facts, [["LongTermDebtNoncurrent", "LongTermDebtCurrent"], ["LongTermDebt"], ["LongTermDebtAndCapitalLeaseObligations"], ["DebtInstrumentCarryingAmount"]]),
+    };
+  });
+}
+
+export function filingIndexUrl(cik: string, accession: string) {
+  return `https://www.sec.gov/Archives/edgar/data/${Number(cik)}/${accession.replace(/-/g, "")}/${accession}-index.htm`;
 }

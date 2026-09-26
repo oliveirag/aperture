@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
-import { ASSUMPTIONS, BEAR_STATEMENT, BULL_STATEMENT, FACT_PACK_STEPS } from "@/data/ic-room";
+import type { IcRunData } from "@/lib/ic/types";
+import { DEMO_RUN } from "./run-data";
 
 // Scripted timeline, in ms from Run. Everything on the stage is derived from the elapsed time.
 export const TIMELINE = {
@@ -23,7 +24,7 @@ export const TIMELINE = {
 const FRAME_MS = 16;
 
 // Typewriter speed: about 45 characters per 100ms.
-const CHARS_PER_MS = 0.45;
+export const CHARS_PER_MS = 0.45;
 
 export type Phase = "facts" | "assumptions" | "evidence" | "debate" | "memo";
 export const PHASES: { id: Phase; label: string; at: number }[] = [
@@ -36,32 +37,42 @@ export const PHASES: { id: Phase; label: string; at: number }[] = [
 
 export type RunStatus = "idle" | "running" | "done";
 
-function typed(text: string, t: number, start: number) {
+export function typed(text: string, t: number, start: number) {
   if (t < start) return 0;
   return Math.min(text.length, Math.floor((t - start) * CHARS_PER_MS));
 }
 
-// Pure view of the stage at time t.
-export function frameAt(t: number) {
+// Pure view of the scripted stage at time t.
+export function frameAt(t: number, data: IcRunData = DEMO_RUN) {
   const { factStep, assumptions, assumptionGap, evidence, evidenceGap, againstOffset } = TIMELINE;
   return {
     phase: [...PHASES].reverse().find((p) => t >= p.at)?.id ?? "facts",
     // Steps fully done; the next one (if any) is in progress.
-    factsDone: Math.min(FACT_PACK_STEPS.length, Math.floor(t / factStep)),
-    assumptionsShown: t < assumptions ? 0 : Math.min(ASSUMPTIONS.length, Math.floor((t - assumptions) / assumptionGap) + 1),
-    evidence: ASSUMPTIONS.map((_, i) => ({
+    factsDone: Math.min(data.factSteps.length, Math.floor(t / factStep)),
+    assumptionsShown: t < assumptions ? 0 : Math.min(data.assumptions.length, Math.floor((t - assumptions) / assumptionGap) + 1),
+    evidence: data.assumptions.map((_, i) => ({
       for: t >= evidence + i * evidenceGap,
       against: t >= evidence + i * evidenceGap + againstOffset,
     })),
     debate: t >= TIMELINE.debate,
-    bullChars: typed(BULL_STATEMENT, t, TIMELINE.bullTypes),
+    bullChars: typed(data.bullStatement, t, TIMELINE.bullTypes),
     bearEntered: t >= TIMELINE.bearEnters,
-    bearChars: typed(BEAR_STATEMENT, t, TIMELINE.bearTypes),
+    bearChars: typed(data.bearStatement, t, TIMELINE.bearTypes),
     memo: t >= TIMELINE.memo,
   };
 }
 
-export type Frame = ReturnType<typeof frameAt>;
+export type Frame = {
+  phase: Phase;
+  factsDone: number;
+  assumptionsShown: number;
+  evidence: { for: boolean; against: boolean }[];
+  debate: boolean;
+  bullChars: number;
+  bearEntered: boolean;
+  bearChars: number;
+  memo: boolean;
+};
 
 // One setTimeout chain (~60fps) drives the run; unlike requestAnimationFrame it still advances in a
 // background tab. Cancellable; skip() jumps to the end state.

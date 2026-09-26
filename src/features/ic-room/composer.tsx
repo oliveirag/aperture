@@ -1,9 +1,9 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import { ArrowRight, Info, Loader2, RotateCcw } from "lucide-react";
 import { TickerMark } from "@/components/shared/ticker-mark";
-import { IC_AMOUNT, IC_THESIS, IC_TICKER } from "@/data/ic-room";
+import { IC_THESIS, IC_TICKER } from "@/data/ic-room";
 import { cn } from "@/lib/utils";
 import { formatUSD } from "./format";
 import type { RunStatus } from "./use-ic-run";
@@ -12,66 +12,76 @@ const FIELD =
   "rounded-xl border border-border-strong bg-surface-2 transition-[border-color] duration-150 ease-out focus-within:border-accent/60";
 const LABEL = "mb-2 block text-[12px] font-medium text-text-subtle";
 
-// Names a query may match and still mean AMD.
-function isAmd(query: string) {
-  const q = query.trim().toUpperCase();
-  return q === "" || "AMD".startsWith(q) || "ADVANCED MICRO DEVICES".startsWith(q);
+export const TICKER_PATTERN = /^[A-Z][A-Z.]{0,5}$/;
+export const MIN_AMOUNT = 100;
+export const MAX_AMOUNT = 10_000_000;
+
+export type IdeaForm = { ticker: string; thesis: string; amount: number };
+
+export function formProblem(form: IdeaForm): string | null {
+  if (!TICKER_PATTERN.test(form.ticker)) return "Enter a US ticker, like AMD or MSFT.";
+  if (!form.thesis.trim()) return "Write the thesis the committee should test.";
+  if (!(form.amount >= MIN_AMOUNT && form.amount <= MAX_AMOUNT)) return `Pick an amount between ${formatUSD(MIN_AMOUNT)} and ${formatUSD(MAX_AMOUNT)}.`;
+  return null;
 }
 
 export function Composer({
+  form,
+  onChange,
+  note,
   status,
   elapsed,
   onRun,
 }: {
+  form: IdeaForm;
+  onChange: (form: IdeaForm) => void;
+  // How the ticker already reaches the portfolio, once known.
+  note: string;
   status: RunStatus;
   elapsed: number;
   onRun: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [thesis, setThesis] = useState(IC_THESIS);
   const tickerId = useId();
   const amountId = useId();
   const thesisId = useId();
   const hintId = useId();
-  const unsupported = !isAmd(query);
   const running = status === "running";
+  const problem = formProblem(form);
+  const valid = TICKER_PATTERN.test(form.ticker);
 
   return (
-    <div className="flex flex-col gap-5 bg-surface-1 p-5">
+    <form
+      className="flex flex-col gap-5 bg-surface-1 p-5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (!problem && !running) onRun();
+      }}
+    >
       <div>
         <label htmlFor={tickerId} className={LABEL}>
           Ticker
         </label>
-        <div className={cn(FIELD, "flex items-center gap-1.5 p-1.5 pr-2")}>
-          <span className="flex min-w-0 items-center gap-2 rounded-lg bg-surface-3 py-1 pr-2.5 pl-1">
-            <TickerMark ticker={IC_TICKER.ticker} color={IC_TICKER.color} size={24} />
-            <span className="truncate text-[13px] font-medium text-text">
-              {IC_TICKER.ticker} · {IC_TICKER.name}
-            </span>
-          </span>
+        <div className={cn(FIELD, "flex items-center gap-2 p-1.5 pr-2")}>
+          {valid ? <TickerMark ticker={form.ticker} color={form.ticker === IC_TICKER.ticker ? IC_TICKER.color : undefined} size={24} /> : null}
           <input
             id={tickerId}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Escape" && setQuery("")}
-            placeholder="Ticker"
+            value={form.ticker}
+            onChange={(e) => {
+              const ticker = e.target.value.toUpperCase().replace(/[^A-Z.]/g, "").slice(0, 6);
+              // The preset thesis is about AMD; don't let it ride along to another company.
+              const thesis = ticker !== IC_TICKER.ticker && form.thesis === IC_THESIS ? "" : form.thesis;
+              onChange({ ...form, ticker, thesis });
+            }}
+            placeholder="Ticker, e.g. AMD"
             autoComplete="off"
             spellCheck={false}
             aria-describedby={hintId}
-            aria-invalid={unsupported || undefined}
-            size={1}
-            className="h-7 min-w-10 flex-1 bg-transparent text-[14px] text-text uppercase outline-none placeholder:text-text-subtle placeholder:normal-case focus-visible:outline-none"
+            aria-invalid={(form.ticker !== "" && !valid) || undefined}
+            className="h-7 min-w-10 flex-1 bg-transparent px-1 text-[14px] font-medium text-text uppercase outline-none placeholder:font-normal placeholder:text-text-subtle placeholder:normal-case focus-visible:outline-none"
           />
         </div>
-        <p id={hintId} aria-live="polite" className="mt-2 text-[12px] leading-5 text-text-muted">
-          {unsupported ? (
-            <span className="inline-flex items-start gap-1.5 text-sev-medium">
-              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              This demo build covers AMD. Try it with AMD.
-            </span>
-          ) : (
-            <>Not owned directly · {IC_TICKER.lookthroughNote}</>
-          )}
+        <p id={hintId} aria-live="polite" className="mt-2 min-h-5 text-[12px] leading-5 text-text-muted">
+          {note}
         </p>
       </div>
 
@@ -79,12 +89,18 @@ export function Composer({
         <label htmlFor={amountId} className={LABEL}>
           Amount
         </label>
-        <input
-          id={amountId}
-          readOnly
-          value={formatUSD(IC_AMOUNT)}
-          className={cn(FIELD, "h-10 w-full px-3 text-[14px] text-text tabular-nums outline-none focus-visible:outline-none")}
-        />
+        <div className={cn(FIELD, "flex h-10 items-center px-3")}>
+          <span aria-hidden className="text-[14px] text-text-subtle">
+            $
+          </span>
+          <input
+            id={amountId}
+            inputMode="numeric"
+            value={form.amount ? form.amount.toLocaleString("en-US") : ""}
+            onChange={(e) => onChange({ ...form, amount: Number(e.target.value.replace(/\D/g, "").slice(0, 8)) })}
+            className="h-full w-full bg-transparent pl-1 text-[14px] text-text tabular-nums outline-none focus-visible:outline-none"
+          />
+        </div>
       </div>
 
       <div>
@@ -92,31 +108,33 @@ export function Composer({
           <label htmlFor={thesisId} className="text-[12px] font-medium text-text-subtle">
             Thesis
           </label>
-          <button
-            type="button"
-            onClick={() => setThesis(IC_THESIS)}
-            className="inline-flex h-6 items-center gap-1 border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
-          >
-            AMD share-gain thesis
-          </button>
+          {form.ticker === IC_TICKER.ticker ? (
+            <button
+              type="button"
+              onClick={() => onChange({ ...form, thesis: IC_THESIS })}
+              className="inline-flex h-6 items-center gap-1 border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+            >
+              AMD share-gain thesis
+            </button>
+          ) : null}
         </div>
         <textarea
           id={thesisId}
-          value={thesis}
-          onChange={(e) => setThesis(e.target.value)}
+          value={form.thesis}
+          onChange={(e) => onChange({ ...form, thesis: e.target.value.slice(0, 600) })}
           rows={4}
+          placeholder="What do you believe will happen, and over what time?"
           className={cn(
             FIELD,
-            "block w-full resize-none px-3 py-2.5 text-[14px] leading-[22px] text-text outline-none focus-visible:outline-none",
+            "block w-full resize-none px-3 py-2.5 text-[14px] leading-[22px] text-text outline-none placeholder:text-text-subtle focus-visible:outline-none",
           )}
         />
       </div>
 
       <div className="flex flex-col gap-2.5">
         <button
-          type="button"
-          onClick={onRun}
-          disabled={running}
+          type="submit"
+          disabled={running || problem !== null}
           className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-text text-[14px] font-medium text-bg transition-[transform,opacity] duration-150 ease-out hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
         >
           {running ? (
@@ -136,11 +154,19 @@ export function Composer({
             </>
           )}
         </button>
-        <p aria-live="polite" className="h-5 text-center text-[12px] text-text-subtle tabular-nums">
-          {status === "running" ? `Running · ${Math.floor(elapsed / 1000)}s` : null}
-          {status === "done" ? "Completed · 10s" : null}
+        <p aria-live="polite" className="min-h-5 text-center text-[12px] text-text-subtle tabular-nums">
+          {problem && form.ticker ? (
+            <span className="inline-flex items-start gap-1.5 text-sev-medium">
+              <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {problem}
+            </span>
+          ) : status === "running" ? (
+            `Running · ${Math.floor(elapsed / 1000)}s`
+          ) : status === "done" ? (
+            `Completed · ${Math.max(1, Math.round(elapsed / 1000))}s`
+          ) : null}
         </p>
       </div>
-    </div>
+    </form>
   );
 }

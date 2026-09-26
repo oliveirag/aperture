@@ -1,8 +1,8 @@
-# Unfold durable imports
+# Durable portfolio imports
 
 ## Setup
 
-1. Create a Supabase project. Apply `supabase/migrations/202609260001_imports.sql` in its SQL editor (or through the Supabase CLI).
+1. Create a Supabase project. Apply the existing accounts migration first, then apply `supabase/migrations/20260926000100_imports.sql` in its SQL editor (or through the Supabase CLI).
 2. Copy the Supabase URL and anon/publishable key into the `NEXT_PUBLIC_SUPABASE_*` variables in `.env.example`. Set `SUPABASE_SERVICE_ROLE_KEY` on the server only. Never prefix this secret with `NEXT_PUBLIC_`.
 3. Set Finnhub and Alpha Vantage API keys and a randomly generated `IMPORT_WORKER_SECRET`. Deploy the app to Vercel with the same environment variables.
 4. Enable Supabase email authentication. In the email sign-in template, include `{{ .Token }}` so users can enter the email OTP on the import page. Configure SMTP for any use beyond Supabase's built-in email limits.
@@ -49,4 +49,12 @@ Provider quotas are configured conservatively at 55 Finnhub calls per rolling mi
 
 ## Verification before deployment
 
-Run typecheck, lint, import checks and existing look-through checks. On a real test project, verify authentication/RLS with two different users, 120+ rows, identical simultaneous submissions, worker interruption, forced quota exhaustion, logout during review, and snapshot history after refresh. Configure the scheduler and verify its HTTP results before relying on unattended work.
+Run typecheck, lint, import checks, snapshot selection checks (`npx --yes --package=tsx tsx scripts/check-import-selection.ts`), and existing look-through checks. On a real test project, verify authentication/RLS with two different users, 120+ rows, identical simultaneous submissions, worker interruption, forced quota exhaustion, logout during review, and snapshot history after refresh. Configure the scheduler and verify its HTTP results before relying on unattended work.
+
+## Integration
+
+The nine conflict files remain identical to main. /import mounts the durable workspace; /api/imports/screenshot handles review drafts. The legacy screenshot API and import component remain unchanged. The workspace reuses the existing account session. Snapshot selection uses a separate store and clears on a different portfolio selection.
+
+Apply the accounts migration before the import migration. Durable identities use import_portfolios, leaving existing portfolios and holdings untouched. Set IMPORT_WORKER_SECRET in Vercel manually; .env.example remains unchanged. Run import checks with `npx --yes --package=tsx tsx scripts/check-imports.ts`.
+
+Legacy Finnhub cache misses reserve two slots to cover the existing client's possible retry. Import quote requests reserve one slot per attempt. Both paths share the same database quota and provider cache; other applications must not share the API key.

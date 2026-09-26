@@ -8,8 +8,8 @@ import { AI_LINKED_TICKERS, AMD_LOOKTHROUGH, EXPOSURES, SECTORS, SEMIS_WEIGHT, e
 
 export type IcLevel = "beginner" | "intermediate" | "advanced";
 
-// A fact id, or "FIT" for the portfolio-fit table computed from the X-Ray.
-export type IcRef = "F1" | "F2" | "F3" | "F4" | "F5" | "FIT";
+// A fact id ("F1".."Fn"), or "FIT" for the portfolio-fit table computed from the X-Ray.
+export type IcRef = string;
 
 export type AssumptionStatus = "supported" | "contested" | "unresolved";
 

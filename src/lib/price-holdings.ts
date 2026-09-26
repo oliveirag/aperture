@@ -1,9 +1,10 @@
 // Server-only: prices raw positions with Finnhub. Shared by the screenshot (/api/snap) and typed/CSV (/api/price) imports.
 import { HOLDINGS } from "@/data/portfolio";
+import { isSeededEtf } from "@/lib/etf";
 import { finnhubConfigured, getProfile, getQuote } from "@/lib/finnhub";
 
-// Keeps a single import under Finnhub's 60 calls/min free limit.
-export const MAX_HOLDINGS = 25;
+// A broker CSV can run to 50 rows. Finnhub calls queue behind a shared rate limit (lib/finnhub), so a big import is slower, not an error.
+export const MAX_HOLDINGS = 50;
 
 // Finnhub has no profile for ETFs; these names cover the demo ETFs when the screenshot shows none.
 const KNOWN_NAMES = new Map(HOLDINGS.map((h) => [h.ticker, h.name]));
@@ -29,6 +30,25 @@ export function normalizeTicker(t: string) {
   return t.trim().toUpperCase().replace(/^\$/, "").replace(/[/-]/g, ".");
 }
 
+// Overlapping screenshots of one account show the same row twice: keep one row per ticker with the larger share count
+// and the larger value, instead of summing them the way priceHoldings does for separate lots in one screenshot.
+export function dedupeOverlap(raw: RawHolding[]): RawHolding[] {
+  const larger = (a: number | null, b: number | null) => (positive(a) && (!positive(b) || a > b) ? a : positive(b) ? b : null);
+  const best = new Map<string, RawHolding>();
+  for (const h of raw) {
+    if (typeof h?.ticker !== "string") continue;
+    const ticker = normalizeTicker(h.ticker);
+    const prev = best.get(ticker);
+    best.set(ticker, {
+      ticker,
+      shares: larger(h.shares, prev?.shares ?? null),
+      marketValue: larger(h.marketValue, prev?.marketValue ?? null),
+      name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name : null),
+    });
+  }
+  return [...best.values()];
+}
+
 // Merges repeated tickers, prices each one with Finnhub, and fills in missing share counts from market value.
 export async function priceHoldings(raw: RawHolding[]): Promise<SnapHolding[]> {
   const merged = new Map<string, RawHolding>();
@@ -44,12 +64,12 @@ export async function priceHoldings(raw: RawHolding[]): Promise<SnapHolding[]> {
       name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name.trim() : null),
     });
   }
-  const rows = [...merged.values()];
-  if (rows.length > MAX_HOLDINGS) throw new Error("Use the durable import flow for portfolios above 25 holdings.");
+  const rows = [...merged.values()].slice(0, MAX_HOLDINGS);
 
   const live = finnhubConfigured();
   const quotes = await Promise.allSettled(rows.map((h) => (live ? getQuote(h.ticker) : Promise.resolve(null))));
-  const profiles = await Promise.allSettled(rows.map((h) => (live ? getProfile(h.ticker) : Promise.resolve(null))));
+  // Seeded ETFs never have a company profile; skipping them saves Finnhub calls.
+  const profiles = await Promise.allSettled(rows.map((h) => (live && !isSeededEtf(h.ticker) ? getProfile(h.ticker) : Promise.resolve(null))));
 
   const out: SnapHolding[] = [];
   rows.forEach((h, i) => {

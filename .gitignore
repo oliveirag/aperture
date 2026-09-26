@@ -150,3 +150,6 @@ next-env.d.ts
 
 # browser automation artifacts
 .playwright-mcp/
+
+# macOS
+.DS_Store

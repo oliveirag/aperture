@@ -3,8 +3,6 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { HOLDINGS } from "@/data/portfolio";
 import type { Holding } from "@/types/demo";
-import type { Snapshot } from "@/lib/imports/types";
-import { mergeInputs } from "@/lib/imports/types";
 
 const DEFAULT_COLOR = "#8FA3BF";
 
@@ -25,12 +23,13 @@ interface PortfolioState {
   // null means the canonical demo portfolio.
   imported: ImportedHolding[] | null;
   kind: PortfolioKind;
+  // The user's own portfolio while the demo is showing, so switching to the demo never throws it away.
+  stashed: { holdings: ImportedHolding[]; kind: PortfolioKind } | null;
   // False until sessionStorage has been read; views that differ by portfolio wait for it.
   hydrated: boolean;
-  snapshot: Snapshot | null;
-  setSnapshot: (snapshot: Snapshot) => void;
   setImported: (holdings: ImportedHolding[], kind?: PortfolioKind) => void;
   resetToDemo: () => void;
+  restoreStashed: () => void;
 }
 
 // Kept for the browser session only; nothing leaves the device.
@@ -39,18 +38,19 @@ export const usePortfolio = create<PortfolioState>()(
     (set) => ({
       imported: null,
       kind: "imported",
+      stashed: null,
       hydrated: false,
-      snapshot: null,
-      setSnapshot: (snapshot) => set({ snapshot, kind:"imported", imported:mergeInputs(snapshot.results).map(r=>({ticker:r.ticker,name:r.name,industry:r.industry??null,shares:r.shares,price:r.price})) }),
-      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind, snapshot:null }),
-      resetToDemo: () => set({ imported: null, kind: "imported", snapshot:null }),
+      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind, stashed: null }),
+      resetToDemo: () =>
+        set((s) => ({ imported: null, kind: "imported", stashed: s.imported ? { holdings: s.imported, kind: s.kind } : s.stashed })),
+      restoreStashed: () => set((s) => (s.stashed ? { imported: s.stashed.holdings, kind: s.stashed.kind, stashed: null } : {})),
     }),
     {
       name: "lookthrough-portfolio",
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,
-      partialize: (s) => ({ imported: s.imported, kind: s.kind, snapshot:s.snapshot }),
+      partialize: (s) => ({ imported: s.imported, kind: s.kind, stashed: s.stashed }),
       onRehydrateStorage: () => () => usePortfolio.setState({ hydrated: true }),
     },
   ),

@@ -1,12 +1,12 @@
 -- All mutations go through server-only RPCs. RLS protects direct client reads.
-create table public.portfolios (
+create table public.import_portfolios (
  id uuid primary key default gen_random_uuid(), owner_id uuid not null references auth.users(id) on delete cascade,
  holdings_hash text not null, identity_csv text not null, current_snapshot_id uuid,
  created_at timestamptz not null default now(), unique(owner_id, holdings_hash)
 );
 create table public.import_jobs (
  id uuid primary key, owner_id uuid not null references auth.users(id) on delete cascade,
- portfolio_id uuid references public.portfolios(id), source text not null,
+ portfolio_id uuid references public.import_portfolios(id), source text not null,
  status text not null default 'review' check(status in ('review','processing','needs_input','complete','cancelled')),
  original jsonb not null, rows jsonb not null, results jsonb not null default '[]',
  original_csv text not null, original_hash text not null, reviewed_csv text, reviewed_hash text, holdings_hash text,
@@ -37,7 +37,7 @@ begin
  return epoch;
 end $$;
 create table public.portfolio_snapshots (
- id uuid primary key default gen_random_uuid(), portfolio_id uuid not null references public.portfolios(id),
+ id uuid primary key default gen_random_uuid(), portfolio_id uuid not null references public.import_portfolios(id),
  owner_id uuid not null references auth.users(id) on delete cascade, job_id uuid not null unique references public.import_jobs(id),
  created_at timestamptz not null default now(), model jsonb not null, rows jsonb not null, results jsonb not null,
  reviewed_hash text not null
@@ -58,13 +58,13 @@ revoke all on function public.audit_import_capture() from public,anon,authentica
 create table public.provider_cache (key text primary key, value jsonb not null, expires_at timestamptz not null, lease_token uuid, lease_until timestamptz);
 create table public.provider_windows (provider text primary key, calls timestamptz[] not null default '{}', blocked_until timestamptz);
 
-alter table public.portfolios enable row level security;
+alter table public.import_portfolios enable row level security;
 alter table public.import_jobs enable row level security;
 alter table public.portfolio_snapshots enable row level security;
 alter table public.import_events enable row level security;
 alter table public.provider_cache enable row level security;
 alter table public.provider_windows enable row level security;
-create policy own_portfolios on public.portfolios for select to authenticated using(owner_id = auth.uid());
+create policy own_portfolios on public.import_portfolios for select to authenticated using(owner_id = auth.uid());
 create policy own_imports on public.import_jobs for select to authenticated using(owner_id = auth.uid());
 create policy own_snapshots on public.portfolio_snapshots for select to authenticated using(owner_id = auth.uid());
 create policy own_events on public.import_events for select to authenticated using(owner_id = auth.uid());
@@ -110,9 +110,9 @@ begin
  perform pg_advisory_xact_lock(hashtextextended(p_owner::text, 0));
  select * into j from import_jobs where id=p_id and owner_id=p_owner for update;
  if not found or j.status not in ('review','needs_input') or j.revision <> p_revision then raise exception 'Import changed; reload before confirming'; end if;
- insert into portfolios(owner_id,holdings_hash,identity_csv) values(p_owner,p_identity_hash,p_identity)
+ insert into import_portfolios(owner_id,holdings_hash,identity_csv) values(p_owner,p_identity_hash,p_identity)
  on conflict(owner_id,holdings_hash) do nothing;
- select id into pid from portfolios where owner_id=p_owner and holdings_hash=p_identity_hash;
+ select id into pid from import_portfolios where owner_id=p_owner and holdings_hash=p_identity_hash;
  select id into active from import_jobs where portfolio_id=pid and id<>p_id and status in ('processing','needs_input') limit 1;
  insert into import_events(owner_id,job_id,event,detail) values(p_owner,p_id,'review_confirmed',
  jsonb_build_object('before',j.rows,'after',p_rows,'csv',p_csv,'sha256',p_hash,'portfolio',pid,'joined_job',active));
@@ -171,7 +171,7 @@ begin
    or exists(select 1 from jsonb_array_elements(p_results) r where r->>'state' <> 'ready') then raise exception 'Incomplete analysis'; end if;
   insert into portfolio_snapshots(portfolio_id,owner_id,job_id,model,rows,results,reviewed_hash)
   values(j.portfolio_id,j.owner_id,j.id,p_model,j.rows,p_results,j.reviewed_hash) returning id into sid;
-  update portfolios set current_snapshot_id=sid where id=j.portfolio_id;
+  update import_portfolios set current_snapshot_id=sid where id=j.portfolio_id;
  end if;
  insert into import_events(owner_id,job_id,event,detail) values(j.owner_id,j.id,p_status,jsonb_build_object('results',p_results,'snapshot',sid));
  update import_jobs set results=p_results,status=p_status,retry_at=p_retry,snapshot_id=sid,lease_token=null,lease_until=null where id=p_id;
@@ -204,8 +204,8 @@ revoke all on function public.checkpoint_import(uuid,uuid,jsonb) from public,ano
 grant execute on function public.reserve_provider(text,integer,integer), public.confirm_import(uuid,uuid,integer,jsonb,text,text,text,text),
  public.claim_import(),public.save_import_work(uuid,uuid,jsonb,text,timestamptz,jsonb) to service_role;
 grant execute on function public.checkpoint_import(uuid,uuid,jsonb) to service_role;
-revoke insert,update,delete on public.portfolios,public.import_jobs,public.portfolio_snapshots,public.import_events from anon,authenticated;
-grant select on public.portfolios,public.import_jobs,public.portfolio_snapshots,public.import_events to authenticated;
+revoke insert,update,delete on public.import_portfolios,public.import_jobs,public.portfolio_snapshots,public.import_events from anon,authenticated;
+grant select on public.import_portfolios,public.import_jobs,public.portfolio_snapshots,public.import_events to authenticated;
 
 -- Expire abandoned drafts and delete their private temporary screenshots.
 -- Schedule cleanup and worker invocations using the deployment instructions in docs/IMPORTS.md.

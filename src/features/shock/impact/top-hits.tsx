@@ -3,7 +3,6 @@
 import { FileText } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { TickerMark } from "@/components/shared/ticker-mark";
-import { HOLDINGS } from "@/data/portfolio";
 import { useShock } from "@/features/shock/store";
 import { formatSignedPct, formatSignedUSD, scaleShock } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -11,7 +10,7 @@ import type { ShockScenario } from "@/types/demo";
 
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 
-export function TopHits({ scenario, severity }: { scenario: ShockScenario; severity: number }) {
+export function TopHits({ scenario, severity, colors }: { scenario: ShockScenario; severity: number; colors: Record<string, string> }) {
   const selectedHolding = useShock((s) => s.selectedHolding);
   const selectedEdgeId = useShock((s) => s.selectedEdgeId);
   const selectHolding = useShock((s) => s.selectHolding);
@@ -22,7 +21,7 @@ export function TopHits({ scenario, severity }: { scenario: ShockScenario; sever
       ...i,
       ret: scaleShock(i.baseReturn, severity, scenario.baseSeverity),
       dollar: scaleShock(i.baseDollar, severity, scenario.baseSeverity),
-      color: HOLDINGS.find((h) => h.ticker === i.ticker)?.color,
+      color: colors[i.ticker],
     }))
     .sort((a, b) => a.dollar - b.dollar);
   const nodeLabel = (id: string) => scenario.nodes.find((n) => n.id === id)?.label ?? id;

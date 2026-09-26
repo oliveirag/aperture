@@ -1,5 +1,5 @@
 import { admin } from "@/lib/supabase/server";
-import { getQuote, getProfile } from "@/lib/finnhub";
+import { getQuote, getProfile } from "./quotes";
 import { computeXray, type LookthroughInput } from "@/lib/xray/compute";
 import { sectorFromGics } from "@/lib/sectors";
 import { cachedProvider, reserve, cooldown, QuotaWait } from "./provider";

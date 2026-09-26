@@ -5,10 +5,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
-import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
+import { AccountMenu } from "@/features/account/account-menu";
+import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
+import { PortfolioMenu } from "./portfolio-menu";
 import { usePortfolioValue } from "./use-portfolio-value";
 
 function useIsActive() {
@@ -37,20 +39,20 @@ export function SiteHeader() {
         scrolled ? "border-border" : "border-transparent",
       )}
     >
-      <div className="bx-container flex h-20 items-center justify-between gap-8 lg:h-24">
-        <Link href="/" aria-label="Unfold home" className="shrink-0">
+      <div className="bx-container flex h-20 items-center justify-between gap-6 lg:h-24 2xl:gap-8">
+        <Link href="/" aria-label="Lookthrough home" className="shrink-0">
           <Wordmark size="sm" className="lg:hidden" />
           <Wordmark className="hidden lg:inline-flex" />
         </Link>
 
-        <nav aria-label="Primary" className="hidden flex-1 lg:block">
-          <ul className="flex items-center justify-end gap-9">
+        <nav aria-label="Primary" className="hidden flex-1 min-[1400px]:block">
+          <ul className="flex items-center justify-end gap-6 2xl:gap-9">
             {NAV_ITEMS.map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}
                   aria-current={isActive(href) ? "page" : undefined}
-                  className="link-underline pb-1 text-[17px] font-light text-text"
+                  className="link-underline pb-1 text-[17px] font-light whitespace-nowrap text-text"
                 >
                   {label}
                 </Link>
@@ -59,26 +61,20 @@ export function SiteHeader() {
           </ul>
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-8 md:flex lg:border-l lg:border-border lg:pl-8">
-          <div className="hidden text-right leading-tight sm:block" title={value.asOf}>
-            <p className="flex items-center justify-end gap-1.5 text-[11px] font-normal tracking-[0.08em] text-text-muted uppercase">
-              {value.live ? <span aria-label="Live prices" className="size-1.5 rounded-full bg-positive" /> : null}
-              {value.label}
-            </p>
-            <p className="mt-0.5 whitespace-nowrap tabular-nums">
-              <span className="text-[17px] font-normal text-text">{formatUSD(value.total)}</span>
-              <span className={cn("ml-2 hidden text-[13px] xl:inline", value.change < 0 ? "text-negative" : "text-positive")}>
-                {formatSignedUSD(value.change)} ({formatSignedPct(value.pct, 2)})
-              </span>
-            </p>
-          </div>
+        <div className="hidden shrink-0 items-center gap-3 md:flex lg:gap-5 min-[1400px]:border-l min-[1400px]:border-border min-[1400px]:pl-6 2xl:gap-8 2xl:pl-8">
+          <AskButton />
+          <PortfolioMenu value={value} />
           <LevelSwitcher />
+          <AccountMenu />
         </div>
       </div>
 
-      {/* Under 1024px the destinations move to a scrollable row under the masthead. */}
-      <nav aria-label="Primary" className="border-t border-border lg:hidden">
-        <div className="bx-container flex justify-end border-b border-border py-3 md:hidden">
+      {/* Below 1400px (masthead full with Ask, portfolio, level and account) the destinations move to a row underneath. */}
+      <nav aria-label="Primary" className="border-t border-border min-[1400px]:hidden">
+        <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
+          <PortfolioMenu value={value} align="start" />
+          <AskButton className="h-8" />
+          <AccountMenu align="start" />
           {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />

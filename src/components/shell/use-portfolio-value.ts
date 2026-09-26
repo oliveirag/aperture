@@ -1,4 +1,6 @@
 "use client";
+import { useSnapshot } from "@/lib/imports/snapshot-store";
+
 
 import { useEffect } from "react";
 import { AS_OF, DAY_CHANGE, PORTFOLIO_TOTAL } from "@/data/portfolio";
@@ -26,7 +28,7 @@ export function usePortfolioValue() {
   const refreshQuotes = useMarket((s) => s.refreshQuotes);
   const { live, imported, holdings, total, dayChange, dayChangePct } = useLiveHoldings();
   const kind = usePortfolio((s) => s.kind);
-  const snapshot = usePortfolio((s) => s.snapshot);
+  const snapshot = useSnapshot();
   const tickers = holdings.map((h) => h.ticker).join(",");
 
   useEffect(() => {

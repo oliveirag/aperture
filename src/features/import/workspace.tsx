@@ -1,4 +1,6 @@
 "use client";
+import { activateSnapshot } from "@/lib/imports/snapshot-store";
+import { importFetch } from "@/lib/imports/client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -12,7 +14,7 @@ import { SnapshotHistory } from "./snapshot-history";
 const style="rounded border border-border-strong bg-surface-1 px-3 py-2 text-text disabled:opacity-50";
 const empty=():ImportRow=>({ticker:"",name:"",kind:"unknown",shares:null,marketValue:null,valuationDate:""});
 async function send(body:unknown) {
-  const res=await fetch("/api/imports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  const res=await importFetch("/api/imports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const data=await res.json(); if(!res.ok) throw new Error(data.error); return data;
 }
 export function ImportFlow() {
@@ -31,7 +33,7 @@ export function ImportFlow() {
   function clearImage(){if(imageRef.current) URL.revokeObjectURL(imageRef.current);imageRef.current=null;setImage(null);}
   async function reload() {
     const run=generation.current;
-    const response=await fetch("/api/imports",{cache:"no-store"});
+    const response=await importFetch("/api/imports",{cache:"no-store"});
     if(run!==generation.current)return;
     if(response.status===401){setSignedIn(false);return;}
     const data=await response.json(); if(run!==generation.current)return; if(!response.ok) throw new Error(data.error);
@@ -55,13 +57,13 @@ export function ImportFlow() {
   useEffect(()=>{
     if(job?.status!=="complete" || !job.snapshot_id || activated.current===job.snapshot_id)return;
     const snapshot=snapshots.find(s=>s.id===job.snapshot_id);
-    if(snapshot){usePortfolio.getState().setSnapshot(snapshot);activated.current=snapshot.id;}
+    if(snapshot){activateSnapshot(snapshot);activated.current=snapshot.id;}
   },[job,snapshots]);
   const imageJob=job?.source==="screenshot"&&!job.confirmed_at?job.id:null;
   useEffect(()=>{
     if(!imageJob)return;
     const controller=new AbortController();
-    fetch(`/api/imports/image?id=${encodeURIComponent(imageJob)}`,{cache:"no-store",signal:controller.signal}).then(async res=>{
+    importFetch(`/api/imports/image?id=${encodeURIComponent(imageJob)}`,{cache:"no-store",signal:controller.signal}).then(async res=>{
       if(!res.ok)throw new Error("The temporary screenshot expired. Upload it again before confirming review.");
       const blob=await res.blob();if(controller.signal.aborted)return;
       if(imageRef.current)URL.revokeObjectURL(imageRef.current);
@@ -86,7 +88,7 @@ export function ImportFlow() {
     if(!file.type.startsWith("image/"))throw new Error("Choose an image or CSV file.");
     imageRef.current=URL.createObjectURL(file);setImage(imageRef.current);
     const body=new FormData();body.append("file",file);
-    const res=await fetch("/api/snap",{method:"POST",body});const data=await res.json();
+    const res=await importFetch("/api/imports/screenshot",{method:"POST",body});const data=await res.json();
     if(!res.ok)throw new Error(data.error);
     if(run!==generation.current)return;
     setJob(data.job);setRows(data.job.rows);setOriginal(data.job.original);await reload();
@@ -98,13 +100,13 @@ export function ImportFlow() {
     setJob(data.job);clearImage();setOriginal(null);await reload();
   }
   function open(snapshot:Snapshot){
-    usePortfolio.getState().setSnapshot(snapshot);
+    activateSnapshot(snapshot);
     router.push("/xray");
   }
   const editable=!job || job.status==="review" || job.status==="needs_input";
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
-    <header className="flex justify-between"><Link href="/" className="text-2xl">Unfold</Link><Link href="/xray">Current X-Ray</Link></header>
+    <header className="flex justify-between"><Link href="/" className="text-2xl">Lookthrough</Link><Link href="/xray">Current X-Ray</Link></header>
     <h1 className="text-4xl">Import your portfolio</h1>
     <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
     <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
@@ -118,7 +120,7 @@ export function ImportFlow() {
     </section>:<>
       <div className="flex flex-wrap gap-3"><input aria-label="Upload screenshot or CSV" type="file" accept="image/*,.csv,.txt" disabled={busy} onChange={e=>{const f=e.target.files?.[0];e.target.value="";if(f)void act(()=>upload(f));}}/>
       <button className={style} disabled={busy} onClick={()=>{clearImage();setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);}}>New manual import</button>
-      <button className={style} disabled={busy} onClick={()=>act(async()=>{generation.current++;const res=await fetch("/api/imports/logout",{method:"POST"});if(!res.ok)throw new Error("Logout failed; retry.");await browserClient()!.auth.signOut();clearImage();usePortfolio.getState().resetToDemo();setSignedIn(false);})}>Log out</button></div>
+      <button className={style} disabled={busy} onClick={()=>act(async()=>{generation.current++;const res=await importFetch("/api/imports/logout",{method:"POST"});if(!res.ok)throw new Error("Logout failed; retry.");await browserClient()!.auth.signOut();clearImage();usePortfolio.getState().resetToDemo();setSignedIn(false);})}>Log out</button></div>
       {image&&<div className="max-h-96 overflow-auto border border-border-strong"><Image src={image} alt="Original brokerage screenshot for comparison" width={1200} height={800} unoptimized className="h-auto max-w-full"/></div>}
       {editable?<section className="space-y-4">
         <h2 className="text-xl">Review every holding</h2><p>Confirm security type and quantity. A supplied market value needs its valuation date. Mark erroneous rows excluded with a reason; their history is preserved.</p>
@@ -144,7 +146,7 @@ export function ImportFlow() {
       </section>}
       <section className="space-y-2"><h2 className="text-xl">Saved imports</h2>{jobs.map(j=><button key={j.id} className={`${style} block w-full text-left`} onClick={()=>{clearImage();setJob(j);setRows(j.rows);setOriginal(j.original);setReviewed(false);}}>{new Date(j.created_at).toLocaleString()} — {j.rows.length} rows — {j.status}</button>)}</section>
       <SnapshotHistory snapshots={snapshots} busy={busy} onOpen={open} onRefresh={snapshot=>void act(async()=>{const draft=await send({action:"create",id:crypto.randomUUID(),rows:snapshot.rows,source:"rows"});const data=await send({action:"confirm",id:draft.job.id,revision:draft.job.revision,rows:snapshot.rows});clearImage();setJob(data.job);setRows(data.job.rows);setReviewed(false);await reload();})}/>
-      {moreHistory&&snapshots.length>=30&&<button className={style} disabled={busy} onClick={()=>act(async()=>{const res=await fetch(`/api/imports?historyOffset=${snapshots.length}`,{cache:"no-store"});const data=await res.json();if(!res.ok)throw new Error(data.error);setSnapshots(current=>[...new Map<string,Snapshot>([...current,...data.snapshots].map((s:Snapshot)=>[s.id,s])).values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)));setMoreHistory(data.snapshots.length===30);})}>Load older snapshots</button>}
+      {moreHistory&&snapshots.length>=30&&<button className={style} disabled={busy} onClick={()=>act(async()=>{const res=await importFetch(`/api/imports?historyOffset=${snapshots.length}`,{cache:"no-store"});const data=await res.json();if(!res.ok)throw new Error(data.error);setSnapshots(current=>[...new Map<string,Snapshot>([...current,...data.snapshots].map((s:Snapshot)=>[s.id,s])).values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)));setMoreHistory(data.snapshots.length===30);})}>Load older snapshots</button>}
       {job&&<details><summary>Source CSV records and hashes</summary><p>Original extraction SHA-256: <code>{job.original_hash}</code></p><pre className="overflow-auto text-xs">{job.original_csv}</pre>{job.reviewed_csv&&<><p>Reviewed CSV SHA-256: <code>{job.reviewed_hash}</code></p><p>Portfolio identity SHA-256: <code>{job.holdings_hash}</code></p><pre className="overflow-auto text-xs">{job.reviewed_csv}</pre></>}</details>}
       <section>
       <details><summary>Chronological audit records</summary>{[...events].reverse().map(e=><details key={e.id}><summary>{new Date(e.created_at).toLocaleString()} · {e.event}</summary><pre className="whitespace-pre-wrap text-xs">{JSON.stringify(e.detail,null,2)}</pre></details>)}</details></section>

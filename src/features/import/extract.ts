@@ -42,13 +42,13 @@ async function readSample(): Promise<ExtractResult> {
   };
 }
 
-// Posts the image to /api/snap: Gemini reads it, Finnhub prices it.
-async function readLive(file: File): Promise<ExtractResult> {
+// Posts the images (one to three) to /api/snap: Gemini reads them in one request, Finnhub prices the positions.
+async function readLive(files: File[]): Promise<ExtractResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LIVE_TIMEOUT_MS);
   try {
     const body = new FormData();
-    body.append("file", file);
+    for (const file of files) body.append("file", file);
     const res = await fetch("/api/snap", { method: "POST", body, signal: controller.signal });
     const data = (await res.json().catch(() => ({}))) as Partial<SnapResponse> & { error?: string };
     if (!res.ok || !Array.isArray(data.holdings)) {
@@ -74,7 +74,7 @@ async function readTyped(rows: TypedRow[]): Promise<ExtractResult> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ holdings: rows }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(60000),
     });
     const data = (await res.json().catch(() => ({}))) as Partial<PriceResponse> & { error?: string };
     if (!res.ok || !Array.isArray(data.holdings)) return { ok: false, error: data.error ?? "Couldn't price these positions." };
@@ -84,14 +84,14 @@ async function readTyped(rows: TypedRow[]): Promise<ExtractResult> {
   }
 }
 
-// The only place holdings are produced. A dropped file always goes to Gemini; the sample button replays the demo portfolio.
+// The only place holdings are produced. Dropped files always go to Gemini; the sample button replays the demo portfolio.
 // Either way the scan lasts at least delayMs so the animation can finish.
 export async function extractHoldings(
-  input: { file?: File; sample?: boolean; rows?: TypedRow[] },
+  input: { files?: File[]; sample?: boolean; rows?: TypedRow[] },
   { delayMs = SCAN_MS }: { delayMs?: number } = {},
 ): Promise<ExtractResult> {
   const wait = new Promise((resolve) => setTimeout(resolve, delayMs));
-  const read = input.rows ? readTyped(input.rows) : input.file ? readLive(input.file) : readSample();
+  const read = input.rows ? readTyped(input.rows) : input.files?.length ? readLive(input.files) : readSample();
   const [result] = await Promise.all([read, wait]);
   return result;
 }

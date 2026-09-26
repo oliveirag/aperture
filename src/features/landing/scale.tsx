@@ -14,7 +14,7 @@ const DIRECT_PCT = formatPct(weightOf(HOLDINGS.find((h) => h.ticker === "NVDA")!
 // White "about" band: centered eyebrow and title, then a text column beside one large serif figure.
 export function Scale() {
   return (
-    <section className="bg-bg py-28 lg:py-36">
+    <section className="border-t border-border bg-bg py-28 lg:py-36">
       <div className="bx-container">
         <Reveal className="text-center">
           <p className="eyebrow eyebrow-center">The demo portfolio</p>

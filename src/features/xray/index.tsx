@@ -1,4 +1,6 @@
 "use client";
+import { useSnapshot } from "@/lib/imports/snapshot-store";
+
 
 import { AlertTriangle, LoaderCircle, RotateCcw } from "lucide-react";
 import { usePortfolio } from "@/lib/portfolio-store";
@@ -53,7 +55,7 @@ function Failed({ error, retry }: { error: string; retry: () => void }) {
 // X-Ray for the active portfolio. The map remounts per model so its reveal replays for new data.
 export function XrayView() {
   const state = useXray();
-  const snapshot = usePortfolio(s=>s.snapshot);
+  const snapshot = useSnapshot();
   if (state.status === "loading") return <Loading />;
   if (state.status === "error") return <Failed error={state.error} retry={state.retry} />;
   const { model } = state;

@@ -95,6 +95,34 @@
   color: var(--text);
 }
 
+/* A paper-white panel inside the dark site: the light palette, kept for inverted emphasis (e.g. a selected card). */
+.theme-light {
+  --bg: #ffffff;
+  --surface-1: #f4f5f7;
+  --surface-2: #eceef1;
+  --surface-3: #e2e5ea;
+  --border: #d5d8df;
+  --border-strong: #9aa0a8;
+  --text: #000000;
+  --text-muted: #4a4f57;
+  --text-subtle: #6b7079;
+  --accent: #a4552a;
+  --positive: #1d7a4d;
+  --negative: #c0392b;
+  --sev-high: #c0392b;
+  --sev-medium: #9a6010;
+  --sev-low: #767676;
+  --chart-1: #b96634;
+  --chart-2: #2b333f;
+  --chart-3: #73859f;
+  --chart-4: #c39d78;
+  --chart-5: #9aa0a8;
+  --chart-6: #121317;
+  color-scheme: light;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
 @theme inline {
   --font-sans: var(--font-grotesk), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-display), ui-serif, Georgia, serif;

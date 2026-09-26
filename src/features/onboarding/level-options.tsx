@@ -53,7 +53,7 @@ export function LevelOptions({ value, onChange }: { value: Level | null; onChang
             className={cn(
               // The chosen level inverts into a black band, the way the site marks emphasis.
               "relative flex min-h-[260px] flex-col items-start p-8 text-left transition-[background-color,color,transform] duration-300 ease-out active:scale-[0.99]",
-              selected ? "theme-dark" : "bg-surface-1 hover:bg-surface-2",
+              selected ? "theme-light" : "bg-surface-1 hover:bg-surface-2",
             )}
           >
             <span className="flex w-full items-center justify-between">

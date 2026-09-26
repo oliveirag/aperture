@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { HOLDINGS } from "@/data/portfolio";
 import { useShock } from "@/features/shock/store";
 import { scaleShock } from "@/lib/format";
 import type { Level } from "@/lib/level";
@@ -20,6 +19,8 @@ type PropagationGraphProps = {
   done: boolean;
   reduce: boolean;
   level: Level;
+  // Holding colors by ticker (the demo canon, or the live portfolio's).
+  colors: Record<string, string>;
 };
 
 // The shock's path from the macro driver into the user's holdings. Hand-drawn SVG; nodes are HTML in foreignObject.
@@ -31,7 +32,7 @@ function advancedTag(edge: ShockEdge, span: number) {
   return null;
 }
 
-export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done, reduce, level }: PropagationGraphProps) {
+export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done, reduce, level, colors }: PropagationGraphProps) {
   const selectedHolding = useShock((s) => s.selectedHolding);
   const selectedEdgeId = useShock((s) => s.selectedEdgeId);
   const selectHolding = useShock((s) => s.selectHolding);
@@ -120,7 +121,7 @@ export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done,
                 <HoldingNode
                   key={node.id}
                   {...common}
-                  color={HOLDINGS.find((h) => h.ticker === node.ticker)?.color}
+                  color={node.ticker ? colors[node.ticker] : undefined}
                   selected={selectedHolding === node.ticker}
                   ret={show && impact ? scaleShock(impact.baseReturn, severity, scenario.baseSeverity) : null}
                   dollar={show && impact ? scaleShock(impact.baseDollar, severity, scenario.baseSeverity) : null}

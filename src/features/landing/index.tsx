@@ -17,7 +17,7 @@ export function Landing() {
     <div className="flex min-h-dvh flex-col">
       <div className="theme-dark">
         <header className="bx-container flex h-24 items-center justify-between gap-8 lg:h-[132px]">
-          <Link href="/" aria-label="Unfold home">
+          <Link href="/" aria-label="Lookthrough home">
             <Wordmark />
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">

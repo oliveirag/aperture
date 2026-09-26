@@ -5,7 +5,9 @@ import { Activity } from "lucide-react";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
-import { getScenario, scenarioTotals } from "@/data/shock";
+import { scenarioTotals } from "@/data/shock";
+import { useShockData } from "@/features/shock/model-context";
+import { scenarioIn } from "@/features/shock/use-shock-model";
 import { useShock } from "@/features/shock/store";
 import { formatPct, formatSignedPct, formatSignedUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
@@ -48,7 +50,8 @@ export function ShockImpact() {
   const scenarioId = useShock((s) => s.scenarioId);
   const severity = useShock((s) => s.severity);
   const level = useLevel((s) => s.level);
-  useEvidenceSync();
+  const model = useShockData();
+  useEvidenceSync(model);
 
   // Dev-only handle so the panel can be driven before the graph (GUI-44) lands.
   useEffect(() => {
@@ -63,10 +66,13 @@ export function ShockImpact() {
     );
   }
 
-  const scenario = getScenario(scenarioId);
-  const totals = scenarioTotals(scenario, severity);
+  const scenario = scenarioIn(model, scenarioId);
+  const totals = scenarioTotals(scenario, severity, model.total);
   const modeled = scenario.impacts.map((i) => i.ticker);
-  const modeledShare = HOLDINGS.filter((h) => modeled.includes(h.ticker)).reduce((s, h) => s + h.value, 0) / PORTFOLIO_TOTAL;
+  // Demo: share of value in modeled holdings. Live: share of look-through value that has a sensitivity.
+  const modeledShare =
+    model.modeledShare[scenario.id] ?? HOLDINGS.filter((h) => modeled.includes(h.ticker)).reduce((s, h) => s + h.value, 0) / PORTFOLIO_TOTAL;
+  const notModeled = model.notModeled[scenario.id] ?? scenario.notModeled.map((ticker) => ({ ticker, weight: null as number | null }));
 
   return (
     <aside aria-label="Shock Test results" className="flex flex-col gap-4 xl:sticky xl:top-[72px] xl:self-start">
@@ -84,7 +90,7 @@ export function ShockImpact() {
             <div className="h-full rounded-full bg-accent" style={{ width: `${modeledShare * 100}%` }} />
           </div>
           <p className="mt-2 text-[12px] text-text-muted tabular-nums">
-            {modeled.length} of {HOLDINGS.length} holdings modeled · {formatPct(modeledShare)} of value
+            {modeled.length} of {model.positions} holdings modeled · {formatPct(modeledShare)} of value
           </p>
         </div>
 
@@ -96,23 +102,27 @@ export function ShockImpact() {
       </Card>
 
       <Card title="Top hits">
-        <TopHits scenario={scenario} severity={severity} />
+        <TopHits scenario={scenario} severity={severity} colors={model.colors} />
       </Card>
 
       <Card title="Not modeled">
         <ul className="flex flex-wrap gap-2">
-          {scenario.notModeled.map((t) => (
+          {notModeled.map(({ ticker, weight }) => (
             <li
-              key={t}
+              key={ticker}
               className="inline-flex h-7 items-center gap-2 rounded-full bg-surface-2 pr-3 pl-0.5 text-[12px] font-medium text-text-muted"
             >
-              <TickerMark ticker={t} color={HOLDINGS.find((h) => h.ticker === t)?.color} size={24} />
-              {t}
+              <TickerMark ticker={ticker} color={model.colors[ticker]} size={24} />
+              {ticker}
+              {weight !== null ? <span className="font-normal text-text-subtle tabular-nums">{formatPct(weight)}</span> : null}
             </li>
           ))}
         </ul>
         <p className="mt-3 text-[12px] leading-5 text-text-muted">
-          No modeled path from this scenario. The headline covers modeled holdings only.
+          {notModeled.length === 0 ? "Every holding has a modeled path. " : "No modeled path from this scenario. "}
+          {model.mode === "live"
+            ? "The headline covers modeled exposures only: fixed company or sector sensitivities at the base severity, scaled linearly."
+            : "The headline covers modeled holdings only."}
         </p>
       </Card>
     </aside>

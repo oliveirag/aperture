@@ -3,6 +3,7 @@ import { GeistMono } from "geist/font/mono";
 import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import { SourceDrawer } from "@/components/shared/source-drawer";
 import { DemoKeys } from "@/components/shell/demo-keys";
+import { AccountSync } from "@/features/account/account-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -11,24 +12,26 @@ const display = Newsreader({ subsets: ["latin"], variable: "--font-display", axe
 const grotesk = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Unfold", template: "%s · Lookthrough" },
+  title: { default: "Lookthrough", template: "%s · Lookthrough" },
   description: "See what you actually own.",
 };
 
 export const viewport: Viewport = {
   themeColor: "#000000",
-  colorScheme: "light",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${grotesk.variable} ${GeistMono.variable}`}>
+    // The whole site runs on the black-band tokens; .theme-light is available for inverted emphasis.
+    <html lang="en" className={`theme-dark ${display.variable} ${grotesk.variable} ${GeistMono.variable}`}>
       <body className="min-h-dvh">
         {/* First tooltip waits; neighbours open instantly (Base UI handles the grace period). */}
         <TooltipProvider delay={350}>
           {children}
           <SourceDrawer />
           <DemoKeys />
+          <AccountSync />
         </TooltipProvider>
       </body>
     </html>

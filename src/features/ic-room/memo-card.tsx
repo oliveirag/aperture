@@ -5,13 +5,14 @@ import { motion } from "motion/react";
 import { SourceChip } from "@/components/shared/source-chip";
 import { formatSourceDate } from "@/components/shared/source-drawer";
 import { GLOSSARY } from "@/data/glossary";
-import { ASSUMPTIONS, IC_DATE, IC_FACTS, IC_TICKER, MEMO, type MemoPoint } from "@/data/ic-room";
+import type { MemoPoint } from "@/data/ic-room";
 import { useLevel } from "@/lib/level";
 import { cn } from "@/lib/utils";
 import { STATUS } from "./assumption-card";
 import { EASE_OUT, useAnimated } from "./enter";
 import { FactRef, factPayload } from "./fact-ref";
 import { FitTable } from "./fit-table";
+import { useIcData } from "./run-data";
 
 const KEY_TERMS = ["thesis", "investment committee", "concentration"] as const;
 
@@ -54,6 +55,7 @@ function Plain({ items }: { items: readonly string[] }) {
 export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
   const level = useLevel((s) => s.level);
   const motionOn = useAnimated();
+  const { ticker, date, memo, assumptions, facts } = useIcData();
   const showRefs = level !== "beginner";
 
   return (
@@ -81,20 +83,20 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
         <div>
           <p className="text-[12px] font-medium tracking-[0.04em] text-text-subtle uppercase">Chair</p>
           <h2 className="mt-1 text-[20px] leading-7 font-medium tracking-[-0.01em] text-text">
-            Investment Committee Memo · {IC_TICKER.ticker} · {formatSourceDate(IC_DATE)}
+            Investment Committee Memo · {ticker.ticker} · {formatSourceDate(date)}
           </h2>
         </div>
         <span className="inline-flex h-7 shrink-0 items-center self-start border border-accent/70 px-3 text-[13px] font-medium text-accent">
-          {MEMO.stance}
+          {memo.stance}
         </span>
       </header>
 
       <div className="flex flex-col gap-8 pt-6">
         <Section title="Summary">
           <p key={level} className="text-[15px] leading-6 text-pretty text-text animate-in fade-in duration-200">
-            {MEMO.summary[level]}
+            {memo.summary[level]}
           </p>
-          <p className="text-[14px] leading-[22px] text-text-muted">{MEMO.chairNote}</p>
+          <p className="text-[14px] leading-[22px] text-text-muted">{memo.chairNote}</p>
         </Section>
 
         {level === "beginner" ? (
@@ -111,34 +113,36 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
           </aside>
         ) : null}
 
-        <Section title="What must be true">
-          <ul className="flex flex-col gap-2">
-            {ASSUMPTIONS.map((a) => {
-              const { icon: Icon, label, tone } = STATUS[a.status];
-              return (
-                <li key={a.id} className="flex items-start gap-2.5 text-[15px] leading-6 text-text">
-                  <Icon className={cn("mt-1 size-4 shrink-0", tone)} aria-label={label} />
-                  <span>
-                    {a.text} <span className="text-[13px] text-text-subtle">{label}</span>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </Section>
+        {assumptions.length > 0 ? (
+          <Section title="What must be true">
+            <ul className="flex flex-col gap-2">
+              {assumptions.map((a) => {
+                const { icon: Icon, label, tone } = STATUS[a.status];
+                return (
+                  <li key={a.id} className="flex items-start gap-2.5 text-[15px] leading-6 text-text">
+                    <Icon className={cn("mt-1 size-4 shrink-0", tone)} aria-label={label} />
+                    <span>
+                      {a.text} <span className="text-[13px] text-text-subtle">{label}</span>
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          </Section>
+        ) : null}
 
         <div className="grid gap-8 md:grid-cols-2">
           <Section title="Bull case">
-            <Points points={MEMO.bull} showRefs={showRefs} />
+            <Points points={memo.bull} showRefs={showRefs} />
           </Section>
           <Section title="Bear case">
-            <Points points={MEMO.bear} showRefs={showRefs} />
+            <Points points={memo.bear} showRefs={showRefs} />
           </Section>
           <Section title="Key risks">
-            <Plain items={MEMO.keyRisks} />
+            <Plain items={memo.keyRisks} />
           </Section>
           <Section title="What to watch">
-            <Plain items={MEMO.watch} />
+            <Plain items={memo.watch} />
           </Section>
         </div>
 
@@ -148,8 +152,8 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
 
         <Section title="Sources">
           <div className="flex flex-wrap gap-2">
-            {IC_FACTS.map((f) => (
-              <SourceChip key={f.id} payload={factPayload(f.id)} label={`${f.id} · ${f.title}`} />
+            {facts.map((f) => (
+              <SourceChip key={f.id} payload={factPayload(facts, f.id)!} label={`${f.id} · ${f.title}`} />
             ))}
           </div>
         </Section>

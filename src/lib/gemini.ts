@@ -119,25 +119,34 @@ export function generateJson<T>(opts: {
 }
 
 export type WebCitation = { title: string; url: string };
+// A sentence of the grounded answer and the citations (indexes into `citations`) that support it.
+export type GroundedClaim = { text: string; citations: number[] };
 
 // Free text grounded with Google Search. Grounding can't be combined with a JSON schema, so it is its own call.
-export function generateGrounded(opts: { tag: string; prompt: string; system?: string; budgetMs?: number }): Promise<Answer<{ text: string; citations: WebCitation[] }>> {
+export function generateGrounded(opts: {
+  tag: string;
+  prompt: string;
+  system?: string;
+  budgetMs?: number;
+}): Promise<Answer<{ text: string; citations: WebCitation[]; claims: GroundedClaim[] }>> {
   return generate({
     tag: opts.tag,
     contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
     config: { tools: [{ googleSearch: {} }], systemInstruction: opts.system },
     read: ({ text, raw }) => {
       if (!text.trim()) throw new Error("empty grounded answer");
-      const chunks = raw.candidates?.[0]?.groundingMetadata?.groundingChunks ?? [];
-      const seen = new Set<string>();
-      const citations: WebCitation[] = [];
-      for (const c of chunks) {
-        const url = c.web?.uri;
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        citations.push({ title: c.web?.title ?? new URL(url).hostname, url });
-      }
-      return { text, citations };
+      const meta = raw.candidates?.[0]?.groundingMetadata;
+      const citations: WebCitation[] = (meta?.groundingChunks ?? []).map((c) => {
+        const url = c.web?.uri ?? "";
+        return { title: c.web?.title ?? (url ? new URL(url).hostname : "Web"), url };
+      });
+      const claims: GroundedClaim[] = (meta?.groundingSupports ?? [])
+        .map((s) => ({
+          text: (s.segment?.text ?? "").trim(),
+          citations: (s.groundingChunkIndices ?? []).filter((i) => citations[i]?.url),
+        }))
+        .filter((c) => c.text && c.citations.length > 0);
+      return { text, citations, claims };
     },
     budgetMs: opts.budgetMs,
   });

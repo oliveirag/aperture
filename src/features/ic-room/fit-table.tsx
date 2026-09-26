@@ -1,8 +1,9 @@
 import { ArrowRight } from "lucide-react";
-import { PORTFOLIO_FIT, PORTFOLIO_FIT_NOTE, type FitRow } from "@/data/ic-room";
+import type { FitRow } from "@/data/ic-room";
 import { cn } from "@/lib/utils";
 import { FIT_TABLE_ID } from "./fact-ref";
 import { formatPct, formatPts, formatSignedUSD, formatUSD } from "./format";
+import { useIcData } from "./run-data";
 
 function display(row: FitRow, n: number) {
   return row.kind === "usd" ? formatUSD(n) : formatPct(n);
@@ -22,6 +23,7 @@ function tone(row: FitRow) {
 }
 
 export function FitTable() {
+  const { fit, fitNote } = useIcData();
   return (
     <div
       id={FIT_TABLE_ID}
@@ -44,7 +46,7 @@ export function FitTable() {
           </tr>
         </thead>
         <tbody>
-          {PORTFOLIO_FIT.map((row) => (
+          {fit.map((row) => (
             <tr
               key={row.label}
               className="border-t border-border max-sm:grid max-sm:grid-cols-[1fr_auto] max-sm:gap-x-3 max-sm:py-2.5 sm:first:border-t-0 max-sm:first:border-t-0"
@@ -72,7 +74,7 @@ export function FitTable() {
           ))}
         </tbody>
       </table>
-      <p className="border-t border-border px-4 py-2.5 text-[12px] text-text-subtle">{PORTFOLIO_FIT_NOTE}</p>
+      <p className="border-t border-border px-4 py-2.5 text-[12px] text-text-subtle">{fitNote}</p>
     </div>
   );
 }

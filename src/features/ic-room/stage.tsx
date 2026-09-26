@@ -1,14 +1,14 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
-import { Check, FastForward, Users } from "lucide-react";
+import { AlertTriangle, Check, FastForward, RotateCcw, Users } from "lucide-react";
 import { motion } from "motion/react";
-import { ASSUMPTIONS, BEAR_STATEMENT, BULL_STATEMENT } from "@/data/ic-room";
 import { cn } from "@/lib/utils";
 import { AssumptionCard } from "./assumption-card";
 import { useEnter } from "./enter";
 import { FactPack } from "./fact-pack";
 import { MemoCard } from "./memo-card";
+import { useIcData } from "./run-data";
 import { SpeakerPanel } from "./speaker-panel";
 import { PHASES, type Frame, type RunStatus } from "./use-ic-run";
 
@@ -88,26 +88,34 @@ export function Stage({
   frame,
   onSkip,
   memoRef,
+  error = null,
+  onRetry,
 }: {
   status: RunStatus;
   frame: Frame | null;
   onSkip: () => void;
   memoRef: Ref<HTMLElement>;
+  // A live run that failed (Gemini overloaded, unknown ticker): what's there stays, with a retry.
+  error?: string | null;
+  onRetry?: () => void;
 }) {
+  const data = useIcData();
   if (status === "idle" || !frame) return <EmptyStage />;
 
   return (
     <div className="flex min-w-0 flex-col gap-8">
-      <Progress frame={frame} status={status} onSkip={onSkip} />
+      {error ? null : <Progress frame={frame} status={status} onSkip={onSkip} />}
 
-      <Step title="Fact pack">
-        <FactPack done={frame.factsDone} />
-      </Step>
+      {data.factSteps.length > 0 ? (
+        <Step title="Fact pack">
+          <FactPack done={frame.factsDone} />
+        </Step>
+      ) : null}
 
       {frame.assumptionsShown > 0 ? (
         <Step title="What must be true">
           <div className="flex flex-col gap-3">
-            {ASSUMPTIONS.slice(0, frame.assumptionsShown).map((a, i) => (
+            {data.assumptions.slice(0, frame.assumptionsShown).map((a, i) => (
               <AssumptionCard
                 key={a.id}
                 assumption={a}
@@ -122,13 +130,30 @@ export function Stage({
       {frame.debate ? (
         <Step id={DEBATE_ID} title="Debate">
           <div className="grid gap-3 xl:grid-cols-2">
-            <SpeakerPanel side="bull" text={BULL_STATEMENT} chars={frame.bullChars} entered />
-            <SpeakerPanel side="bear" text={BEAR_STATEMENT} chars={frame.bearChars} entered={frame.bearEntered} />
+            <SpeakerPanel side="bull" text={data.bullStatement} chars={frame.bullChars} entered />
+            <SpeakerPanel side="bear" text={data.bearStatement} chars={frame.bearChars} entered={frame.bearEntered} />
           </div>
         </Step>
       ) : null}
 
       {frame.memo ? <MemoCard ref={memoRef} /> : null}
+
+      {error ? (
+        <div role="alert" className="flex flex-wrap items-center gap-3 border border-border-strong bg-surface-1 px-5 py-4">
+          <AlertTriangle aria-hidden className="size-4 shrink-0 text-sev-medium" />
+          <p className="min-w-0 flex-1 text-[14px] leading-[22px] text-text">{error}</p>
+          {onRetry ? (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex h-8 items-center gap-2 bg-text px-3 text-[13px] font-medium text-bg transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+            >
+              <RotateCcw aria-hidden className="size-3.5" />
+              Try again
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

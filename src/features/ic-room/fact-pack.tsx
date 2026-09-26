@@ -2,18 +2,19 @@
 
 import { Check, Loader2 } from "lucide-react";
 import { motion } from "motion/react";
-import { FACT_PACK_STEPS } from "@/data/ic-room";
 import { cn } from "@/lib/utils";
 import { useEnter } from "./enter";
+import { useIcData } from "./run-data";
 
 // Checklist of what the committee reads before it speaks. Step i is in progress while i === done.
 export function FactPack({ done }: { done: number }) {
   const enter = useEnter(4, 0.2);
-  const visible = Math.min(FACT_PACK_STEPS.length, done + 1);
+  const steps = useIcData().factSteps;
+  const visible = Math.min(steps.length, done + 1);
 
   return (
     <ul className="flex flex-col gap-2">
-      {FACT_PACK_STEPS.slice(0, visible).map((step, i) => {
+      {steps.slice(0, visible).map((step, i) => {
         const complete = i < done;
         return (
           <motion.li

@@ -3,15 +3,16 @@
 import { SourceChip } from "@/components/shared/source-chip";
 import { useSourceDrawer, type SourceDrawerPayload } from "@/components/shared/source-drawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { IC_FACTS, PORTFOLIO_FIT_NOTE, type IcRef } from "@/data/ic-room";
+import type { IcRef } from "@/data/ic-room";
+import type { Source } from "@/types/demo";
 import { cn } from "@/lib/utils";
+import { useIcData } from "./run-data";
 
 export const FIT_TABLE_ID = "ic-portfolio-fit";
 
-export function factPayload(id: string): SourceDrawerPayload {
-  const source = IC_FACTS.find((f) => f.id === id);
-  if (!source) throw new Error(`Unknown fact ${id}`);
-  return { source, meta: [{ label: "Fact", value: id }] };
+export function factPayload(facts: Source[], id: string): SourceDrawerPayload | null {
+  const source = facts.find((f) => f.id === id);
+  return source ? { source, meta: [{ label: "Fact", value: id }] } : null;
 }
 
 function scrollToFit() {
@@ -27,6 +28,7 @@ const REF_CLASS =
 // Compact inline citation: [F1] opens the drawer, [FIT] points at the portfolio-fit table.
 export function FactRef({ id, className }: { id: IcRef; className?: string }) {
   const open = useSourceDrawer((s) => s.open);
+  const { facts, fitNote } = useIcData();
 
   if (id === "FIT") {
     return (
@@ -36,7 +38,7 @@ export function FactRef({ id, className }: { id: IcRef; className?: string }) {
             <button
               type="button"
               onClick={scrollToFit}
-              aria-label={`FIT: ${PORTFOLIO_FIT_NOTE}`}
+              aria-label={`FIT: ${fitNote}`}
               className={cn(REF_CLASS, "border-accent/40 text-accent hover:border-accent", className)}
             />
           }
@@ -44,19 +46,20 @@ export function FactRef({ id, className }: { id: IcRef; className?: string }) {
           FIT
         </TooltipTrigger>
         <TooltipContent className="border border-border-strong bg-surface-3 px-3 py-2 text-[13px] text-text [&_[data-slot=tooltip-arrow]]:hidden">
-          {PORTFOLIO_FIT_NOTE}
+          {fitNote}
         </TooltipContent>
       </Tooltip>
     );
   }
 
-  const fact = IC_FACTS.find((f) => f.id === id);
+  const payload = factPayload(facts, id);
+  if (!payload) return null;
   return (
     <button
       type="button"
-      onClick={() => open(factPayload(id))}
-      title={fact?.title}
-      aria-label={`${id}: ${fact?.title}`}
+      onClick={() => open(payload)}
+      title={payload.source.title}
+      aria-label={`${id}: ${payload.source.title}`}
       className={cn(REF_CLASS, className)}
     >
       {id}
@@ -66,6 +69,8 @@ export function FactRef({ id, className }: { id: IcRef; className?: string }) {
 
 // Evidence-line chip on the stage: a small SourceChip labelled with the fact id.
 export function FactChip({ id }: { id: IcRef }) {
+  const { facts } = useIcData();
   if (id === "FIT") return <FactRef id="FIT" />;
-  return <SourceChip payload={factPayload(id)} label={id} className="h-5 px-2 text-[11px]" />;
+  const payload = factPayload(facts, id);
+  return payload ? <SourceChip payload={payload} label={id} className="h-5 px-2 text-[11px]" /> : null;
 }

@@ -90,3 +90,82 @@ export function getProfile(symbol: string): Promise<Profile | null> {
     };
   });
 }
+
+export interface Metrics {
+  peTTM: number | null;
+  week52High: number | null;
+  week52Low: number | null;
+  beta: number | null;
+  revenueGrowthTTMYoy: number | null;
+  netMarginTTM: number | null;
+}
+
+export function getMetrics(symbol: string): Promise<Metrics | null> {
+  return cached(`metric:${symbol}`, PROFILE_TTL_MS, async () => {
+    const m = ((await get("/stock/metric", { symbol, metric: "all" })) as { metric?: Record<string, number | null> }).metric;
+    if (!m || Object.keys(m).length === 0) return null;
+    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+    return {
+      peTTM: n(m.peTTM ?? m.peBasicExclExtraTTM),
+      week52High: n(m["52WeekHigh"]),
+      week52Low: n(m["52WeekLow"]),
+      beta: n(m.beta),
+      revenueGrowthTTMYoy: n(m.revenueGrowthTTMYoy),
+      netMarginTTM: n(m.netProfitMarginTTM),
+    };
+  });
+}
+
+// Latest month of analyst ratings, as counts.
+export interface Recommendation {
+  period: string;
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+}
+
+export function getRecommendation(symbol: string): Promise<Recommendation | null> {
+  return cached(`reco:${symbol}`, PROFILE_TTL_MS, async () => {
+    const list = (await get("/stock/recommendation", { symbol })) as Recommendation[];
+    return Array.isArray(list) && list.length > 0 ? list[0] : null;
+  });
+}
+
+export interface Earnings {
+  date: string;
+  epsEstimate: number | null;
+  revenueEstimate: number | null;
+}
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
+
+// The next scheduled earnings report within four months.
+export function getNextEarnings(symbol: string): Promise<Earnings | null> {
+  return cached(`earnings:${symbol}`, PROFILE_TTL_MS, async () => {
+    const now = new Date();
+    const to = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000);
+    const data = (await get("/calendar/earnings", { symbol, from: isoDay(now), to: isoDay(to) })) as { earningsCalendar?: Earnings[] };
+    const list = (data.earningsCalendar ?? []).filter((e) => e.date).sort((a, b) => a.date.localeCompare(b.date));
+    return list[0] ?? null;
+  });
+}
+
+export interface NewsItem {
+  headline: string;
+  summary: string;
+  url: string;
+  source: string;
+  // Unix seconds.
+  datetime: number;
+}
+
+export function getCompanyNews(symbol: string, days = 14): Promise<NewsItem[]> {
+  return cached(`news:${symbol}:${days}`, 60 * 60 * 1000, async () => {
+    const now = new Date();
+    const from = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const list = (await get("/company-news", { symbol, from: isoDay(from), to: isoDay(now) })) as NewsItem[];
+    return Array.isArray(list) ? list.filter((n) => n.headline && n.url).sort((a, b) => b.datetime - a.datetime) : [];
+  });
+}

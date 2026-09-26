@@ -97,12 +97,15 @@ export function SourceDrawer() {
                 </dl>
               ) : null}
 
-              <section>
-                <Label>Excerpt</Label>
-                <blockquote className="border-l-2 border-accent pl-4 text-[15px] leading-6 text-text">
-                  {highlightPhrases(source.excerpt, source.highlight ? [source.highlight] : [])}
-                </blockquote>
-              </section>
+              {/* With a compare, the latest wording is the excerpt; don't show it twice. */}
+              {!payload?.compare ? (
+                <section>
+                  <Label>Excerpt</Label>
+                  <blockquote className="border-l-2 border-accent pl-4 text-[15px] leading-6 text-text">
+                    {highlightPhrases(source.excerpt, source.highlight ? [source.highlight] : [])}
+                  </blockquote>
+                </section>
+              ) : null}
 
               {payload?.compare ? (
                 <section className="flex flex-col gap-4">

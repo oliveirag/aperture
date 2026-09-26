@@ -13,7 +13,7 @@ const BLURBS: Record<string, string> = {
 // Black two-up band: the argument on the left, the four tools as hairline rows in a raised panel on the right.
 export function Pillars() {
   return (
-    <section aria-label="What Lookthrough does" className="theme-dark py-28 lg:py-36">
+    <section aria-label="What Unfold does" className="theme-dark py-28 lg:py-36">
       <div className="bx-container grid gap-16 lg:grid-cols-2 lg:gap-24">
         <Reveal>
           <p className="eyebrow">Four questions</p>

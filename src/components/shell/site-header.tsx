@@ -38,7 +38,7 @@ export function SiteHeader() {
       )}
     >
       <div className="bx-container flex h-20 items-center justify-between gap-8 lg:h-24">
-        <Link href="/" aria-label="Lookthrough home" className="shrink-0">
+        <Link href="/" aria-label="Unfold home" className="shrink-0">
           <Wordmark size="sm" className="lg:hidden" />
           <Wordmark className="hidden lg:inline-flex" />
         </Link>

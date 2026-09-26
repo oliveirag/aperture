@@ -1,5 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
-import { priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
+import { type RawHolding, type SnapHolding } from "@/lib/price-holdings";
+import { admin, apiError, requireUser, sameOrigin } from "@/lib/supabase/server";
+import { readRows } from "@/lib/imports/types";
+import { extractionCsv, sha256 } from "@/lib/imports/csv";
+import { after } from "next/server";
+import { processImports } from "@/lib/imports/worker";
 
 export const runtime = "nodejs";
 // Gemini retries plus pricing can run past the default on busy days.
@@ -13,14 +18,14 @@ const WAVES = [
 ];
 // Before accepting a lite answer, give the full models this long to finish.
 const PREFER_FULL_MS = 4000;
-const MAX_BYTES = 5 * 1024 * 1024;
+const MAX_BYTES = 4 * 1024 * 1024;
 const WAVE_TIMEOUT_MS = 22000;
 const TOTAL_BUDGET_MS = 45000;
 
 const PROMPT =
   "Extract every stock and ETF position visible in this brokerage screenshot, top to bottom, including rows that are partly visible. " +
   "For each position return the ticker symbol, the share quantity, the market value in USD if shown, and the security name if shown. " +
-  "Use null for anything not visible. Do not include cash, totals, options or crypto. " +
+  "Use null for anything not visible. Include USD cash and every uncertain or unsupported position for user review; never silently omit a holding. Exclude summary totals. " +
   "Ignore account numbers, owner names, balances and any other personal information.";
 
 const SCHEMA = {
@@ -117,9 +122,13 @@ async function readImage(apiKey: string, mimeType: string, data: string) {
   throw lastError ?? new Error("no model attempted");
 }
 
-// Reads one brokerage screenshot with Gemini, then prices every position with Finnhub.
-// The image stays in memory only; it is never written or logged.
+// Extracts all rows into a review draft. The private image expires after one hour
+// and is deleted transactionally on review confirmation or logout.
 export async function POST(request: Request) {
+  let owner;
+  try { sameOrigin(request); owner=await requireUser(); } catch(e) { return apiError(e); }
+  const epoch=await admin().rpc("import_epoch",{p_owner:owner.id});
+  if(epoch.error)return fail("Unable to start screenshot review.",503);
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return fail("Screenshot import is not configured", 503);
 
@@ -133,20 +142,28 @@ export async function POST(request: Request) {
   const files = form.getAll("file").filter((v): v is File => v instanceof File);
   if (files.length !== 1) return fail("Send exactly one image", 400);
   const [file] = files;
-  if (!file.type.startsWith("image/")) return fail("File must be an image", 415);
+  if (!["image/png","image/jpeg","image/webp"].includes(file.type)) return fail("Choose a PNG, JPEG, or WebP screenshot", 415);
   if (file.size === 0) return fail("Image is empty", 400);
-  if (file.size > MAX_BYTES) return fail("Image is larger than 5MB", 413);
+  if (file.size > MAX_BYTES) return fail("Image is larger than 4MB", 413);
 
   let read: { model: string; raw: RawHolding[] };
+  const imageData=Buffer.from(await file.arrayBuffer()).toString("base64");
   try {
-    const data = Buffer.from(await file.arrayBuffer()).toString("base64");
-    read = await readImage(apiKey, file.type, data);
+    read = await readImage(apiKey, file.type, imageData);
   } catch {
     return fail("Gemini couldn't read the screenshot right now. Try again in a moment.", 502);
   }
 
-  const holdings = await priceHoldings(read.raw);
-  if (holdings.length === 0) return fail("No positions found in this screenshot", 422);
-  const body: SnapResponse = { holdings, model: read.model };
-  return Response.json(body);
+  try {
+    // A logout during extraction must not resurrect an unconfirmed draft.
+    const stillSignedIn=await requireUser();
+    if(stillSignedIn.id!==owner.id)throw new Error("The account changed during extraction. Upload again.");
+    const rows=readRows(read.raw); const csv=extractionCsv(read.raw);
+    const id=crypto.randomUUID();const db=admin();
+    const {error}=await db.rpc("save_screenshot",{p_id:id,p_owner:owner.id,p_rows:rows,p_csv:csv,p_hash:sha256(csv),p_mime:file.type,p_image:imageData,p_epoch:epoch.data});
+    if(error) throw new Error("Unable to save extracted rows.");
+    const {data:job}=await db.from("import_jobs").select("*").eq("id",id).eq("owner_id",owner.id).single();
+    after(async()=>{try{await processImports();}catch{console.error("Draft pricing will resume on the scheduled worker.");}});
+    return Response.json({job,model:read.model},{headers:{"Cache-Control":"no-store"}});
+  }catch(e){return apiError(e);}
 }

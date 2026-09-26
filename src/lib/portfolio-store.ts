@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { HOLDINGS } from "@/data/portfolio";
 import type { Holding } from "@/types/demo";
+import type { Snapshot } from "@/lib/imports/types";
+import { mergeInputs } from "@/lib/imports/types";
 
 const DEFAULT_COLOR = "#8FA3BF";
 
@@ -25,6 +27,8 @@ interface PortfolioState {
   kind: PortfolioKind;
   // False until sessionStorage has been read; views that differ by portfolio wait for it.
   hydrated: boolean;
+  snapshot: Snapshot | null;
+  setSnapshot: (snapshot: Snapshot) => void;
   setImported: (holdings: ImportedHolding[], kind?: PortfolioKind) => void;
   resetToDemo: () => void;
 }
@@ -36,15 +40,17 @@ export const usePortfolio = create<PortfolioState>()(
       imported: null,
       kind: "imported",
       hydrated: false,
-      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind }),
-      resetToDemo: () => set({ imported: null, kind: "imported" }),
+      snapshot: null,
+      setSnapshot: (snapshot) => set({ snapshot, kind:"imported", imported:mergeInputs(snapshot.results).map(r=>({ticker:r.ticker,name:r.name,industry:r.industry??null,shares:r.shares,price:r.price})) }),
+      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind, snapshot:null }),
+      resetToDemo: () => set({ imported: null, kind: "imported", snapshot:null }),
     }),
     {
       name: "lookthrough-portfolio",
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,
-      partialize: (s) => ({ imported: s.imported, kind: s.kind }),
+      partialize: (s) => ({ imported: s.imported, kind: s.kind, snapshot:s.snapshot }),
       onRehydrateStorage: () => () => usePortfolio.setState({ hydrated: true }),
     },
   ),

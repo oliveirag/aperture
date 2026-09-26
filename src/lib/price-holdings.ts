@@ -44,7 +44,8 @@ export async function priceHoldings(raw: RawHolding[]): Promise<SnapHolding[]> {
       name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name.trim() : null),
     });
   }
-  const rows = [...merged.values()].slice(0, MAX_HOLDINGS);
+  const rows = [...merged.values()];
+  if (rows.length > MAX_HOLDINGS) throw new Error("Use the durable import flow for portfolios above 25 holdings.");
 
   const live = finnhubConfigured();
   const quotes = await Promise.allSettled(rows.map((h) => (live ? getQuote(h.ticker) : Promise.resolve(null))));

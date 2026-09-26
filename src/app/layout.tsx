@@ -11,7 +11,7 @@ const display = Newsreader({ subsets: ["latin"], variable: "--font-display", axe
 const grotesk = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-grotesk", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "Lookthrough", template: "%s · Lookthrough" },
+  title: { default: "Unfold", template: "%s · Lookthrough" },
   description: "See what you actually own.",
 };
 

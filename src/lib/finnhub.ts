@@ -1,4 +1,5 @@
 // Server-only Finnhub client. Import it from route handlers only: it reads FINNHUB_API_KEY.
+import { cachedProvider, reserve, cooldown } from "@/lib/imports/provider";
 const BASE = "https://finnhub.io/api/v1";
 const TIMEOUT_MS = 4000;
 const QUOTE_TTL_MS = 60 * 1000;
@@ -11,6 +12,7 @@ export interface Quote {
   prevClose: number;
   // Unix seconds of the last trade.
   time: number;
+  retrievedAt?: string;
 }
 
 export interface Profile {
@@ -42,7 +44,7 @@ async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Prom
   const pending = inflight.get(key);
   if (pending) return pending as Promise<T>;
 
-  const p = load()
+  const p = cachedProvider(key, ttl, load)
     .then((value) => {
       cache.set(key, { expires: Date.now() + ttl, value });
       return value;
@@ -55,6 +57,7 @@ async function cached<T>(key: string, ttl: number, load: () => Promise<T>): Prom
 async function get(path: string, params: Record<string, string>): Promise<unknown> {
   const apiKey = process.env.FINNHUB_API_KEY;
   if (!apiKey) throw new Error("FINNHUB_API_KEY is not set");
+  await reserve("finnhub", path !== "/quote");
   const url = new URL(`${BASE}${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   // Header auth keeps the key out of any logged URL.
@@ -63,6 +66,7 @@ async function get(path: string, params: Record<string, string>): Promise<unknow
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
   });
+  if (res.status === 429) await cooldown("finnhub", 60);
   if (!res.ok) throw new Error(`finnhub ${path} ${res.status}`);
   return res.json();
 }
@@ -71,8 +75,8 @@ async function get(path: string, params: Record<string, string>): Promise<unknow
 export function getQuote(symbol: string): Promise<Quote | null> {
   return cached(`quote:${symbol}`, QUOTE_TTL_MS, async () => {
     const q = (await get("/quote", { symbol })) as Record<string, number | null>;
-    if (!q.c || !q.t) return null;
-    return { price: q.c, change: q.d ?? 0, changePct: (q.dp ?? 0) / 100, prevClose: q.pc ?? q.c, time: q.t };
+    if (!Number.isFinite(q.c) || !q.c || q.c <= 0 || !Number.isFinite(q.t) || !q.t) return null;
+    return { price: q.c, change: q.d ?? 0, changePct: (q.dp ?? 0) / 100, prevClose: q.pc ?? q.c, time: q.t, retrievedAt:new Date().toISOString() };
   });
 }
 

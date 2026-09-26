@@ -16,7 +16,7 @@ export function Hero() {
         </h1>
         <Reveal delay={0.5} className="lg:pb-4">
           <p className="max-w-[30ch] text-[22px] leading-[1.5] font-light text-text sm:text-[24px]">
-            Brokerages show you what you bought. Lookthrough shows what&apos;s inside it.
+            Brokerages show you what you bought. Unfold shows what&apos;s inside it.
           </p>
         </Reveal>
       </div>
@@ -30,7 +30,7 @@ export function Hero() {
           <div>
             <p className="text-[20px] leading-[1.5] font-light text-text">
               NVIDIA looks like one holding. Through your ETFs it is three, and the largest single bet in the portfolio.
-              Lookthrough shows what&apos;s inside, what could hit it, what changed in the filings, and what to check
+              Unfold shows what&apos;s inside, what could hit it, what changed in the filings, and what to check
               before you add more.
             </p>
             <TryDemoLink className="mt-10" />

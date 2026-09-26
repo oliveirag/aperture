@@ -31,7 +31,7 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="bx-container">
-        <p className="border-t border-border py-6 text-[13px] text-text-subtle">© 2026 Lookthrough. Investing involves risk, including loss of capital.</p>
+        <p className="border-t border-border py-6 text-[13px] text-text-subtle">© 2026 Unfold. Investing involves risk, including loss of capital.</p>
       </div>
     </footer>
   );

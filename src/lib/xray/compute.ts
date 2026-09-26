@@ -20,12 +20,13 @@ export type LookthroughInput = {
   shares: number;
   price: number;
   // A stock (with its Finnhub industry), an ETF with holdings, or an ETF/unknown we can't see into.
-  kind: "stock" | "etf" | "opaque";
+  kind: "stock" | "etf" | "opaque" | "cash";
   industry?: string | null;
   etf?: {
     holdings: { ticker: string; name: string; weight: number }[];
     sectors: { sector: SectorLabel; weight: number }[];
     asOf: string;
+    exclusions?: { name: string; weight: number; kind: string }[];
   };
 };
 
@@ -60,6 +61,11 @@ function joinNames(names: string[]) {
 // Headline and subline, written from the computed numbers only.
 function copy(total: number, top: XExposure[], flags: Flag[], sectors: SectorSlice[], overlaps: XOverlap[], positionsCount: number) {
   const lead = top[0];
+  if (!lead) {
+    const headline = "This portfolio has no disclosed equity exposure.";
+    const subline = "Cash and non-equity holdings remain in portfolio value. See the exposure summary for details.";
+    return {headline:{beginner:headline,intermediate:headline,advanced:headline},subline:{beginner:subline,intermediate:subline,advanced:subline}};
+  }
   const w = lead.value / total;
   const pct = formatPct(w);
   const paths = lead.sources.length;
@@ -223,7 +229,10 @@ export function computeXray(
   for (const p of rows) {
     const value = p.shares * p.price;
     const color = colorFor(p.ticker, knownColors);
-    if (p.kind === "etf" && p.etf) {
+    if (p.kind === "cash") {
+      addSector("Other", value);
+      positions.push({ id:p.ticker,ticker:p.ticker,category:"USD cash",value,weight:value/total,color });
+    } else if (p.kind === "etf" && p.etf) {
       let covered = 0;
       for (const h of p.etf.holdings) {
         addExposure(h.ticker, h.name, p.ticker, value * h.weight);

@@ -1,6 +1,7 @@
 // Server-only ETF look-through data: the committed seed first, then Alpha Vantage live (reads ALPHA_VANTAGE_API_KEY).
 import seed from "@/data/etf-seed.json";
 import { sectorFromGics, type SectorLabel } from "@/lib/sectors";
+import { reserve, cooldown, cachedProvider } from "@/lib/imports/provider";
 
 export interface EtfHolding {
   ticker: string;
@@ -79,12 +80,13 @@ const SEED = seed as unknown as Record<string, RawProfile>;
 async function fetchLive(ticker: string): Promise<EtfProfile | null> {
   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
   if (!apiKey) return null;
+  await reserve("alpha");
   const url = `${BASE}?function=ETF_PROFILE&symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
   const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
   if (!res.ok) throw new Error(`alphavantage ${res.status}`);
   const raw = (await res.json()) as RawProfile & { Information?: string; Note?: string };
   // Rate-limit and key messages come back as 200 with a note; don't cache those as "not an ETF".
-  if (raw.Information || raw.Note) throw new Error("alphavantage limit");
+  if (raw.Information || raw.Note) await cooldown("alpha",86400);
   return parseProfile(ticker, raw, "live");
 }
 
@@ -98,7 +100,7 @@ export async function getEtfProfile(ticker: string): Promise<EtfProfile | null> 
   const pending = inflight.get(t);
   if (pending) return pending;
 
-  const p = fetchLive(t)
+  const p = cachedProvider(`legacy-etf:${t}`,TTL_MS,()=>fetchLive(t))
     .then((value) => {
       cache.set(t, { expires: Date.now() + TTL_MS, value });
       return value;

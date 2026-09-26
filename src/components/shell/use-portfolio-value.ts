@@ -26,18 +26,21 @@ export function usePortfolioValue() {
   const refreshQuotes = useMarket((s) => s.refreshQuotes);
   const { live, imported, holdings, total, dayChange, dayChangePct } = useLiveHoldings();
   const kind = usePortfolio((s) => s.kind);
+  const snapshot = usePortfolio((s) => s.snapshot);
   const tickers = holdings.map((h) => h.ticker).join(",");
 
   useEffect(() => {
+    if (snapshot) return;
     const list = tickers.split(",");
     refreshQuotes(list);
     const id = setInterval(() => {
       if (document.visibilityState === "visible") refreshQuotes(list);
     }, REFRESH_MS);
     return () => clearInterval(id);
-  }, [tickers, refreshQuotes]);
+  }, [tickers, refreshQuotes, snapshot]);
 
   const label = !imported ? "Demo portfolio" : kind === "practice" ? "Practice · no real money" : "Imported portfolio";
+  if (snapshot) return {label:"Saved portfolio",live:false,total:snapshot.model.total,change:0,pct:0,asOf:`Snapshot ${new Date(snapshot.created_at).toLocaleString()}`};
   if (live) {
     return { label, live, total, change: dayChange, pct: dayChangePct, asOf: `Finnhub · ${quoteTimeLabel(latestQuoteTime(quotes))}` };
   }

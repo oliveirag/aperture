@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import type { IcEvent, IcRunData } from "@/lib/ic/types";
 import { readNdjson } from "@/lib/ndjson";
+import { useIcMemos } from "./memos";
 import { CHARS_PER_MS, typed, type Frame, type RunStatus } from "./use-ic-run";
 
 const FRAME_MS = 16;
@@ -149,7 +150,11 @@ export function useLiveIc() {
             update((s) => ({ ...s, data: { ...s.data, bearStatement: e.statement, memo: { ...s.data.memo, bear: e.points } }, at: { ...s.at, ...arrived("bear") } }));
           } else if (e.type === "memo") {
             finished = true;
-            update((s) => ({ ...s, status: "done", data: { ...s.data, memo: { ...s.data.memo, ...e.memo } }, at: { ...s.at, ...arrived("memo") } }));
+            update((s) => {
+              const data = { ...s.data, memo: { ...s.data.memo, ...e.memo } };
+              useIcMemos.getState().add({ ticker: data.ticker.ticker, date: data.date, memo: data.memo });
+              return { ...s, status: "done", data, at: { ...s.at, ...arrived("memo") } };
+            });
           } else {
             finished = true;
             update((s) => ({ ...s, status: "error", error: e.error }));

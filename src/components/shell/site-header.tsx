@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
+import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
@@ -60,6 +61,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-8 md:flex lg:border-l lg:border-border lg:pl-8">
+          <AskButton />
           <PortfolioMenu value={value} />
           <LevelSwitcher />
         </div>
@@ -69,6 +71,7 @@ export function SiteHeader() {
       <nav aria-label="Primary" className="border-t border-border lg:hidden">
         <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
           <PortfolioMenu value={value} align="start" />
+          <AskButton className="h-8" />
           {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />

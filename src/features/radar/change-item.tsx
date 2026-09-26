@@ -5,6 +5,8 @@ import { highlightPhrases, useSourceDrawer } from "@/components/shared/source-dr
 import { NEW_ITEM_PRIOR, type RadarCard, type RadarChange } from "@/data/radar";
 import { cn } from "@/lib/utils";
 
+const REMOVED_ITEM_CURRENT = "Not present in the latest filing.";
+
 const KIND = {
   new: { label: "New", className: "border-accent/50 text-accent" },
   changed: { label: "Changed", className: "border-sev-medium/50 text-sev-medium" },
@@ -18,7 +20,10 @@ export function ChangeItem({ card, change }: { card: RadarCard; change: RadarCha
   function compare() {
     open({
       source: { ...card.source, excerpt: change.current, highlight: change.highlight[0] },
-      compare: { prior: change.prior ?? NEW_ITEM_PRIOR, current: change.current, highlight: change.highlight },
+      compare:
+        change.kind === "removed"
+          ? { prior: change.current, current: REMOVED_ITEM_CURRENT, highlight: change.highlight }
+          : { prior: change.prior ?? NEW_ITEM_PRIOR, current: change.current, highlight: change.highlight },
     });
   }
 

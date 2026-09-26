@@ -3,6 +3,7 @@ import { GeistMono } from "geist/font/mono";
 import { Hanken_Grotesk, Newsreader } from "next/font/google";
 import { SourceDrawer } from "@/components/shared/source-drawer";
 import { DemoKeys } from "@/components/shell/demo-keys";
+import { AccountSync } from "@/features/account/account-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           {children}
           <SourceDrawer />
           <DemoKeys />
+          <AccountSync />
         </TooltipProvider>
       </body>
     </html>

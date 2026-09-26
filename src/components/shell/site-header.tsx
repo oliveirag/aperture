@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
+import { AccountMenu } from "@/features/account/account-menu";
 import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
@@ -64,6 +65,7 @@ export function SiteHeader() {
           <AskButton />
           <PortfolioMenu value={value} />
           <LevelSwitcher />
+          <AccountMenu />
         </div>
       </div>
 
@@ -72,6 +74,7 @@ export function SiteHeader() {
         <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
           <PortfolioMenu value={value} align="start" />
           <AskButton className="h-8" />
+          <AccountMenu align="start" />
           {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
           <LayoutGroup id="level-mobile">
             <LevelSwitcher />

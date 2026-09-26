@@ -4,6 +4,7 @@ import { TickerMark } from "@/components/shared/ticker-mark";
 import { AS_OF } from "@/data/portfolio";
 import { formatPct, formatSignedPct, formatUSD } from "@/lib/format";
 import { useLiveHoldings, useMarket } from "@/lib/market";
+import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import { DetailCard } from "./card";
 
@@ -13,7 +14,7 @@ function SourceStatus({ live, imported }: { live: boolean; imported: boolean }) 
   return (
     <span className="inline-flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-border px-2.5 text-[12px] font-medium whitespace-nowrap text-text-muted">
       <span aria-hidden className={cn("size-1.5 rounded-full", live ? "bg-positive" : "bg-text-subtle")} />
-      {live ? "Live · Finnhub" : imported ? "Prices at import" : `Snapshot · ${AS_OF}`}
+      {live ? "Live · Finnhub" : imported ? "Prices when added" : `Snapshot · ${AS_OF}`}
     </span>
   );
 }
@@ -21,12 +22,14 @@ function SourceStatus({ live, imported }: { live: boolean; imported: boolean }) 
 // What the user bought, repriced with live quotes. Industry comes from the Finnhub company profile when there is one.
 export function Holdings() {
   const { live, imported, holdings, total } = useLiveHoldings();
+  const practice = usePortfolio((s) => s.kind === "practice");
+  const where = !imported ? "you bought" : practice ? "in your practice portfolio" : "you imported";
   const profiles = useMarket((s) => s.profiles);
 
   return (
     <DetailCard
       title="Holdings"
-      headline={`${holdings.length} positions ${imported ? "from your screenshot" : "you bought"}`}
+      headline={`${holdings.length} ${holdings.length === 1 ? "position" : "positions"} ${where}`}
       action={<SourceStatus live={live} imported={imported} />}
       className="lg:col-span-12"
     >

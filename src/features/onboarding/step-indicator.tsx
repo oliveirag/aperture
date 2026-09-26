@@ -3,10 +3,11 @@ import { cn } from "@/lib/utils";
 const STEPS = ["Experience", "Import", "X-Ray"];
 
 // A real sequence, so numbers carry meaning here. Tracked numerals, the current step underlined.
-export function StepIndicator({ current }: { current: 1 | 2 | 3 }) {
+// `steps` renames the labels (the practice path says "Practice" instead of "Import").
+export function StepIndicator({ current, steps = STEPS }: { current: 1 | 2 | 3; steps?: string[] }) {
   return (
     <ol aria-label="Setup steps" className="flex items-center gap-4 sm:gap-8">
-      {STEPS.map((label, i) => {
+      {steps.map((label, i) => {
         const step = i + 1;
         const active = step === current;
         return (

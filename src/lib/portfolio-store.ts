@@ -6,7 +6,8 @@ import type { Holding } from "@/types/demo";
 
 const DEFAULT_COLOR = "#8FA3BF";
 
-// A position read from the user's screenshot. `price` is the price at import time, used until live quotes arrive.
+// A position from an import (screenshot, CSV, typed) or a practice portfolio. `price` is the price at the time,
+// used until live quotes arrive.
 export interface ImportedHolding {
   ticker: string;
   name: string;
@@ -15,12 +16,16 @@ export interface ImportedHolding {
   price: number;
 }
 
+// "practice" is a beginner's pretend portfolio: hypothetical dollars, never real money.
+export type PortfolioKind = "imported" | "practice";
+
 interface PortfolioState {
   // null means the canonical demo portfolio.
   imported: ImportedHolding[] | null;
+  kind: PortfolioKind;
   // False until sessionStorage has been read; views that differ by portfolio wait for it.
   hydrated: boolean;
-  setImported: (holdings: ImportedHolding[]) => void;
+  setImported: (holdings: ImportedHolding[], kind?: PortfolioKind) => void;
   resetToDemo: () => void;
 }
 
@@ -29,16 +34,17 @@ export const usePortfolio = create<PortfolioState>()(
   persist(
     (set) => ({
       imported: null,
+      kind: "imported",
       hydrated: false,
-      setImported: (holdings) => set({ imported: holdings }),
-      resetToDemo: () => set({ imported: null }),
+      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind }),
+      resetToDemo: () => set({ imported: null, kind: "imported" }),
     }),
     {
       name: "lookthrough-portfolio",
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,
-      partialize: (s) => ({ imported: s.imported }),
+      partialize: (s) => ({ imported: s.imported, kind: s.kind }),
       onRehydrateStorage: () => () => usePortfolio.setState({ hydrated: true }),
     },
   ),

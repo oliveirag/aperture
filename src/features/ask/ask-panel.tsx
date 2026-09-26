@@ -19,6 +19,8 @@ import { useAsk, type AskMessage } from "./store";
 
 const CHIPS = ["What's my biggest risk?", "How much of my money is in AI?", "What changed in Apple's latest filing?"];
 const BEGINNER_CHIPS = ["What is an ETF?", "How do I research a stock before buying?"];
+// New turns rise into place instead of teleporting in.
+const ENTER = "transition-[opacity,translate] duration-200 ease-out starting:translate-y-1 starting:opacity-0";
 
 // The portfolio JSON for the active portfolio, built from what the pages already computed.
 function useAskContext() {
@@ -75,10 +77,10 @@ function Answer({ text }: { text: string }) {
 
 function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
   if (m.role === "user") {
-    return <p className="ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text">{m.text}</p>;
+    return <p className={cn("ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text", ENTER)}>{m.text}</p>;
   }
   return (
-    <div className="mr-6 flex flex-col gap-3 text-[14px] leading-[22px] text-text">
+    <div className={cn("mr-6 flex flex-col gap-3 text-[14px] leading-[22px] text-text", ENTER)}>
       {m.pending && !m.text ? (
         <p className="flex items-center gap-2 text-text-muted">
           <LoaderCircle aria-hidden className="size-4 animate-spin text-accent" />

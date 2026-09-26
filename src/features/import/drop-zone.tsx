@@ -54,7 +54,10 @@ function Staged({ files, onRemove }: { files: File[]; onRemove: (i: number) => v
   return (
     <ul aria-label="Screenshots to read" className="grid w-full grid-cols-3 gap-3">
       {files.map((f, i) => (
-        <li key={`${f.name}-${i}`} className="relative aspect-[3/4] overflow-hidden border border-border-strong bg-surface-2">
+        <li
+          key={`${f.name}-${i}`}
+          className="relative aspect-[3/4] overflow-hidden border border-border-strong bg-surface-2 transition-[opacity,scale] duration-200 ease-out starting:scale-[0.96] starting:opacity-0"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={urlFor(f)} alt={`Screenshot ${i + 1}: ${f.name}`} className="size-full object-contain p-1.5" />
           <button

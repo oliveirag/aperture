@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { AS_OF, DAY_CHANGE, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { latestQuoteTime, useLiveHoldings, useMarket } from "@/lib/market";
-import { useHydratePortfolio } from "@/lib/portfolio-store";
+import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 
 const REFRESH_MS = 60 * 1000;
 
@@ -25,6 +25,7 @@ export function usePortfolioValue() {
   const quotes = useMarket((s) => s.quotes);
   const refreshQuotes = useMarket((s) => s.refreshQuotes);
   const { live, imported, holdings, total, dayChange, dayChangePct } = useLiveHoldings();
+  const kind = usePortfolio((s) => s.kind);
   const tickers = holdings.map((h) => h.ticker).join(",");
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export function usePortfolioValue() {
     return () => clearInterval(id);
   }, [tickers, refreshQuotes]);
 
-  const label = imported ? "Imported portfolio" : "Demo portfolio";
+  const label = !imported ? "Demo portfolio" : kind === "practice" ? "Practice · no real money" : "Imported portfolio";
   if (live) {
     return { label, live, total, change: dayChange, pct: dayChangePct, asOf: `Finnhub · ${quoteTimeLabel(latestQuoteTime(quotes))}` };
   }

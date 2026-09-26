@@ -194,7 +194,7 @@ export function NotePanel({
           type="button"
           onClick={onClose}
           aria-label="Close note"
-          className="flex size-7 items-center justify-center text-[#8f8f8f] transition-colors duration-150 hover:bg-white/5 hover:text-[#dadada]"
+          className="flex size-7 items-center justify-center text-[#8f8f8f] transition-[color,background-color,border-color,scale] duration-150 hover:bg-white/5 active:scale-[0.95] hover:text-[#dadada]"
         >
           <X aria-hidden className="size-4" />
         </button>

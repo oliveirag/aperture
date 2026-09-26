@@ -111,7 +111,7 @@ export function Composer({
             <button
               type="button"
               onClick={() => onChange({ ...form, thesis: IC_THESIS })}
-              className="inline-flex h-6 items-center gap-1 border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+              className="inline-flex h-6 items-center gap-1 border border-border bg-surface-2 px-2.5 text-[12px] font-medium text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
             >
               AMD share-gain thesis
             </button>
@@ -134,7 +134,7 @@ export function Composer({
         <button
           type="submit"
           disabled={running || problem !== null}
-          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-text text-[14px] font-medium text-bg transition-[transform,opacity] duration-150 ease-out hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-text text-[14px] font-medium text-bg transition-[transform,translate,scale,opacity] duration-150 ease-out hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
         >
           {running ? (
             <>

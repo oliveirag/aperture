@@ -54,14 +54,17 @@ function Staged({ files, onRemove }: { files: File[]; onRemove: (i: number) => v
   return (
     <ul aria-label="Screenshots to read" className="grid w-full grid-cols-3 gap-3">
       {files.map((f, i) => (
-        <li key={`${f.name}-${i}`} className="relative aspect-[3/4] overflow-hidden border border-border-strong bg-surface-2">
+        <li
+          key={`${f.name}-${i}`}
+          className="relative aspect-[3/4] overflow-hidden border border-border-strong bg-surface-2 transition-[opacity,scale] duration-200 ease-out starting:scale-[0.96] starting:opacity-0"
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={urlFor(f)} alt={`Screenshot ${i + 1}: ${f.name}`} className="size-full object-contain p-1.5" />
           <button
             type="button"
             onClick={() => onRemove(i)}
             aria-label={`Remove screenshot ${i + 1}`}
-            className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-bg/85 text-text transition-colors duration-150 hover:bg-bg"
+            className="absolute top-1.5 right-1.5 flex size-7 items-center justify-center rounded-full bg-bg/85 text-text transition-[color,background-color,border-color,scale] duration-150 hover:bg-bg active:scale-[0.95]"
           >
             <X aria-hidden className="size-4" />
           </button>
@@ -172,7 +175,7 @@ export function DropZone({
             <button
               type="button"
               onClick={onRead}
-              className="inline-flex h-10 items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+              className="inline-flex h-10 items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[opacity,transform,translate,scale] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
             >
               <ScanLine aria-hidden className="size-4" />
               Read {staged.length} {staged.length === 1 ? "screenshot" : "screenshots"}
@@ -181,7 +184,7 @@ export function DropZone({
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="inline-flex h-10 items-center gap-2 border border-border-strong px-4 text-[14px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97]"
+                className="inline-flex h-10 items-center gap-2 border border-border-strong px-4 text-[14px] font-medium text-text transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97]"
               >
                 <ImagePlus aria-hidden className="size-4" />
                 Add another
@@ -213,7 +216,7 @@ export function DropZone({
             <button
               type="button"
               onClick={onSample}
-              className="pointer-events-auto mt-6 inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface-2 px-4 text-[13px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-3 active:scale-[0.97]"
+              className="pointer-events-auto mt-6 inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface-2 px-4 text-[13px] font-medium text-text transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-surface-3 active:scale-[0.97]"
             >
               Use sample screenshot
             </button>

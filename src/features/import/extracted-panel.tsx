@@ -241,7 +241,7 @@ function Summary({
         type="button"
         onClick={onContinue}
         disabled={!shown || counted.length === 0}
-        className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-text text-[15px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
+        className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-text text-[15px] font-medium text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
       >
         Look through my portfolio
         <ArrowRight aria-hidden className="size-4 transition-transform duration-200 ease-out group-hover:translate-x-0.5" />
@@ -261,7 +261,7 @@ function ReadError({ message, onRetry, onSample }: { message: string; onRetry: (
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-text text-[14px] font-medium text-bg transition-[transform,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
+          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-text text-[14px] font-medium text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
         >
           <RotateCcw aria-hidden className="size-4" />
           Try again
@@ -269,7 +269,7 @@ function ReadError({ message, onRetry, onSample }: { message: string; onRetry: (
         <button
           type="button"
           onClick={onSample}
-          className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-border-strong bg-surface-2 text-[14px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-3 active:scale-[0.97]"
+          className="inline-flex h-10 flex-1 items-center justify-center rounded-lg border border-border-strong bg-surface-2 text-[14px] font-medium text-text transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-surface-3 active:scale-[0.97]"
         >
           Use sample instead
         </button>

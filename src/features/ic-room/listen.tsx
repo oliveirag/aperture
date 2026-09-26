@@ -130,7 +130,7 @@ export function useListen(texts: Record<Speaker, string>) {
 }
 
 const BUTTON =
-  "inline-flex h-8 items-center gap-1.5 border border-border-strong px-3 text-[13px] font-medium text-text transition-[background-color,transform] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] disabled:opacity-60";
+  "inline-flex h-8 items-center gap-1.5 border border-border-strong px-3 text-[13px] font-medium text-text transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-surface-2 active:scale-[0.97] disabled:opacity-60";
 
 export function ListenControl({ listen }: { listen: ReturnType<typeof useListen> }) {
   const { state, play, pause, stop } = listen;

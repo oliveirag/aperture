@@ -23,7 +23,7 @@ function scrollToFit() {
 }
 
 const REF_CLASS =
-  "inline-flex h-5 items-center rounded-md border border-border bg-surface-2 px-1.5 align-[1px] font-mono text-[11px] font-medium text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.96]";
+  "inline-flex h-5 items-center rounded-md border border-border bg-surface-2 px-1.5 align-[1px] font-mono text-[11px] font-medium text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.96]";
 
 // Compact inline citation: [F1] opens the drawer, [FIT] points at the portfolio-fit table.
 export function FactRef({ id, className }: { id: IcRef; className?: string }) {

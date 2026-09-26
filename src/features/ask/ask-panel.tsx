@@ -19,6 +19,8 @@ import { useAsk, type AskMessage } from "./store";
 
 const CHIPS = ["What's my biggest risk?", "How much of my money is in AI?", "What changed in Apple's latest filing?"];
 const BEGINNER_CHIPS = ["What is an ETF?", "How do I research a stock before buying?"];
+// New turns rise into place instead of teleporting in.
+const ENTER = "transition-[opacity,translate] duration-200 ease-out starting:translate-y-1 starting:opacity-0";
 
 // The portfolio JSON for the active portfolio, built from what the pages already computed.
 function useAskContext() {
@@ -75,10 +77,10 @@ function Answer({ text }: { text: string }) {
 
 function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
   if (m.role === "user") {
-    return <p className="ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text">{m.text}</p>;
+    return <p className={cn("ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text", ENTER)}>{m.text}</p>;
   }
   return (
-    <div className="mr-6 flex flex-col gap-3 text-[14px] leading-[22px] text-text">
+    <div className={cn("mr-6 flex flex-col gap-3 text-[14px] leading-[22px] text-text", ENTER)}>
       {m.pending && !m.text ? (
         <p className="flex items-center gap-2 text-text-muted">
           <LoaderCircle aria-hidden className="size-4 animate-spin text-accent" />
@@ -95,7 +97,7 @@ function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
         <Link
           href="/ic"
           onClick={onNavigate}
-          className="inline-flex h-8 w-fit items-center gap-2 border border-border-strong px-3 text-[13px] font-medium text-text transition-colors duration-150 hover:bg-surface-2"
+          className="inline-flex h-8 w-fit items-center gap-2 border border-border-strong px-3 text-[13px] font-medium text-text transition-[color,background-color,border-color,scale] duration-150 hover:bg-surface-2 active:scale-[0.97]"
         >
           Open the IC Room
         </Link>
@@ -163,7 +165,7 @@ export function AskPanel() {
                       type="button"
                       onClick={() => send(c)}
                       disabled={!context}
-                      className="inline-flex min-h-8 items-center border border-border px-3 py-1 text-left text-[13px] text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97] disabled:opacity-50"
+                      className="inline-flex min-h-8 items-center border border-border px-3 py-1 text-left text-[13px] text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97] disabled:opacity-50"
                     >
                       {c}
                     </button>
@@ -211,7 +213,7 @@ export function AskPanel() {
                 type="submit"
                 aria-label="Send question"
                 disabled={!draft.trim() || !context}
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-text text-text transition-[opacity,background-color,color] duration-150 hover:bg-text hover:text-bg disabled:opacity-30"
+                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-text text-text transition-[opacity,background-color,color,scale] duration-150 hover:bg-text active:scale-[0.95] hover:text-bg disabled:opacity-30"
               >
                 <ArrowUp aria-hidden className="size-4" />
               </button>
@@ -242,7 +244,7 @@ export function AskButton({ className }: { className?: string }) {
       onClick={() => setOpen(true)}
       aria-haspopup="dialog"
       className={cn(
-        "inline-flex h-9 items-center gap-2 border border-border-strong px-3 text-[14px] font-light text-text transition-colors duration-150 hover:bg-surface-1",
+        "inline-flex h-9 items-center gap-2 border border-border-strong px-3 text-[14px] font-light text-text transition-[color,background-color,border-color,scale] duration-150 hover:bg-surface-1 active:scale-[0.97]",
         className,
       )}
     >

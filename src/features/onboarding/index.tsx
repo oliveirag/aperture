@@ -123,7 +123,7 @@ function OwnsQuestion({ onBack, onPick }: { onBack: () => void; onPick: (href: s
                   key={o.href}
                   type="button"
                   onClick={() => onPick(o.href)}
-                  className="group flex min-h-[220px] flex-col items-start bg-surface-1 p-8 text-left transition-[background-color,transform] duration-300 ease-out hover:bg-surface-2 active:scale-[0.99]"
+                  className="group flex min-h-[220px] flex-col items-start bg-surface-1 p-8 text-left transition-[background-color,transform,translate,scale] duration-300 ease-out hover:bg-surface-2 active:scale-[0.99]"
                 >
                   <Icon aria-hidden strokeWidth={1.25} className="size-6 text-text-muted" />
                   <span className="display mt-auto pt-10 text-[30px] leading-tight text-text">{o.title}</span>

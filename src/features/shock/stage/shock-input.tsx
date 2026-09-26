@@ -51,7 +51,7 @@ export function ShockInput({ onRun }: { onRun: (id: ScenarioId, severity: number
             type="submit"
             aria-label="Run shock"
             disabled={!text.trim()}
-            className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full border border-text text-text transition-[opacity,transform,background-color,color] duration-150 ease-out hover:bg-text hover:text-bg active:scale-[0.94] disabled:opacity-30"
+            className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full border border-text text-text transition-[opacity,transform,translate,scale,background-color,color] duration-150 ease-out hover:bg-text hover:text-bg active:scale-[0.94] disabled:opacity-30"
           >
             <ArrowUp aria-hidden className="size-4" />
           </button>
@@ -65,7 +65,7 @@ export function ShockInput({ onRun }: { onRun: (id: ScenarioId, severity: number
                 setText(s);
                 submit(s);
               }}
-              className="inline-flex h-7 items-center border border-border px-3 text-[12px] text-text-muted transition-[border-color,color,transform] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
+              className="inline-flex h-7 items-center border border-border px-3 text-[12px] text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
             >
               {s}
             </button>

@@ -41,7 +41,7 @@ export function SeverityFilter({
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(o.value)}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 border px-3 text-[13px] font-medium transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.97]",
+              "inline-flex h-7 items-center gap-1.5 border px-3 text-[13px] font-medium transition-[background-color,border-color,color,transform,translate,scale] duration-150 ease-out active:scale-[0.97]",
               active
                 ? "border-border-strong bg-surface-3 text-text"
                 : "border-border text-text-muted hover:border-border-strong hover:text-text",

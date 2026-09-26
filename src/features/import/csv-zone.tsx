@@ -138,7 +138,7 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
                 <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-200", showSkipped && "rotate-180")} />
               </button>
               {showSkipped ? (
-                <ul className="mt-2 flex flex-col gap-1 text-[12px] text-text-muted">
+                <ul className="mt-2 flex flex-col gap-1 text-[12px] text-text-muted transition-[opacity,translate] duration-200 ease-out starting:-translate-y-1 starting:opacity-0">
                   {file.skipped.map((s) => (
                     <li key={s.line} className="flex gap-2">
                       <span className="shrink-0 tabular-nums text-text-subtle">Line {s.line}</span>

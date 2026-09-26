@@ -60,7 +60,7 @@ export function ShockGraphView() {
         <button
           type="button"
           onClick={state.retry}
-          className="inline-flex h-10 w-fit items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
+          className="inline-flex h-10 w-fit items-center gap-2 bg-text px-4 text-[14px] font-medium text-bg transition-[background-color,transform,translate,scale] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
         >
           <RotateCcw aria-hidden className="size-4" />
           Try again
@@ -200,7 +200,7 @@ function GraphWorkspace() {
             <button
               type="button"
               onClick={() => replay()}
-              className="inline-flex h-7 shrink-0 items-center gap-1.5 border border-white/10 px-2.5 text-[12px] text-[#dadada] transition-[background-color,transform] duration-150 hover:bg-white/5 active:scale-[0.97]"
+              className="inline-flex h-7 shrink-0 items-center gap-1.5 border border-white/10 px-2.5 text-[12px] text-[#dadada] transition-[background-color,transform,translate,scale] duration-150 hover:bg-white/5 active:scale-[0.97]"
             >
               <Play aria-hidden className="size-3" />
               Replay shock
@@ -244,8 +244,8 @@ function GraphWorkspace() {
           </div>
 
           <div
-            className="absolute top-4 z-20 transition-[right] duration-300 ease-[var(--ease-drawer)]"
-            style={{ right: selectedId && wide ? NOTE_W + 16 : 16 }}
+            className="absolute top-4 right-4 z-20 transition-transform duration-[320ms] ease-drawer"
+            style={{ transform: selectedId && wide ? `translateX(-${NOTE_W}px)` : "translateX(0)" }}
           >
             <SettingsPanel query={query} onQuery={setQuery} onReplay={() => replay()} />
           </div>

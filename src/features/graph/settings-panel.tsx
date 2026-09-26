@@ -166,7 +166,7 @@ export function SettingsPanel({ query, onQuery, onReplay }: { query: string; onQ
         <button
           type="button"
           onClick={onReplay}
-          className="mt-1 h-8 w-full bg-[#a882ff] text-[12.5px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-[#9670f5] active:scale-[0.98]"
+          className="mt-1 h-8 w-full bg-[#a882ff] text-[12.5px] font-medium text-white transition-[background-color,transform,translate,scale] duration-150 hover:bg-[#9670f5] active:scale-[0.98]"
         >
           Animate
         </button>

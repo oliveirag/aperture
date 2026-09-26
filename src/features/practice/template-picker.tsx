@@ -75,7 +75,7 @@ export function TemplatePicker({
               onClick={() => onChoice(o.id)}
               className={cn(
                 "relative flex min-h-[168px] flex-col items-start p-6 text-left transition-[background-color,color,transform] duration-300 ease-out active:scale-[0.99]",
-                selected ? "theme-dark" : "bg-surface-1 hover:bg-surface-2",
+                selected ? "theme-light" : "bg-surface-1 hover:bg-surface-2",
               )}
             >
               <span className="display text-[24px] leading-tight text-text">{o.title}</span>

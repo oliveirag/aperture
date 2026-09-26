@@ -9,6 +9,7 @@ export const LIMITS = {
   snap: { max: 20, what: "screenshot reads" },
   ic: { max: 20, what: "IC Room runs" },
   ask: { max: 30, what: "questions" },
+  listen: { max: 40, what: "read-alouds" },
   radar: { max: 60, what: "filing checks" },
   data: { max: 300, what: "portfolio refreshes" },
   market: { max: 1200, what: "price updates" },

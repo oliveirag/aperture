@@ -1,7 +1,7 @@
 export type Level = "beginner" | "intermediate" | "advanced";
 export type LeveledText = Record<Level, string>;
 export type SourceDocType = "10-K" | "10-Q" | "8-K" | "ETF holdings" | "Fed data" | "News";
-// Must stay field-for-field identical to SourceLike in src/components/shared/source-drawer.tsx (GUI-38)
+// The one source shape: the Source drawer, Shock evidence, Radar filings and IC facts all use it.
 export interface Source { id: string; title: string; docType: SourceDocType; issuer: string; date: string; section?: string; excerpt: string; highlight?: string; url: string }
 export interface Holding { ticker: string; name: string; type: "stock" | "etf"; shares: number; price: number; value: number; category: string; color: string }
 export interface ExposureSource { via: "Direct" | "VOO" | "QQQ" | "KRE"; value: number }

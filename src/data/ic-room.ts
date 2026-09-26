@@ -1,20 +1,12 @@
 // IC Room demo content: one ticker (AMD), one thesis, a scripted pre-mortem and memo.
 // Excerpts are concise paraphrases of themes in the named documents. Numbers match the demo canon (GUI-39).
 
-export type IcLevel = "beginner" | "intermediate" | "advanced";
+import type { Source } from "../types/demo";
+import { PORTFOLIO_TOTAL, weightOf } from "./portfolio";
+import { getScenario, scenarioTotals } from "./shock";
+import { AI_LINKED_TICKERS, AMD_LOOKTHROUGH, EXPOSURES, SECTORS, SEMIS_WEIGHT, exposureTotal } from "./xray";
 
-// Same shape as SourceLike in src/components/shared/source-drawer.tsx.
-export type IcFact = {
-  id: string;
-  title: string;
-  docType: "10-K" | "10-Q" | "8-K" | "ETF holdings" | "Fed data" | "News";
-  issuer: string;
-  date: string;
-  section?: string;
-  excerpt: string;
-  highlight?: string;
-  url: string;
-};
+export type IcLevel = "beginner" | "intermediate" | "advanced";
 
 // A fact id, or "FIT" for the portfolio-fit table computed from the X-Ray.
 export type IcRef = "F1" | "F2" | "F3" | "F4" | "F5" | "FIT";
@@ -70,7 +62,7 @@ export const FACT_PACK_STEPS = [
 const AMD_10K_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=AMD&type=10-K";
 
 // Every fact the debate and memo may cite
-export const IC_FACTS: IcFact[] = [
+export const IC_FACTS: Source[] = [
   {
     id: "F1",
     title: "AMD Form 10-K (FY2025)",
@@ -205,15 +197,35 @@ export const MEMO = {
     "Adding $10,000 of AMD would take your AI-linked exposure from 31.2% to 35.5%. You'd be adding to the same risk that already drives your largest position.",
 } as const;
 
-// Before → after if the $10,000 position were added. Pre-computed from the X-Ray canon.
+// Look-through value of a company from the X-Ray canon (AMD is only held through ETFs).
+function lookthroughValue(ticker: string) {
+  if (ticker === "AMD") return AMD_LOOKTHROUGH.value;
+  const e = EXPOSURES.find((x) => x.ticker === ticker);
+  if (!e) throw new Error(`Unknown exposure ${ticker}`);
+  return exposureTotal(e);
+}
+
+const TECH_WEIGHT = SECTORS.find((x) => x.sector === "Technology")?.weight ?? 0;
+
+// Before → after if the $10,000 position were added. "Before" reads the X-Ray and Shock canon; "after" is pre-computed.
 export const PORTFOLIO_FIT: FitRow[] = [
-  { label: "Portfolio value", kind: "usd", before: 148420, after: 158420 },
-  { label: "AMD look-through", kind: "weight", before: 0.004, after: 0.067 },
-  { label: "NVIDIA look-through", kind: "weight", before: 0.176, after: 0.165 },
-  { label: "Semiconductors", kind: "weight", before: 0.213, after: 0.263 },
-  { label: "AI-linked exposure (NVDA, MSFT, AVGO, AMD)", kind: "weight", before: 0.312, after: 0.355 },
-  { label: "Technology sector", kind: "weight", before: 0.498, after: 0.53 },
-  { label: "AI capex pullback Shock Test at 30%", kind: "drawdown", before: -0.055, after: -0.068 },
+  { label: "Portfolio value", kind: "usd", before: PORTFOLIO_TOTAL, after: PORTFOLIO_TOTAL + IC_AMOUNT },
+  { label: "AMD look-through", kind: "weight", before: weightOf(lookthroughValue("AMD")), after: 0.067 },
+  { label: "NVIDIA look-through", kind: "weight", before: weightOf(lookthroughValue("NVDA")), after: 0.165 },
+  { label: "Semiconductors", kind: "weight", before: SEMIS_WEIGHT, after: 0.263 },
+  {
+    label: "AI-linked exposure (NVDA, MSFT, AVGO, AMD)",
+    kind: "weight",
+    before: weightOf(AI_LINKED_TICKERS.reduce((sum, t) => sum + lookthroughValue(t), 0)),
+    after: 0.355,
+  },
+  { label: "Technology sector", kind: "weight", before: TECH_WEIGHT, after: 0.53 },
+  {
+    label: "AI capex pullback Shock Test at 30%",
+    kind: "drawdown",
+    before: scenarioTotals(getScenario("ai-capex"), 30).pct,
+    after: -0.068,
+  },
 ];
 
 export const PORTFOLIO_FIT_NOTE = "Computed from your X-Ray";

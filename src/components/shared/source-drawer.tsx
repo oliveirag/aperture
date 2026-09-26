@@ -4,18 +4,9 @@ import { Fragment, type ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { create } from "zustand";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import type { Source } from "@/types/demo";
 
-export type SourceLike = {
-  id: string;
-  title: string;
-  docType: "10-K" | "10-Q" | "8-K" | "ETF holdings" | "Fed data" | "News";
-  issuer: string;
-  date: string;
-  section?: string;
-  excerpt: string;
-  highlight?: string;
-  url: string;
-};
+export type SourceLike = Source;
 
 export type SourceDrawerPayload = {
   source: SourceLike;

@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { TickerMark } from "@/components/shared/ticker-mark";
+import { HOLDINGS, weightOf } from "@/data/portfolio";
+import { EXPOSURES, exposureTotal } from "@/data/xray";
+import { formatPct, formatUSD } from "@/lib/format";
 
-// Canonical demo values (GUI-39). GUI-48 may swap these for canon imports.
-const POSITIONS = [
-  { ticker: "NVDA", kind: "Direct", value: "$19,800", color: "#76B900" },
-  { ticker: "QQQ", kind: "ETF", value: "$31,500", color: "#7FB8A4" },
-  { ticker: "VOO", kind: "ETF", value: "$42,000", color: "#8FA3BF" },
-] as const;
-const NVIDIA_PCT = 17.6;
+// NVIDIA reaches the portfolio three ways: directly, then through QQQ and VOO (canon, GUI-39).
+const NVIDIA = EXPOSURES.find((e) => e.ticker === "NVDA")!;
+const POSITIONS = (["NVDA", "QQQ", "VOO"] as const).map((ticker) => {
+  const h = HOLDINGS.find((x) => x.ticker === ticker)!;
+  return { ticker, kind: h.type === "etf" ? "ETF" : "Direct", value: formatUSD(h.value), color: h.color };
+});
+const NVIDIA_WEIGHT = weightOf(exposureTotal(NVIDIA));
+const NVIDIA_PCT = Number((NVIDIA_WEIGHT * 100).toFixed(1));
 
 // Geometry: three 64px cards with 24px gaps -> centers at 32, 120, 208; the result sits at 120.
 const CARD_H = 64;
@@ -42,7 +46,7 @@ export function LookthroughIllustration() {
   return (
       <div
         role="img"
-        aria-label="NVIDIA reaches you through NVDA directly, QQQ and VOO: 17.6% of your money across 3 positions."
+        aria-label={`NVIDIA reaches you through NVDA directly, QQQ and VOO: ${formatPct(NVIDIA_WEIGHT)} of your money across 3 positions.`}
         className="rounded-2xl border border-border bg-surface-1 p-6 sm:p-8"
       >
         <div className="flex flex-col gap-6 sm:grid sm:grid-cols-[188px_120px_minmax(0,1fr)] sm:items-center sm:gap-0">
@@ -108,7 +112,7 @@ export function LookthroughIllustration() {
             className="rounded-xl border border-accent/40 bg-surface-2 px-5 py-4 sm:ml-2"
           >
             <p className="flex items-center gap-2 text-[14px] font-semibold text-text">
-              <TickerMark ticker="NVDA" color="#76B900" size={24} />
+              <TickerMark ticker="NVDA" color={NVIDIA.color} size={24} />
               NVIDIA
             </p>
             <p className="mt-3 text-[36px] leading-none font-semibold tracking-[-0.03em] text-text">

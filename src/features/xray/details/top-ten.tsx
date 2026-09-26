@@ -2,25 +2,28 @@
 
 import { AlertTriangle } from "lucide-react";
 import { TickerMark } from "@/components/shared/ticker-mark";
-import { weightOf } from "@/data/portfolio";
-import { COMPANY_THRESHOLD, EXPOSURES, exposureTotal } from "@/data/xray";
 import { formatPct, formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
 import { cn } from "@/lib/utils";
-import type { Exposure, ExposureSource } from "@/types/demo";
+import { COMPANY_THRESHOLD } from "@/lib/xray/compute";
+import type { XExposure, XrayModel } from "@/lib/xray/types";
 import { DetailCard } from "./card";
 
-const MAX_WEIGHT = weightOf(exposureTotal(EXPOSURES[0]));
-const VIAS: ExposureSource["via"][] = ["Direct", "VOO", "QQQ"];
 const TH = "h-8 px-2 text-[11px] font-medium tracking-[0.06em] text-text-muted uppercase";
 
-function viaWeight(e: Exposure, via: ExposureSource["via"]) {
+function viaWeight(e: XExposure, via: string, total: number) {
   const s = e.sources.find((x) => x.via === via);
-  return s ? formatPct(weightOf(s.value)) : "–";
+  return s ? formatPct(s.value / total) : "–";
 }
 
-export function TopTen() {
+const sumOf = (e: XExposure) => e.sources.reduce((sum, s) => sum + s.value, 0);
+
+export function TopTen({ model }: { model: XrayModel }) {
   const advanced = useLevel((s) => s.level) === "advanced";
+  const exposures = model.topTen;
+  const vias = ["Direct", ...model.etfColumns];
+  const weightOf = (v: number) => v / model.total;
+  const maxWeight = exposures[0] ? weightOf(sumOf(exposures[0])) : 1;
 
   return (
     <DetailCard title="True Top 10" headline="Your biggest companies, counted through your ETFs" className="lg:col-span-7">
@@ -33,9 +36,11 @@ export function TopTen() {
               <th className={cn(TH, "text-left")}>Look-through</th>
               {advanced ? (
                 <>
-                  <th className={cn(TH, "text-right")}>Direct</th>
-                  <th className={cn(TH, "text-right")}>VOO</th>
-                  <th className={cn(TH, "text-right")}>QQQ</th>
+                  {vias.map((via) => (
+                    <th key={via} className={cn(TH, "text-right")}>
+                      {via}
+                    </th>
+                  ))}
                 </>
               ) : (
                 <th className={cn(TH, "text-left")}>Held via</th>
@@ -44,8 +49,8 @@ export function TopTen() {
             </tr>
           </thead>
           <tbody>
-            {EXPOSURES.map((e, i) => {
-              const total = exposureTotal(e);
+            {exposures.map((e, i) => {
+              const total = sumOf(e);
               const w = weightOf(total);
               const flagged = w > COMPANY_THRESHOLD;
               return (
@@ -68,7 +73,7 @@ export function TopTen() {
                         <span
                           className="block h-full"
                           style={{
-                            width: `${(w / MAX_WEIGHT) * 100}%`,
+                            width: `${(w / maxWeight) * 100}%`,
                             backgroundColor: flagged ? "var(--chart-1)" : "var(--chart-2)",
                           }}
                         />
@@ -76,9 +81,9 @@ export function TopTen() {
                     </div>
                   </td>
                   {advanced ? (
-                    VIAS.map((via) => (
+                    vias.map((via) => (
                       <td key={via} className="px-2 text-right font-mono text-[12px] text-text-muted tabular-nums">
-                        {viaWeight(e, via)}
+                        {viaWeight(e, via, model.total)}
                       </td>
                     ))
                   ) : (

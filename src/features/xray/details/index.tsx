@@ -1,6 +1,7 @@
 "use client";
 
 import { useLevel } from "@/lib/level";
+import type { XrayModel } from "@/lib/xray/types";
 import { Holdings } from "./holdings";
 import { LearnCard } from "./learn-card";
 import { OverlapVenn } from "./overlap-venn";
@@ -8,7 +9,7 @@ import { PerformanceChart } from "./performance-chart";
 import { SectorDonut } from "./sector-donut";
 import { TopTen } from "./top-ten";
 
-export function XrayDetails() {
+export function XrayDetails({ model }: { model: XrayModel }) {
   const level = useLevel((s) => s.level);
 
   return (
@@ -18,10 +19,11 @@ export function XrayDetails() {
       </h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <Holdings />
-        <TopTen />
-        <SectorDonut />
-        <OverlapVenn />
-        <PerformanceChart />
+        <TopTen model={model} />
+        <SectorDonut sectors={model.sectors} />
+        <OverlapVenn model={model} />
+        {/* The weekly series only exists for the demo portfolio; price history is premium on Finnhub. */}
+        {model.mode === "demo" ? <PerformanceChart /> : null}
         {level === "beginner" ? <LearnCard /> : null}
       </div>
     </section>

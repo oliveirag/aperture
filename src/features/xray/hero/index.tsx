@@ -5,16 +5,16 @@ import { ArrowRight, ChevronDown, Info } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
-import { POSITIONS_COUNT, UNDERLYING_COMPANIES, XRAY_HEADLINE, XRAY_SUBLINE } from "@/data/xray";
 import { formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
 import { useLiveHoldings } from "@/lib/market";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
+import type { XrayModel } from "@/lib/xray/types";
 import { FlagsStrip } from "./flags-strip";
 import { LookthroughMap } from "./lookthrough-map";
 
-function HeaderStats() {
+function HeaderStats({ model }: { model: XrayModel }) {
   const { total } = useLiveHoldings();
   return (
     <div className="flex flex-wrap gap-x-12 gap-y-6">
@@ -25,16 +25,16 @@ function HeaderStats() {
       <div>
         <p className="text-[14px] font-normal text-text">Look-through</p>
         <p className="display mt-1 flex items-center gap-3 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">
-          {POSITIONS_COUNT} positions
+          {model.positionsCount} {model.positionsCount === 1 ? "position" : "positions"}
           <ArrowRight aria-hidden className="size-4 text-text-muted" />
-          {UNDERLYING_COMPANIES} companies
+          {model.underlyingCompanies.toLocaleString("en-US")} companies
         </p>
       </div>
     </div>
   );
 }
 
-function BeginnerExplainer() {
+function BeginnerExplainer({ demo }: { demo: boolean }) {
   const [open, setOpen] = useState(false);
   return (
     <div>
@@ -56,8 +56,10 @@ function BeginnerExplainer() {
             transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
             className="max-w-[72ch] overflow-hidden pt-2 text-[15px] leading-6 text-text-muted"
           >
-            An <Term term="ETF">ETF</Term> is a basket of many companies. When you own VOO and QQQ, you also own small
-            slices of NVIDIA, Apple and Microsoft, the same companies you bought directly.{" "}
+            An <Term term="ETF">ETF</Term> is a basket of many companies.{" "}
+            {demo
+              ? "When you own VOO and QQQ, you also own small slices of NVIDIA, Apple and Microsoft, the same companies you bought directly. "
+              : "When you own an ETF, you also own a small slice of every company inside it, sometimes the same companies you bought directly. "}
             <Term term="look-through">Look-through</Term> adds those slices together so you see your real exposure.
           </motion.p>
         ) : null}
@@ -66,16 +68,19 @@ function BeginnerExplainer() {
   );
 }
 
-// Look-through data exists only for the demo portfolio, so say so when the user's own holdings are loaded.
-function ImportedNotice() {
-  const imported = usePortfolio((s) => s.imported !== null);
+// Says whose portfolio this is, and names any fund we couldn't see inside.
+function ImportedNotice({ model }: { model: XrayModel }) {
   const resetToDemo = usePortfolio((s) => s.resetToDemo);
-  if (!imported) return null;
+  if (model.mode !== "live") return null;
+  const opaque = model.opaque;
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-border bg-surface-1 px-4 py-3 text-[13px] text-text-muted">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-border bg-surface-1 px-4 py-3 text-[13px] text-text-muted">
       <Info aria-hidden className="size-4 shrink-0 text-accent" />
       <span className="min-w-0 flex-1">
-        Your imported holdings drive the portfolio value and the Holdings table. The look-through analysis still shows the demo portfolio.
+        Look-through of your imported portfolio, from live prices and published ETF holdings.
+        {opaque.length > 0
+          ? ` No holdings data for ${opaque.join(", ")}, so ${opaque.length === 1 ? "it counts" : "they count"} as ${opaque.length === 1 ? "a single position" : "single positions"}.`
+          : ""}
       </span>
       <button
         type="button"
@@ -88,21 +93,21 @@ function ImportedNotice() {
   );
 }
 
-export function XrayHero() {
+export function XrayHero({ model }: { model: XrayModel }) {
   const level = useLevel((s) => s.level);
 
   return (
     <section className="flex flex-col gap-6 [@media(max-height:800px)]:gap-5">
-      <ImportedNotice />
+      <ImportedNotice model={model} />
       <PageHeader
         eyebrow="X-Ray"
-        headline={XRAY_HEADLINE[level]}
-        subline={XRAY_SUBLINE[level]}
-        actions={<HeaderStats />}
+        headline={model.headline[level]}
+        subline={model.subline[level]}
+        actions={<HeaderStats model={model} />}
       />
-      {level === "beginner" ? <BeginnerExplainer /> : null}
-      <LookthroughMap />
-      <FlagsStrip />
+      {level === "beginner" ? <BeginnerExplainer demo={model.mode === "demo"} /> : null}
+      <LookthroughMap model={model} />
+      <FlagsStrip flags={model.flags} />
     </section>
   );
 }

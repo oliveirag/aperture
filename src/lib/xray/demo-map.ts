@@ -1,20 +1,6 @@
 import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { BASKETS, EXPOSURES, exposureTotal } from "@/data/xray";
-
-export type MapPosition = { id: string; ticker: string; category: string; value: number; weight: number; color: string };
-
-export type MapExposure = {
-  id: string;
-  name: string;
-  ticker?: string; // absent for groups (Layers icon)
-  color?: string;
-  note?: string;
-  value: number;
-  weight: number;
-  sources: { via: string; value: number }[];
-};
-
-export type Connector = { id: string; from: string; to: string; value: number; etf: boolean };
+import type { Connector, MapExposure, MapPosition } from "./types";
 
 // Contributions below this don't get a line (VOO's $8.40 of BXP).
 const MIN_CONNECTOR = 100;
@@ -23,7 +9,7 @@ const REST_ID = "rest";
 const BANKS_ID = "regional-banks";
 
 // Turns canon data into the rows and connectors the map draws. Pure; every number derives from canon.
-export function buildMap() {
+export function buildDemoMap() {
   const positions: MapPosition[] = HOLDINGS.map((h) => ({
     id: h.ticker,
     ticker: h.ticker,

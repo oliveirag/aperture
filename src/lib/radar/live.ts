@@ -1,8 +1,9 @@
 // Server-only: the real Filing Radar. Finds a company's latest filing and the prior one of the same form, cuts out
 // the risk sections, asks Gemini what changed, and keeps only changes whose quotes are verbatim in the filings.
-import { forget, memo, recall } from "@/lib/cache";
+import { forgetKeys, memo, recall } from "@/lib/cache";
 import { generateJson } from "@/lib/gemini";
 import { companyFor, displayName, extractSection, filingPair, filingText, listFilings, type Filing } from "@/lib/sec";
+import { track } from "./tracked";
 import type { RadarFiling } from "./types";
 import { parseProposed, verifyChanges } from "./verify";
 
@@ -103,7 +104,7 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
   onProgress("Finding the latest filings on SEC EDGAR");
   const company = await companyFor(ticker);
   if (!company) return { status: "unsupported", reason: "No SEC filer for this ticker (funds and most foreign companies don't file 10-Ks)." };
-  if (opts.fresh) forget(`sec:filings:${company.cik}`);
+  if (opts.fresh) forgetKeys([`sec:filings:${company.cik}`]);
   const pair = filingPair(await listFilings(company.cik));
   if (!pair) return { status: "unsupported", reason: "No two recent 10-K or 10-Q filings to compare." };
   const name = displayName(company.name);
@@ -111,6 +112,7 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
     diff(ticker, name, pair.latest, pair.prior, onProgress),
     { persist: true },
   );
+  track(ticker);
   return { status: "ok", filing };
 }
 

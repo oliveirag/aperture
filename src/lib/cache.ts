@@ -95,6 +95,15 @@ export function forget(prefix: string) {
   if (keys.size) void kv([["DEL", ...[...keys].map((k) => PREFIX + k)]]);
 }
 
+// Invalidates exact keys here and in the persistent store, whether or not this instance has seen them.
+export function forgetKeys(keys: string[]) {
+  for (const key of keys) {
+    store.delete(key);
+    seen.delete(key);
+  }
+  if (keys.length) void kv([["DEL", ...keys.map((k) => PREFIX + k)]]);
+}
+
 // A fresh serverless instance: empty memory, persistent store untouched. For tests.
 export function coldStart() {
   store.clear();

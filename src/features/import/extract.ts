@@ -1,8 +1,9 @@
+import type { PriceResponse } from "@/app/api/price/route";
 import type { SnapHolding, SnapResponse } from "@/app/api/snap/route";
 import { HOLDINGS } from "@/data/portfolio";
 import type { MarketResponse } from "@/lib/finnhub";
 
-// `source` is "live" when Gemini read the image; the sample leaves it unset.
+// `source`: "gemini" when Gemini read a screenshot, "typed" for CSV or manual rows; the sample leaves it unset.
 // `status` mirrors /api/snap: only "matched" and "unpriced" rows count toward the total.
 export type ExtractedHolding = {
   ticker: string;
@@ -12,7 +13,7 @@ export type ExtractedHolding = {
   price: number | null;
   value: number;
   status: SnapHolding["status"];
-  source?: "live";
+  source?: "gemini" | "typed";
 };
 
 export type ExtractResult = { ok: true; holdings: ExtractedHolding[]; model?: string } | { ok: false; error: string };
@@ -53,7 +54,7 @@ async function readLive(file: File): Promise<ExtractResult> {
     if (!res.ok || !Array.isArray(data.holdings)) {
       return { ok: false, error: data.error ?? "Couldn't read the screenshot. Try again in a moment." };
     }
-    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source: "live" as const })) };
+    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source: "gemini" as const })) };
   } catch {
     return {
       ok: false,
@@ -64,13 +65,33 @@ async function readLive(file: File): Promise<ExtractResult> {
   }
 }
 
+export type TypedRow = { ticker: string; shares: number | null; marketValue: number | null; name?: string };
+
+// Prices CSV or typed rows with Finnhub via /api/price. No Gemini involved.
+async function readTyped(rows: TypedRow[]): Promise<ExtractResult> {
+  try {
+    const res = await fetch("/api/price", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ holdings: rows }),
+      signal: AbortSignal.timeout(30000),
+    });
+    const data = (await res.json().catch(() => ({}))) as Partial<PriceResponse> & { error?: string };
+    if (!res.ok || !Array.isArray(data.holdings)) return { ok: false, error: data.error ?? "Couldn't price these positions." };
+    return { ok: true, holdings: data.holdings.map((h) => ({ ...h, source: "typed" as const })) };
+  } catch {
+    return { ok: false, error: "Couldn't reach the server." };
+  }
+}
+
 // The only place holdings are produced. A dropped file always goes to Gemini; the sample button replays the demo portfolio.
 // Either way the scan lasts at least delayMs so the animation can finish.
 export async function extractHoldings(
-  input: { file?: File; sample?: boolean },
+  input: { file?: File; sample?: boolean; rows?: TypedRow[] },
   { delayMs = SCAN_MS }: { delayMs?: number } = {},
 ): Promise<ExtractResult> {
   const wait = new Promise((resolve) => setTimeout(resolve, delayMs));
-  const [result] = await Promise.all([input.file ? readLive(input.file) : readSample(), wait]);
+  const read = input.rows ? readTyped(input.rows) : input.file ? readLive(input.file) : readSample();
+  const [result] = await Promise.all([read, wait]);
   return result;
 }

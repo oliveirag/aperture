@@ -48,7 +48,7 @@ Presenter shortcuts (ignored while typing in a field):
 | `Alt+L` | Cycle level: Beginner → Intermediate → Advanced |
 | `Alt+R` | Reset demo state (shock cleared, level Intermediate) and go to `/` |
 
-If the drag-drop misses, click **Use sample screenshot** on `/import`; it replays the demo portfolio. If Gemini is overloaded the panel shows **Try again** and **Use sample instead**; pick the sample. Dropping the demo PNG keeps the demo portfolio; any other screenshot becomes an imported portfolio for the session (the top bar says **Imported portfolio**, and X-Ray offers **Switch to demo**).
+If the drag-drop misses, click **Use sample screenshot** on `/import`; it replays the demo portfolio. If Gemini is overloaded the panel shows **Try again** and **Use sample instead**; pick the sample. To import a real portfolio without Gemini, switch to **CSV file** (Fidelity, Schwab or Vanguard export) or **Type it in**; both are priced by Finnhub only. Dropping the demo PNG keeps the demo portfolio; any other screenshot becomes an imported portfolio for the session (the top bar says **Imported portfolio**, and X-Ray offers **Switch to demo**).
 
 ## 4. Failure plan
 

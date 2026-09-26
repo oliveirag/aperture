@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Pie, PieChart, ResponsiveContainer, Sector, type PieSectorShapeProps } from "recharts";
-import { SECTOR_THRESHOLD, SECTORS } from "@/data/xray";
+import { SECTOR_THRESHOLD } from "@/lib/xray/compute";
+import type { SectorSlice } from "@/types/demo";
 import { formatPct } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { DetailCard } from "./card";
 
-// Same order as SECTORS.
+// By slice position; "Other" is always last.
 const COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
@@ -20,9 +21,9 @@ const COLORS = [
 ];
 const DEFAULT = 0;
 
-export function SectorDonut() {
+export function SectorDonut({ sectors }: { sectors: SectorSlice[] }) {
   const [hovered, setHovered] = useState<number | null>(null);
-  const slice = SECTORS[hovered ?? DEFAULT];
+  const slice = sectors[hovered ?? DEFAULT] ?? { sector: "", weight: 0 };
 
   function shape(props: PieSectorShapeProps) {
     const i = props.index;
@@ -44,7 +45,7 @@ export function SectorDonut() {
           <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 240, height: 240 }}>
             <PieChart>
               <Pie
-                data={SECTORS}
+                data={sectors}
                 dataKey="weight"
                 nameKey="sector"
                 innerRadius="70%"
@@ -68,7 +69,7 @@ export function SectorDonut() {
           </div>
         </div>
         <ul className="w-full min-w-0 flex-1" onMouseLeave={() => setHovered(null)}>
-          {SECTORS.map((s, i) => (
+          {sectors.map((s, i) => (
             <li
               key={s.sector}
               onMouseEnter={() => setHovered(i)}
@@ -80,7 +81,7 @@ export function SectorDonut() {
             >
               <span aria-hidden className="size-2 shrink-0" style={{ backgroundColor: COLORS[i] }} />
               <span className="min-w-0 flex-1 truncate text-text">{s.sector}</span>
-              {s.weight > SECTOR_THRESHOLD ? (
+              {s.sector !== "Other" && s.weight > SECTOR_THRESHOLD ? (
                 <span className="text-[11px] font-medium whitespace-nowrap text-sev-medium">
                   Above {formatPct(SECTOR_THRESHOLD, 0)}
                 </span>

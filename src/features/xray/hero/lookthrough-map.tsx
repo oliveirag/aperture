@@ -7,38 +7,39 @@ import { AnimatedNumber } from "@/components/shared/animated-number";
 import { SourceChip } from "@/components/shared/source-chip";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { PORTFOLIO_TOTAL } from "@/data/portfolio";
-import { XRAY_SOURCES } from "@/data/xray";
 import { formatPct, formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
 import { cn } from "@/lib/utils";
-import { buildMap, type MapExposure } from "./build-map";
+import type { MapExposure, XrayModel } from "@/lib/xray/types";
 
-const MAP = buildMap();
 const EASE_OUT = [0.23, 1, 0.32, 1] as const;
 const INSTANT = { duration: 0 } as const;
 
 type Selection = { kind: "position" | "exposure"; id: string };
-const NVIDIA_PIN: Selection = { kind: "exposure", id: "NVDA" };
 
 type Geo = { width: number; height: number; left: Record<string, number>; right: Record<string, number> };
 
 const ROW =
   "relative flex h-12 w-full items-center gap-3 border border-transparent px-3 text-left transition-[background-color,border-color] duration-150 ease-out [@media(max-height:800px)]:h-10";
 
-function sourceLine(e: MapExposure, advanced: boolean) {
-  if (advanced) return e.sources.map((s) => `${s.via} ${formatPct(s.value / PORTFOLIO_TOTAL)}`).join(" · ");
+function sourceLine(e: MapExposure, advanced: boolean, total: number) {
+  // Long source lists (an imported portfolio's "Everything else") read better as the note.
+  if (e.note && e.sources.length > 3) return e.note;
+  if (advanced) return e.sources.map((s) => `${s.via} ${formatPct(s.value / total)}`).join(" · ");
   if (e.note) return e.note;
   return e.sources.map((s) => s.via).join(" · ");
 }
 
-// The X-Ray hero: 7 positions open up into what they actually hold. Hand-drawn SVG, positions measured from the DOM.
-export function LookthroughMap() {
+// The X-Ray hero: positions open up into what they actually hold. Hand-drawn SVG, positions measured from the DOM.
+export function LookthroughMap({ model }: { model: XrayModel }) {
+  const MAP = model.map;
+  const total = model.total;
+  const PIN: Selection = { kind: "exposure", id: MAP.pinId };
   const level = useLevel((s) => s.level);
   const advanced = level === "advanced";
   const still = Boolean(useReducedMotion());
   const [phase, setPhase] = useState(0); // 0: reveal, 1: weights counted, 2: NVIDIA pinned
-  const [pinned, setPinned] = useState<Selection>(NVIDIA_PIN);
+  const [pinned, setPinned] = useState<Selection>(PIN);
   const [hover, setHover] = useState<Selection | null>(null);
   const [geo, setGeo] = useState<Geo | null>(null);
   const midRef = useRef<HTMLDivElement>(null);
@@ -79,8 +80,8 @@ export function LookthroughMap() {
   const active = hover ?? (phase >= 2 ? pinned : null);
   const isLit = (from: string, to: string) =>
     active !== null && (active.kind === "exposure" ? to === active.id : from === active.id);
-  const nvidia = MAP.exposures[0];
-  const showCallout = phase >= 2 && active?.kind === "exposure" && active.id === nvidia.id;
+  const lead = MAP.exposures[0];
+  const showCallout = phase >= 2 && active?.kind === "exposure" && active.id === lead.id;
 
   const register = (key: string) => (el: HTMLElement | null) => {
     if (el) rows.current.set(key, el);
@@ -99,7 +100,7 @@ export function LookthroughMap() {
 
   return (
     <div
-      onClick={() => setPinned(NVIDIA_PIN)}
+      onClick={() => setPinned(PIN)}
       className="bg-surface-1 p-6 [@media(max-height:800px)]:p-4"
     >
       <div className="grid gap-8 lg:grid-cols-[300px_minmax(0,1fr)_340px] lg:gap-0">
@@ -157,7 +158,7 @@ export function LookthroughMap() {
                     d={`M0,${y1} C${w * 0.45},${y1} ${w * 0.55},${y2} ${w},${y2}`}
                     fill="none"
                     strokeLinecap="round"
-                    strokeWidth={1 + (9 * c.value) / 42000}
+                    strokeWidth={1 + (9 * c.value) / MAP.maxPosition}
                     stroke={lit ? "var(--accent)" : "var(--border-strong)"}
                     style={{ opacity: active === null || lit ? 1 : 0.12, transition: "stroke 150ms ease-out, opacity 150ms ease-out" }}
                     initial={{ pathLength: 0 }}
@@ -174,10 +175,10 @@ export function LookthroughMap() {
               animate={{ opacity: 1 }}
               transition={still ? INSTANT : { duration: 0.2 }}
               className="absolute right-3 inline-flex items-center gap-2 rounded-full bg-surface-3 px-2.5 py-1 text-[12px] text-text tabular-nums"
-              style={{ top: Math.max(0, geo.right[nvidia.id] - 36) }}
+              style={{ top: Math.max(0, geo.right[lead.id] - 36) }}
             >
               <span className="size-1.5 rounded-full bg-accent" />
-              {nvidia.sources.length} paths · {formatUSD(nvidia.value)} · {formatPct(nvidia.weight)}
+              {lead.sources.length} {lead.sources.length === 1 ? "path" : "paths"} · {formatUSD(lead.value)} · {formatPct(lead.weight)}
             </motion.div>
           ) : null}
         </div>
@@ -216,7 +217,7 @@ export function LookthroughMap() {
                       <span className="min-w-0 flex-1">
                         <span className="block text-[14px] font-medium text-text">{e.name}</span>
                         <span className="block truncate text-[12px] text-text-muted tabular-nums">
-                          {sourceLine(e, advanced)}
+                          {sourceLine(e, advanced, total)}
                         </span>
                       </span>
                       <span className={cn("text-[18px] font-medium tabular-nums", lit ? "text-accent" : "text-text")}>
@@ -231,7 +232,7 @@ export function LookthroughMap() {
                         <span key={s.via} className="flex justify-between gap-4 tabular-nums">
                           <span className="text-text-muted">{s.via === "Direct" ? "Direct" : `via ${s.via}`}</span>
                           <span>
-                            {formatUSD(s.value, advanced ? 2 : 0)} · {formatPct(s.value / PORTFOLIO_TOTAL)}
+                            {formatUSD(s.value, advanced ? 2 : 0)} · {formatPct(s.value / total)}
                           </span>
                         </span>
                       ))}
@@ -241,12 +242,14 @@ export function LookthroughMap() {
               );
             })}
           </ul>
-          <div className="mt-3 flex items-center gap-1.5 px-3" onClick={(e) => e.stopPropagation()}>
-            <span className="mr-1 text-[12px] text-text-subtle">Holdings data</span>
-            {XRAY_SOURCES.map((s) => (
-              <SourceChip key={s.id} payload={{ source: s }} label={s.title.match(/\((\w+)\)/)?.[1] ?? s.issuer} />
-            ))}
-          </div>
+          {model.sources.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-1.5 px-3" onClick={(e) => e.stopPropagation()}>
+              <span className="mr-1 text-[12px] text-text-subtle">Holdings data</span>
+              {model.sources.map((s) => (
+                <SourceChip key={s.id} payload={{ source: s }} label={s.title.match(/\(([\w.]+)\)/)?.[1] ?? s.issuer} />
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

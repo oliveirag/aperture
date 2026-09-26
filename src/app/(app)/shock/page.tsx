@@ -1,3 +1,4 @@
+import { DemoAnalysisNotice } from "@/components/shared/demo-analysis-notice";
 import { NextStepCTA } from "@/components/shared/next-step-cta";
 import { ShockImpact } from "@/features/shock/impact";
 import { ShockStage } from "@/features/shock/stage";
@@ -5,6 +6,7 @@ import { ShockStage } from "@/features/shock/stage";
 export default function Page() {
   return (
     <div className="flex flex-col gap-12">
+      <DemoAnalysisNotice feature="Shock Test" />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <ShockStage />
         <ShockImpact />

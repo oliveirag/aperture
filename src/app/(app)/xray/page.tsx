@@ -1,14 +1,10 @@
 import { NextStepCTA } from "@/components/shared/next-step-cta";
-import { XrayDetails } from "@/features/xray/details";
-import { XrayHero } from "@/features/xray/hero";
+import { XrayView } from "@/features/xray";
 
 export default function Page() {
   return (
     <div className="flex flex-col gap-12">
-      <div className="flex flex-col gap-10">
-        <XrayHero />
-        <XrayDetails />
-      </div>
+      <XrayView />
       <NextStepCTA
         href="/shock"
         label="Stress-test these exposures"

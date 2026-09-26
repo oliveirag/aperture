@@ -18,6 +18,8 @@ export interface ImportedHolding {
 interface PortfolioState {
   // null means the canonical demo portfolio.
   imported: ImportedHolding[] | null;
+  // False until sessionStorage has been read; views that differ by portfolio wait for it.
+  hydrated: boolean;
   setImported: (holdings: ImportedHolding[]) => void;
   resetToDemo: () => void;
 }
@@ -27,6 +29,7 @@ export const usePortfolio = create<PortfolioState>()(
   persist(
     (set) => ({
       imported: null,
+      hydrated: false,
       setImported: (holdings) => set({ imported: holdings }),
       resetToDemo: () => set({ imported: null }),
     }),
@@ -35,6 +38,8 @@ export const usePortfolio = create<PortfolioState>()(
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,
+      partialize: (s) => ({ imported: s.imported }),
+      onRehydrateStorage: () => () => usePortfolio.setState({ hydrated: true }),
     },
   ),
 );

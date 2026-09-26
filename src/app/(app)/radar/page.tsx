@@ -1,9 +1,11 @@
+import { DemoAnalysisNotice } from "@/components/shared/demo-analysis-notice";
 import { NextStepCTA } from "@/components/shared/next-step-cta";
 import { RadarPage } from "@/features/radar";
 
 export default function Page() {
   return (
     <div className="flex flex-col gap-12">
+      <DemoAnalysisNotice feature="Filing Radar" />
       <RadarPage />
       <NextStepCTA
         href="/ic"

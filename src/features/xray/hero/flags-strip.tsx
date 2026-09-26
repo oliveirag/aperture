@@ -1,11 +1,12 @@
 import { AlertTriangle } from "lucide-react";
-import { FLAGS } from "@/data/xray";
 import { formatPct } from "@/lib/format";
+import type { Flag } from "@/types/demo";
 
-export function FlagsStrip() {
+export function FlagsStrip({ flags }: { flags: Flag[] }) {
+  if (flags.length === 0) return null;
   return (
     <ul aria-label="Concentration flags" className="flex flex-wrap gap-2">
-      {FLAGS.map((f) => (
+      {flags.map((f) => (
         <li
           key={f.id}
           className="inline-flex h-8 items-center gap-2 border border-border bg-surface-1 px-3 text-[13px]"

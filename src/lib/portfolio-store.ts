@@ -23,10 +23,13 @@ interface PortfolioState {
   // null means the canonical demo portfolio.
   imported: ImportedHolding[] | null;
   kind: PortfolioKind;
+  // The user's own portfolio while the demo is showing, so switching to the demo never throws it away.
+  stashed: { holdings: ImportedHolding[]; kind: PortfolioKind } | null;
   // False until sessionStorage has been read; views that differ by portfolio wait for it.
   hydrated: boolean;
   setImported: (holdings: ImportedHolding[], kind?: PortfolioKind) => void;
   resetToDemo: () => void;
+  restoreStashed: () => void;
 }
 
 // Kept for the browser session only; nothing leaves the device.
@@ -35,16 +38,19 @@ export const usePortfolio = create<PortfolioState>()(
     (set) => ({
       imported: null,
       kind: "imported",
+      stashed: null,
       hydrated: false,
-      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind }),
-      resetToDemo: () => set({ imported: null, kind: "imported" }),
+      setImported: (holdings, kind = "imported") => set({ imported: holdings, kind, stashed: null }),
+      resetToDemo: () =>
+        set((s) => ({ imported: null, kind: "imported", stashed: s.imported ? { holdings: s.imported, kind: s.kind } : s.stashed })),
+      restoreStashed: () => set((s) => (s.stashed ? { imported: s.stashed.holdings, kind: s.stashed.kind, stashed: null } : {})),
     }),
     {
       name: "lookthrough-portfolio",
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,
-      partialize: (s) => ({ imported: s.imported, kind: s.kind }),
+      partialize: (s) => ({ imported: s.imported, kind: s.kind, stashed: s.stashed }),
       onRehydrateStorage: () => () => usePortfolio.setState({ hydrated: true }),
     },
   ),

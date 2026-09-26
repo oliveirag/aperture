@@ -144,3 +144,9 @@ vite.config.ts.timestamp-*
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# next.js generated types
+next-env.d.ts
+
+# browser automation artifacts
+.playwright-mcp/

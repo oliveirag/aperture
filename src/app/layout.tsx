@@ -17,12 +17,13 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#000000",
-  colorScheme: "light",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${display.variable} ${grotesk.variable} ${GeistMono.variable}`}>
+    // The whole site runs on the black-band tokens; .theme-light is available for inverted emphasis.
+    <html lang="en" className={`theme-dark ${display.variable} ${grotesk.variable} ${GeistMono.variable}`}>
       <body className="min-h-dvh">
         {/* First tooltip waits; neighbours open instantly (Base UI handles the grace period). */}
         <TooltipProvider delay={350}>

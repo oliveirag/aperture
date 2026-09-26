@@ -1,4 +1,27 @@
-// Stub. GUI-43 replaces this file; keep the export name.
+"use client";
+
+import { useLevel } from "@/lib/level";
+import { LearnCard } from "./learn-card";
+import { OverlapVenn } from "./overlap-venn";
+import { PerformanceChart } from "./performance-chart";
+import { SectorDonut } from "./sector-donut";
+import { TopTen } from "./top-ten";
+
 export function XrayDetails() {
-  return null;
+  const level = useLevel((s) => s.level);
+
+  return (
+    <section aria-labelledby="xray-breakdown" className="flex flex-col gap-4">
+      <h2 id="xray-breakdown" className="text-[20px] font-semibold tracking-[-0.01em] text-text">
+        Breakdown
+      </h2>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <TopTen />
+        <SectorDonut />
+        <OverlapVenn />
+        <PerformanceChart />
+        {level === "beginner" ? <LearnCard /> : null}
+      </div>
+    </section>
+  );
 }

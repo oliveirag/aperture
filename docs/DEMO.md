@@ -1,0 +1,65 @@
+# Lookthrough demo runbook
+
+Three minutes, one path, no network needed once the tab is loaded.
+
+## 1. Setup checklist
+
+Do this 15 minutes before judging.
+
+- [ ] Production URL open in a **clean Chrome profile** (no extensions, no bookmarks bar).
+- [ ] Zoom at **100%** (Cmd+0).
+- [ ] Window at **1440×900** (or 1280×720 on a projector).
+- [ ] Level set to **Intermediate** (press `Alt+R` to reset everything).
+- [ ] `public/demo/brokerage-positions.png` copied to the **desktop**, Finder window placed so you can drag it into Chrome.
+- [ ] Backup video open in a second tab.
+- [ ] Load every page once (`Alt+1` to `Alt+4`) so they're warm in the tab, then `Alt+R` back to the landing page.
+- [ ] Notifications off (Do Not Disturb), laptop plugged in.
+
+## 2. The 3-minute script
+
+| Time | Screen | Do | Say |
+| --- | --- | --- | --- |
+| 0:00–0:15 | `/` | Point at the headline, click **Try the demo**. | "Brokerages show you what you bought. We show you what's inside it." |
+| 0:15–0:22 | `/onboarding` | Pick **Advanced**, continue. | "Every screen adapts to how much finance you know." |
+| 0:22–0:40 | `/import` | Drag `brokerage-positions.png` from the desktop onto the drop zone. Wait for the rows, click **Look through my portfolio**. | "A screenshot is all it takes. Seven positions, $148,420." |
+| 0:40–1:10 | `/xray` | Let the map reveal. Hover **NVIDIA**. Point at the flags strip. | "NVIDIA isn't one position. It's three, and 17.6% of your money: 13.3% direct, 2.2% through VOO, 2.1% through QQQ." |
+| 1:10–1:50 | `/shock` | Click the **Commercial real estate decline** card. Watch propagation. Drag the slider to **30%** (−6.1%). Click the **BXP** row, then **Evidence** (BXP 10-K). | "A 20% CRE decline moves you about −4.1%, −$6,028. Every link is backed by a filing." |
+| 1:50–2:10 | `/radar` | On the **NVIDIA** card, click **Compare wording**. | "Four filings, ranked by how much of your money they touch. Here's exactly what changed." |
+| 2:10–2:45 | `/ic` | Click **Run pre-mortem** (use **Skip to memo** if short on time). Point at portfolio fit **31.2% → 35.5%**. | "Before you buy AMD, the committee checks the thesis and what it does to your portfolio." |
+| 2:45–2:55 | `/ic` | Flip the level switch **Advanced → Beginner** on the memo. | "Same memo, rewritten for someone who just started." |
+| 2:55–3:00 | `/ic` | Stop. | "Lookthrough. See what you actually own." |
+
+## 3. Fallbacks and shortcuts
+
+Deep links (type in the address bar):
+
+- `/shock?scenario=cre` starts the CRE shock on load.
+- `/ic?run=1` starts the committee on load.
+- `/demo-assets/brokerage` shows the sample brokerage screen if the PNG is missing (screenshot it with Cmd+Shift+4).
+
+Presenter shortcuts (ignored while typing in a field):
+
+| Keys | Action |
+| --- | --- |
+| `Alt+1` | X-Ray |
+| `Alt+2` | Shock Test |
+| `Alt+3` | Filing Radar |
+| `Alt+4` | IC Room |
+| `Alt+L` | Cycle level: Beginner → Intermediate → Advanced |
+| `Alt+R` | Reset demo state (shock cleared, level Intermediate) and go to `/` |
+
+If the drag-drop misses, click **Use sample screenshot** on `/import`; it plays the same read.
+
+## 4. Failure plan
+
+- **Wi-Fi drops:** keep going. The app has no third-party requests; every page already loaded in the tab keeps working, including client-side navigation between pages. Don't hard-refresh while offline.
+- **A page shows "Something went sideways.":** click **Reload this page**. If it repeats, use `Alt+1` to `Alt+4` or a deep link to skip to the next step.
+- **Tab crashes or freezes:** switch to the backup video tab and narrate over it from the same timestamp.
+- **Projector cuts the edges:** switch the window to 1280×720; every page is checked at that size.
+
+## 5. Honest talking points
+
+- **What's live:** the interface, the look-through math, the shock propagation, and level rewrites all run in the browser from one curated demo dataset. The numbers are internally consistent (checked by `scripts/check-canon.ts`).
+- **What's pre-computed:** holdings look-through, filing excerpts and diffs, shock paths, and the IC committee run are prepared ahead of time for seven real tickers (VOO, QQQ, NVDA, KRE, AAPL, BXP, MSFT) and AMD. The committee run is scripted, not generated live.
+- **Gemini's role:** Gemini vision with structured output is wired to read a real brokerage screenshot on `/import` (GUI-51, `/api/snap`). It is behind the `NEXT_PUBLIC_LIVE_SNAP` flag with a silent fallback to the canned read. Say it's live **only** if the flag and `GEMINI_API_KEY` are set on the production deploy; otherwise say "the extraction step is designed for Gemini vision; in this demo it replays a recorded read."
+- **Not investment advice.** This is an educational tool; the footer says so on every page.

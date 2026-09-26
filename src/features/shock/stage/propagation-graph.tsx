@@ -6,7 +6,7 @@ import { HOLDINGS } from "@/data/portfolio";
 import { useShock } from "@/features/shock/store";
 import { scaleShock } from "@/lib/format";
 import type { Level } from "@/lib/level";
-import type { ShockScenario } from "@/types/demo";
+import type { ShockEdge, ShockScenario } from "@/types/demo";
 import { GraphEdge, type EdgeState } from "./graph-edge";
 import { ChannelNode, DriverNode, HoldingNode } from "./graph-node";
 import { buildTimeline, edgeGeometry, pathsThrough } from "./timeline";
@@ -23,6 +23,14 @@ type PropagationGraphProps = {
 };
 
 // The shock's path from the macro driver into the user's holdings. Hand-drawn SVG; nodes are HTML in foreignObject.
+// The Advanced pill sits on the edge midpoint; short edges only have room for the weight, and the
+// shortest none, so the pill never covers a node or the driver caption.
+function advancedTag(edge: ShockEdge, span: number) {
+  if (span >= 150) return `w ${edge.weight.toFixed(2)} · ${edge.method}`;
+  if (span >= 70) return `w ${edge.weight.toFixed(2)}`;
+  return null;
+}
+
 export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done, reduce, level }: PropagationGraphProps) {
   const selectedHolding = useShock((s) => s.selectedHolding);
   const selectedEdgeId = useShock((s) => s.selectedEdgeId);
@@ -82,16 +90,17 @@ export function PropagationGraph({ scenario, severity, hasRun, runKey, ms, done,
                   const from = byId.get(edge.from);
                   const to = byId.get(edge.to);
                   if (!from || !to) return null;
+                  const geo = edgeGeometry(from, to);
                   return (
                     <GraphEdge
                       key={edge.id}
                       edge={edge}
-                      geo={edgeGeometry(from, to)}
+                      geo={geo}
                       delayMs={timeline.edgeDelay[edge.id]}
                       reduce={reduce}
                       state={edgeState(edge.id)}
                       hovered={hoverEdge === edge.id}
-                      advancedTag={level === "advanced" ? `w ${edge.weight.toFixed(2)} · ${edge.method}` : null}
+                      advancedTag={level === "advanced" ? advancedTag(edge, geo.span) : null}
                       onHover={setHoverEdge}
                       onSelect={selectEdge}
                     />

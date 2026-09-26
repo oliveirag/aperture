@@ -64,7 +64,7 @@ export function ExtractedPanel({
         {Array.from({ length: SLOTS }, (_, i) => {
           const h = extracted ? holdings[i] : undefined;
           return (
-            <li key={i} className="relative h-12">
+            <li key={i} className="relative h-11">
               <motion.div
                 aria-hidden
                 initial={false}

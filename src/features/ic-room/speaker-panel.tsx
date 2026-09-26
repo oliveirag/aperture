@@ -31,7 +31,7 @@ export function SpeakerPanel({
       aria-label={s.name}
       {...enter}
       className={cn(
-        "flex min-w-0 flex-col gap-3 rounded-xl border bg-surface-1 p-4 transition-[border-color] duration-300",
+        "flex min-w-0 flex-col gap-3 rounded-xl border bg-surface-1 p-4 transition-[border-color] duration-200",
         typing ? "border-border-strong" : "border-border",
       )}
       style={typing ? { borderColor: `color-mix(in srgb, ${s.color} 45%, transparent)` } : undefined}

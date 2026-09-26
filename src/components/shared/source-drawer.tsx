@@ -66,7 +66,7 @@ export function SourceDrawer() {
     <Sheet open={payload !== null} onOpenChange={(open) => !open && close()}>
       <SheetContent
         side="right"
-        className="gap-0 overflow-y-auto border-border bg-surface-1 p-0 shadow-[0_0_0_1px_var(--border),-24px_0_64px_rgba(0,0,0,0.5)] duration-300 ease-drawer data-ending-style:duration-200 data-[side=right]:w-full data-[side=right]:sm:max-w-[440px]"
+        className="gap-0 overflow-y-auto border-border bg-surface-1 p-0 shadow-[0_0_0_1px_var(--border),-24px_0_64px_rgba(0,0,0,0.5)] duration-250 ease-drawer data-ending-style:duration-200 data-[side=right]:w-full data-[side=right]:sm:max-w-[440px]"
       >
         {source ? (
           <div className="flex min-h-full flex-col">

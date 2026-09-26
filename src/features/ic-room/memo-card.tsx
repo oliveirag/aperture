@@ -91,7 +91,7 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
 
       <div className="flex flex-col gap-8 pt-6">
         <Section title="Summary">
-          <p key={level} className="text-[15px] leading-6 text-pretty text-text animate-in fade-in duration-300">
+          <p key={level} className="text-[15px] leading-6 text-pretty text-text animate-in fade-in duration-200">
             {MEMO.summary[level]}
           </p>
           <p className="text-[14px] leading-[22px] text-text-muted">{MEMO.chairNote}</p>

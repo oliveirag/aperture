@@ -37,7 +37,7 @@ export function Onboarding() {
       </header>
 
       <section className="flex flex-1 flex-col items-center justify-center py-16">
-        <h1 className="text-center text-[32px] leading-[1.15] font-semibold tracking-[-0.02em] text-text sm:text-[36px]">
+        <h1 className="text-center text-[32px] leading-[1.1] font-semibold tracking-[-0.02em] text-text sm:text-[40px]">
           What&apos;s your investing experience?
         </h1>
         <p className="mt-3 text-center text-[16px] text-text-muted">

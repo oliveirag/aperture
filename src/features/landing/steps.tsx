@@ -9,7 +9,7 @@ const STEPS = [
 // White band in the "Featured stories" rhythm: eyebrow, serif title, then three columns ruled from above.
 export function Steps() {
   return (
-    <section className="bg-bg py-28 lg:py-36">
+    <section className="border-t border-border bg-bg py-28 lg:py-36">
       <div className="bx-container">
         <Reveal>
           <p className="eyebrow">How it works</p>

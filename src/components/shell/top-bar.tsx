@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { DAY_CHANGE, PORTFOLIO_TOTAL } from "@/data/portfolio";
+import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { LevelSwitcher } from "./level-switcher";
 
-// Hardcoded until GUI-48 swaps in canon imports from @/data/portfolio.
-const PORTFOLIO_VALUE = "$148,420";
-const DAY_CHANGE = "+$612 (+0.41%)";
+const PORTFOLIO_VALUE = formatUSD(PORTFOLIO_TOTAL);
+const DAY_CHANGE_LABEL = `${formatSignedUSD(DAY_CHANGE.value)} (${formatSignedPct(DAY_CHANGE.pct, 2)})`;
 
 // Translucent layer that content scrolls under. The divider only appears once content is actually beneath it.
 export function TopBar() {
@@ -33,7 +34,7 @@ export function TopBar() {
           </span>
           <div className="flex items-baseline gap-2 whitespace-nowrap">
             <span className="text-[15px] font-semibold tracking-[-0.01em] text-text tabular-nums">{PORTFOLIO_VALUE}</span>
-            <span className="hidden text-[13px] text-positive tabular-nums sm:inline">{DAY_CHANGE}</span>
+            <span className="hidden text-[13px] text-positive tabular-nums sm:inline">{DAY_CHANGE_LABEL}</span>
           </div>
         </div>
         <LevelSwitcher />

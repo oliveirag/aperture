@@ -1,4 +1,6 @@
-import type { SourceLike } from "@/components/shared/source-drawer";
+import type { Source } from "../types/demo";
+import { weightOf } from "./portfolio";
+import { EXPOSURES, exposureTotal } from "./xray";
 
 // Filing Radar demo content. Excerpts are concise paraphrases of themes in the named filings.
 
@@ -27,8 +29,15 @@ export type RadarCard = {
   whyItMatters: string;
   exposureWeight: number;
   changes: RadarChange[];
-  source: SourceLike;
+  source: Source;
 };
+
+// Look-through share of the portfolio for a company, from the X-Ray canon.
+function lookthroughWeight(ticker: string) {
+  const e = EXPOSURES.find((x) => x.ticker === ticker);
+  if (!e) throw new Error(`Unknown exposure ${ticker}`);
+  return weightOf(exposureTotal(e));
+}
 
 const NVDA_EXPORT_CURRENT =
   "U.S. export controls now require licenses for our data center products to China and additional regions, and we may be unable to replace lost revenue from affected customers.";
@@ -55,7 +64,7 @@ export const RADAR_CARDS: RadarCard[] = [
       "NVIDIA's latest 10-K broadens its export-control risk: licensing now covers more data-center products and destinations, and it warns that lost sales may not be replaced elsewhere.",
     whyItMatters:
       "NVIDIA is 17.6% of your money across NVDA, QQQ and VOO. A hit here moves three of your positions at once.",
-    exposureWeight: 0.176,
+    exposureWeight: lookthroughWeight("NVDA"),
     changes: [
       {
         kind: "changed",
@@ -99,7 +108,7 @@ export const RADAR_CARDS: RadarCard[] = [
       "BXP added a risk that debt maturing through 2027 may need to be refinanced at much higher rates, while office occupancy stays below pre-2020 levels.",
     whyItMatters:
       "BXP is 8.6% of your portfolio and your largest loss in the commercial real estate Shock Test (−$2,862 at a 20% decline).",
-    exposureWeight: 0.086,
+    exposureWeight: lookthroughWeight("BXP"),
     changes: [
       {
         kind: "new",
@@ -142,7 +151,7 @@ export const RADAR_CARDS: RadarCard[] = [
     summary:
       "Microsoft now warns that heavy AI data-center investment may not earn expected returns and could pressure margins if demand grows more slowly than capacity.",
     whyItMatters: "Microsoft is 11.4% of your money and sits in your AI data-center Shock Test.",
-    exposureWeight: 0.114,
+    exposureWeight: lookthroughWeight("MSFT"),
     changes: [
       {
         kind: "changed",
@@ -178,7 +187,7 @@ export const RADAR_CARDS: RadarCard[] = [
     summary:
       "Apple refreshed its App Store regulatory disclosures to reflect new developer-terms changes in the EU. No new risk category.",
     whyItMatters: "Apple is 12.9% of your money. This is an update to an existing risk, not a new one.",
-    exposureWeight: 0.129,
+    exposureWeight: lookthroughWeight("AAPL"),
     changes: [
       {
         kind: "changed",
@@ -210,7 +219,7 @@ export const RADAR_HEADLINE: Record<"beginner" | "intermediate" | "advanced", st
 };
 
 // NVDA 17.6% + BXP 8.6%
-export const HIGH_SEVERITY_EXPOSURE = 0.262;
+export const HIGH_SEVERITY_EXPOSURE = lookthroughWeight("NVDA") + lookthroughWeight("BXP");
 
 export const RADAR_LAST_CHECKED = "Sep 26, 2026, 6:00 AM";
 

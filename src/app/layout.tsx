@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { GeistMono } from "geist/font/mono";
 import { GeistSans } from "geist/font/sans";
 import { SourceDrawer } from "@/components/shared/source-drawer";
+import { DemoKeys } from "@/components/shell/demo-keys";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
 
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <TooltipProvider delay={350}>
           {children}
           <SourceDrawer />
+          <DemoKeys />
         </TooltipProvider>
       </body>
     </html>

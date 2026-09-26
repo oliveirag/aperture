@@ -1,10 +1,13 @@
 "use client";
+import { useSnapshot } from "@/lib/imports/snapshot-store";
+
 
 import { AlertTriangle, LoaderCircle, RotateCcw } from "lucide-react";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { XrayDetails } from "./details";
 import { XrayHero } from "./hero";
 import { useXray } from "./use-xray";
+import Link from "next/link";
 
 function Loading() {
   return (
@@ -52,12 +55,14 @@ function Failed({ error, retry }: { error: string; retry: () => void }) {
 // X-Ray for the active portfolio. The map remounts per model so its reveal replays for new data.
 export function XrayView() {
   const state = useXray();
+  const snapshot = useSnapshot();
   if (state.status === "loading") return <Loading />;
   if (state.status === "error") return <Failed error={state.error} retry={state.retry} />;
   const { model } = state;
   const key = `${model.mode}-${model.total}`;
   return (
     <div className="flex flex-col gap-10">
+      {snapshot&&<section className="border border-border-strong p-4 space-y-2"><p>Saved analysis · {new Date(snapshot.created_at).toLocaleString()}</p><p>Exposure percentages use the full portfolio value, including cash. Derivatives and other non-equity exposures are summarized separately.</p><Link href="/import" className="underline">Update analysis or view audit history</Link><details><summary>Sources, timestamps, and exposure summary</summary>{snapshot.results.map((r,i)=><div key={i} className="py-2"><p>{snapshot.rows[i]?.ticker} · {r.valuation?.source} · valuation as of {r.valuation?.asOf} · retrieved {r.valuation?.retrievedAt}</p>{r.warnings?.map(w=><p key={w}>{w}</p>)}{r.input?.etf&&<><p>Equity holdings: {r.input.etf.holdings.length} · as of {r.input.etf.asOf}</p><p>{r.input.etf.holdings.slice(0,10).map(h=>`${h.name} ${(h.weight*100).toFixed(2)}%`).join(", ")}</p><p>Outside equity X-Ray: {r.input.etf.exclusions?.map(e=>`${e.name} (${(e.weight*100).toFixed(2)}% of ETF net assets)`).join(", ")||"None disclosed"}</p></>}</div>)}</details></section>}
       <XrayHero key={key} model={model} />
       <XrayDetails model={model} />
     </div>

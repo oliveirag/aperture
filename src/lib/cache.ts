@@ -134,7 +134,21 @@ export async function memo<T>(key: string, ttlMs: number, load: () => Promise<T>
         return stored.value;
       }
     }
-    const value = await load();
+    // Keep legacy provider modules unchanged while sharing their cache misses
+    // with durable imports. Reserve both possible Finnhub attempts up front.
+    const provider = key.startsWith("finnhub:") ? "finnhub" : key.startsWith("etf:") ? "alpha" : null;
+    const value = provider && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? await (await import("./imports/provider")).cachedProvider(key, ttlMs, async () => {
+          const { reserve, cooldown } = await import("./imports/provider");
+          await reserve(provider, provider === "finnhub" && !key.startsWith("finnhub:quote:"));
+          if (provider === "finnhub") await reserve(provider, !key.startsWith("finnhub:quote:"));
+          try { return await load(); }
+          catch (error) {
+            if (error instanceof Error && /429|alphavantage limit/.test(error.message)) await cooldown(provider, provider === "finnhub" ? 60 : 86400);
+            throw error;
+          }
+        })
+      : await load();
     store.set(key, { expires: Date.now() + ttlMs, value });
     seen.add(key);
     if (opts.persist) kvSet(key, value, opts.persistMs ?? ttlMs);

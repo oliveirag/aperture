@@ -5,6 +5,8 @@ import { deletePortfolio, listPortfolios, loadLevel, samePositions, savePortfoli
 import { useLevel } from "@/lib/level";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { supabase } from "@/lib/supabase";
+import { cancelImportDrafts } from "@/lib/imports/client";
+import { useSnapshots } from "@/lib/imports/snapshot-store";
 
 type Status = "disabled" | "loading" | "signed-out" | "signed-in";
 
@@ -51,7 +53,10 @@ export const useAccount = create<AccountState>()((set, get) => ({
   },
 
   signOut: async () => {
+    try { await cancelImportDrafts(); }
+    catch (error) { set({error:message(error)}); return; }
     await supabase()?.auth.signOut();
+    useSnapshots.setState({snapshot:null});
     set({ status: "signed-out", email: null, userId: null, saved: [], offerSave: false });
   },
 

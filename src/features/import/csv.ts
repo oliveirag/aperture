@@ -75,6 +75,17 @@ function findColumn(header: string[], names: string[]) {
   return -1;
 }
 
+// Lossless review path: retain rows separately, including unrecognized securities and cash.
+// The legacy parser below remains for the practice/demo flow.
+export function parseReviewCsv(input: string): CsvResult {
+  const table=tokenize(input.replace(/^\uFEFF/,""),detectDelimiter(input));
+  const headerAt=table.findIndex(r=>findColumn(r,TICKER_HEADERS)!==-1 && (findColumn(r,SHARES_HEADERS)!==-1 || findColumn(r,VALUE_HEADERS)!==-1));
+  const header=headerAt>=0?table[headerAt]:["ticker","shares"];
+  const ticker=findColumn(header,TICKER_HEADERS), shares=findColumn(header,SHARES_HEADERS), value=findColumn(header,VALUE_HEADERS), name=findColumn(header,NAME_HEADERS);
+  const rows=table.slice(headerAt+1).filter(r=>r.some(Boolean)).map(r=>({ticker:r[ticker]??"",shares:parseNumber(r[shares]),marketValue:parseNumber(r[value]),name:r[name]??""}));
+  return {rows,skipped:[],error:rows.length?null:"No rows found in this CSV."};
+}
+
 export function parsePositionsCsv(input: string): CsvResult {
   const text = input.replace(/^﻿/, "");
   const table = tokenize(text, detectDelimiter(text));

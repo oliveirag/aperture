@@ -1,3 +1,4 @@
+import { useSnapshot } from "@/lib/imports/snapshot-store";
 
 import { useMemo } from "react";
 import { create } from "zustand";
@@ -108,8 +109,9 @@ export function useLiveHoldings() {
   const status = useMarket((s) => s.status);
   const quotes = useMarket((s) => s.quotes);
   const imported = usePortfolio((s) => s.imported);
+  const snapshot = useSnapshot();
   const base = useMemo(() => portfolioHoldings(imported), [imported]);
-  const priced = priceHoldings(status === "live" ? quotes : {}, base);
+  const priced = priceHoldings(status === "live" && !snapshot ? quotes : {}, base);
   const live = status === "live" && priced.holdings.some((h) => h.live);
   return { live, imported: imported !== null, ...priced };
 }

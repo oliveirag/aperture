@@ -11,6 +11,7 @@ export function AccountBoot() {
   const offerSave = useAccount((s) => s.offerSave);
   const saveCurrent = useAccount((s) => s.saveCurrent);
   const dismissOffer = useAccount((s) => s.dismissOffer);
+  const replaces = useAccount((s) => s.offerReplaces);
   const kind = usePortfolio((s) => s.kind);
   const count = usePortfolio((s) => s.imported?.length ?? 0);
 
@@ -36,6 +37,7 @@ export function AccountBoot() {
               </p>
               <p className="mt-1 text-[13px] leading-5 text-text-muted">
                 Its {count} {count === 1 ? "position" : "positions"} will be here next time you sign in, on any device.
+                {replaces ? ` This replaces the ${kind === "practice" ? "practice" : "imported"} portfolio already saved in your account.` : ""}
               </p>
               <div className="mt-4 flex gap-2">
                 <button

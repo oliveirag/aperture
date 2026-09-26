@@ -4,7 +4,7 @@ import { create } from "zustand";
 import type { Session } from "@supabase/supabase-js";
 import { useLevel, type Level } from "@/lib/level";
 import { usePortfolio, type ImportedHolding, type PortfolioKind } from "@/lib/portfolio-store";
-import { supabase } from "@/lib/supabase";
+import { accountsConfigured, supabase } from "@/lib/supabase";
 
 // Accounts on top of the session portfolio store: sign in with Google, then your own portfolio and experience level
 // are saved to Supabase and come back in any browser. Without Supabase configured, status stays "disabled".
@@ -19,6 +19,8 @@ type AccountState = {
   savedAt: number | null;
   // The session holds a portfolio the account doesn't have yet; the UI offers to save it (once per sign-in).
   offerSave: boolean;
+  // Saving it would replace a portfolio of the same kind already in the account.
+  offerReplaces: boolean;
   error: string | null;
   signIn: (next?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -40,11 +42,13 @@ function toUser(session: Session | null): User | null {
 }
 
 export const useAccount = create<AccountState>()((set, get) => ({
-  status: supabase ? "loading" : "disabled",
+  // From the env (inlined at build), not from `window`, so the server and first client render agree.
+  status: accountsConfigured ? "loading" : "disabled",
   user: null,
   saveState: "idle",
   savedAt: null,
   offerSave: false,
+  offerReplaces: false,
   error: null,
 
   signIn: async (next = "/xray") => {
@@ -90,19 +94,18 @@ async function loadAccount(user: User) {
     supabase
       .from("portfolios")
       .select("kind, updated_at, holdings(ticker, name, industry, shares, price, position)")
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
+      .order("updated_at", { ascending: false }),
   ]);
 
   applyingRemote = true;
   try {
     const level = profile.data?.experience_level as Level | null | undefined;
     if (level) useLevel.getState().setLevel(level);
-    else void supabase.from("profiles").update({ experience_level: useLevel.getState().level }).eq("id", user.id);
+    else await saveLevel(user.id, useLevel.getState().level);
 
     const session = usePortfolio.getState();
-    const row = saved.data as { kind: "real" | "practice"; updated_at: string; holdings: (ImportedHolding & { position: number })[] } | null;
+    const rows = (saved.data ?? []) as { kind: "real" | "practice"; updated_at: string; holdings: (ImportedHolding & { position: number })[] }[];
+    const row = rows[0] ?? null;
     const remote = row
       ? row.holdings
           .sort((a, b) => a.position - b.position)
@@ -117,11 +120,18 @@ async function loadAccount(user: User) {
       useAccount.setState({ saveState: "saved", savedAt: Date.parse(row!.updated_at) });
     } else if (session.imported) {
       // The session has a portfolio the account doesn't: ask before overwriting anything.
-      useAccount.setState({ offerSave: true });
+      useAccount.setState({ offerSave: true, offerReplaces: rows.some((r) => r.kind === DB_KIND[session.kind]) });
     }
   } finally {
     applyingRemote = false;
   }
+}
+
+// Postgrest queries are lazy: they only run when awaited, so every write goes through here.
+async function saveLevel(userId: string, level: Level) {
+  if (!supabase) return;
+  const { error } = await supabase.from("profiles").update({ experience_level: level }).eq("id", userId);
+  if (error) console.error("[account] level not saved:", error.message);
 }
 
 let started = false;
@@ -159,6 +169,6 @@ export function startAccount() {
   useLevel.subscribe((s, prev) => {
     const { status, user } = useAccount.getState();
     if (applyingRemote || s.level === prev.level || status !== "signed-in" || !user) return;
-    void client.from("profiles").update({ experience_level: s.level }).eq("id", user.id);
+    void saveLevel(user.id, s.level);
   });
 }

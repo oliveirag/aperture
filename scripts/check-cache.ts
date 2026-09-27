@@ -4,8 +4,13 @@ import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import type { Provenance } from "../src/lib/provenance";
 
 async function main() {
+  if (process.argv.includes("--live")) {
+    const { checkCacheLive } = await import("./lib/cache-live");
+    return checkCacheLive();
+  }
   const dir = await mkdtemp(path.join(tmpdir(), "aperture-cache-check-"));
   process.env.APERTURE_CACHE_DIR = dir;
   process.env.APERTURE_LOCAL_VERIFICATION = "1";
@@ -32,7 +37,7 @@ async function main() {
       await cache.memo("test:map", 60_000, async () => value);
       await new Promise(resolve => setTimeout(resolve, 50));
       cache.coldStart();
-      const restored = await cache.memo("test:map", 60_000, fail, { persist: true });
+      const restored = await cache.memo<typeof value>("test:map", 60_000, fail, { persist: true });
       assert.ok(restored instanceof Map, "Map must not become {} on disk");
       assert.deepEqual(restored, value);
     });
@@ -42,16 +47,28 @@ async function main() {
       assert.equal(server.configured(), false);
       assert.throws(() => server.admin());
       await assert.rejects(server.requireUser());
+      const browser = await import("../src/lib/supabase");
+      process.env.NEXT_PUBLIC_ACCOUNTS = "1";
+      assert.equal(browser.accountsEnabled(), false);
+      assert.equal(browser.supabase(), null);
+      process.env.APERTURE_LOCAL_VERIFICATION = "0";
+      process.env.NEXT_PUBLIC_APERTURE_LOCAL_VERIFICATION = "1";
+      assert.equal(server.configured(), false);
+      assert.equal(await cache.kv([["SET", "trap", "value"]]), null);
+      assert.equal(browser.accountsEnabled(), false);
+      process.env.NEXT_PUBLIC_APERTURE_LOCAL_VERIFICATION = "";
+      process.env.APERTURE_LOCAL_VERIFICATION = "1";
+      assert.ok(!JSON.stringify(await server.apiError(new Error("token=NEVER_LOG_ME")).json()).includes("NEVER_LOG_ME"));
       assert.equal(network, 0);
     });
     await test("original timestamps + nested provenance stale on LKG, original unchanged", async () => {
-      const provenance = { kind: "assumption" as const, rationale: "storage unit test", source: "synthetic fixture", asOf: "2020-01-01" };
+      const provenance: Provenance = { kind: "assumption", rationale: "storage unit test", source: "synthetic fixture", asOf: "2020-01-01" };
       const value = { number: 1, provenance, inputs: [{ provenance }] };
       const fresh = await cache.memoResult("test:stale", 10, async () => value);
       await cache.flushCacheWrites();
       await new Promise(resolve => setTimeout(resolve, 25));
       cache.coldStart();
-      const stale = await cache.memoResult("test:stale", 10, fail);
+      const stale = await cache.memoResult<typeof value>("test:stale", 10, fail);
       assert.equal(stale.cache.state, "stale");
       assert.equal(stale.cache.cachedAt, fresh.cache.cachedAt);
       assert.equal(stale.cache.expiresAt, fresh.cache.expiresAt);
@@ -60,7 +77,7 @@ async function main() {
       assert.equal(stale.value.provenance.asOf, "2020-01-01");
       assert.equal(Object.hasOwn(provenance, "stale"), false);
       assert.ok(!JSON.stringify(stale.cache).includes("NEVER_LOG_ME"));
-      const again = await cache.memoResult("test:stale", 10, fail);
+      const again = await cache.memoResult<typeof value>("test:stale", 10, fail);
       assert.equal(again.cache.state, "stale", "retry backoff must not relabel stale as fresh");
     });
     await test("retention is not freshness after cold start", async () => {
@@ -124,6 +141,48 @@ async function main() {
       while (!release) await new Promise(resolve => setTimeout(resolve, 1));
       cache.forgetKeys(["test:race"]); release("old"); await pending;
       assert.equal(await cache.memo("test:race", 60000, async () => "new"), "new");
+    });
+    await test("bounded stale policy refuses over-age LKG", async () => {
+      await cache.memo("test:max-age", 1, async () => "old");
+      await cache.flushCacheWrites();
+      await new Promise(resolve => setTimeout(resolve, 5));
+      await assert.rejects(cache.memo("test:max-age", 1, fail, { maxStaleMs: 0 }));
+    });
+    await test("serialization supports Date/Set/undefined and safe tag-looking objects", async () => {
+      const { serializeRecord, deserializeRecord } = await import("../src/lib/cache-codec");
+      const record = { version: 2 as const, key: "test:codec", cachedAt: 1, expires: 2, value: { date: new Date("2020-01-01"), set: new Set([1, 2]), missing: undefined, tagged: { type: "map", value: "not a Map" }, integer: BigInt(3) } };
+      assert.deepEqual(deserializeRecord(serializeRecord(record), record.key), record);
+      assert.equal(deserializeRecord(serializeRecord(record), "wrong-key"), undefined);
+      const cycle: Record<string, unknown> = {}; cycle.self = cycle;
+      assert.throws(() => serializeRecord({ ...record, value: cycle }), /Unsupported cache value/);
+    });
+    await test("Redis-only cold start preserves metadata and Map; corrupt commands fail closed", async () => {
+      await cache.flushCacheWrites();
+      process.env.APERTURE_CACHE_DIR = "";
+      process.env.APERTURE_LOCAL_VERIFICATION = "0";
+      const remote = new Map<string, string>();
+      globalThis.fetch = async (_input, init) => {
+        const commands = JSON.parse(String(init?.body)) as (string | number)[][];
+        return Response.json(commands.map(([op, key, value]) => {
+          if (op === "SET") { remote.set(String(key), String(value)); return { result: "OK" }; }
+          if (op === "GET") return { result: remote.get(String(key)) ?? null };
+          return { error: "synthetic command failure" };
+        }));
+      };
+      try {
+        const original = await cache.memoResult("test:redis", 5000, async () => new Map([["unit", 1]]), { persist: true });
+        await cache.flushCacheWrites(); cache.coldStart();
+        const restored = await cache.memoResult<Map<string, number>>("test:redis", 5000, fail, { persist: true });
+        assert.equal(restored.cache.layer, "redis");
+        assert.equal(restored.cache.cachedAt, original.cache.cachedAt);
+        assert.equal(restored.cache.expiresAt, original.cache.expiresAt);
+        assert.deepEqual(restored.value, new Map([["unit", 1]]));
+        assert.equal(await cache.kv([["INVALID"]]), null);
+      } finally {
+        process.env.APERTURE_CACHE_DIR = dir;
+        process.env.APERTURE_LOCAL_VERIFICATION = "1";
+        globalThis.fetch = async () => { throw new Error("Remote access forbidden"); };
+      }
     });
     await cache.flushCacheWrites();
   } finally {

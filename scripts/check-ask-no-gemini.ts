@@ -5,6 +5,10 @@ async function main() {
   const { POST } = await import("../src/app/api/ask/route");
   const request = (body: unknown) => new Request("http://localhost/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   for (const body of [null, [], "AAPL", 1]) assert.equal((await POST(request(body))).status, 400);
+  for (const context of [{ apertureTop10: {} }, { apertureTop10: [{ ticker: "AAPL", name: "Apple", valueUsd: 100, weight: 1 }] }, { portfolio: { totalValueUsd: "100" } }, { sectors: [{ sector: "Energy", weight: null }] }, { scenario: { assumption: "Oil shock", impacts: "wrong" } }, { icMemos: [{ ticker: "AAPL", date: "2026-01-01", memo: { stance: "Neutral", summary: null } }] }]) {
+    const invalid = await POST(request({ question: "What is my biggest risk?", context }));
+    assert.equal(invalid.status, 400, "Malformed portfolio data must be rejected instead of crashing or formatting invented values");
+  }
   const context = { portfolio: { portfolio: { totalValueUsd: 1000 } }, scenario: { question: "oil rises", assumption: "User assumes a 20% oil increase", impacts: [{ ticker: "XOM", returnFraction: 0.1, dollar: 25 }], notModeled: [{ ticker: "KRE", weight: 0.5 }], evidence: [] } };
   const response = await POST(request({ question: "What does this oil scenario do?", level: "advanced", context }));
   assert.equal(response.status, 200);

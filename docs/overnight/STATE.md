@@ -12,13 +12,13 @@ No host loop-review findings supplied; independent foundation reviews handled be
 | id | profile | branch | worktree | status | last gate result | next step |
 |---|---|---|---|---|---|---|
 | 0 | integrator | overnight/real-data | main checkout | merged | Release, all 21 checks, typegen, tsc, zero-warning lint and webpack build pass after fixes | Commit base, create six worktrees and dispatch |
-| A | general + A profile | ws/a | ../lookthru-wt/a | running | npm ci pass | agent 90e88182: prices/history |
-| B | general + B profile | ws/b | ../lookthru-wt/b | running | npm ci pass | agent 29d46639: filings/XBRL |
-| C | general + C profile | ws/c | ../lookthru-wt/c | running | npm ci pass | agent 61a402df: ETF holdings |
+| A | general + A profile | ws/a | ../lookthru-wt/a | blocked | 8a11027: quote/Alpha fallback pass; Stooq full checks fail | Review corrected GET/prefix; resolve Stooq timeout |
+| B | general + B profile | ws/b | ../lookthru-wt/b | review | 072dfc3: SEC/quotes fixture+live and standard gates pass | Reviewers 1c61ace8 / 4656f3cf |
+| C | general + C profile | ws/c | ../lookthru-wt/c | blocked | 7ad3f55: 18fund fixture/live pass; release sector residual assertion fails | Reviewers aff0f7c5 / c1cc9d16; sourced-sector integration |
 | D | aperture-ws-d-scenarios | not created | not created | todo | not run | Factor model after real A/B/C fixtures |
-| E | general + E profile | ws/e | ../lookthru-wt/e | running | npm ci pass | agent 9e717766: news/webhooks |
-| F | general + F profile | ws/f | ../lookthru-wt/f | running | npm ci pass | agent 9f410ec4: imports/math |
-| G | general + G profile | ws/g | ../lookthru-wt/g | running | npm ci pass | agent 95b41ccc: cache/isolation |
+| E | general + E profile | ws/e | ../lookthru-wt/e | blocked | 3727f68: Finnhub/SEC/webhook pass; missing GDELT fixture, live429 | Retry after backoff; no merge with failed full checks |
+| F | general + F profile | ws/f | ../lookthru-wt/f | review | a640391: property/standard checks pass; live fixture lock-blocked | Reviewers 2887bfef / 8a262039; retry live with bounded wait |
+| G | general + G profile | ws/g | ../lookthru-wt/g | review | b1e4116: offline gates pass; parent live PASS07:32:18Z | Commit parent bounded-wait test tweak, resolve reviews, merge first |
 | H | aperture-ws-h-ui-qa | not created | not created | todo | not run | Provenance UI, copy and Playwright matrix |
 | I | aperture-adversarial-verifier | not created | not created | todo | not run | Independent 50-figure trace |
 
@@ -49,6 +49,8 @@ No host loop-review findings supplied; independent foundation reviews handled be
 - Reject swallowing cleanup errors after a successful operation: lost lock integrity must fail the check. AggregateError preserves original operation error when present; regression covers this.
 - Arbitrary save/load fixture paths are trusted developer tooling (needed for temporary test roots), not exposed to application input. Network capture validates a fixed provider path and safe filename.
 - Generic provenance validation checks shape only; provider adapters must bind trusted hosts and prove values independently. Known-key fixture leak detection is not a complete generic secret scanner; review before commit.
+- Main TS87308f81: fixed canonical provenance equality with regression and made test:release discover/run ALL check-*.ts via isolated bounded runner. Code66f47202 approves. Securitye55c8cd6 spot-checked root guards with no new blockers. Full24checks/typecheck/lint/build pass. Runtime provenance coverage still pending.
+- G securitye55c8cd6 passes; its request to copy main Ask/IC guards onto G rejected as unnecessary: G did not change those routes, normal merge retains main guards. G TS0065298c calls two Finnhub reservations critical; rejected as pre-existing conservative reservation for the two possible upstream attempts (baseline cache comment and finnhub retry loop prove it). Removing one would under-reserve retries. Restore explanatory comment lost in rewrite before merge; no quota weakening.
 
 ## Shared contracts / harness
 
@@ -65,7 +67,7 @@ No host loop-review findings supplied; independent foundation reviews handled be
 See BLOCKERS.md. No current permission blocker.
 
 - Remote Supabase/Redis must stay disabled in ALL local live/test/server processes. Explicit blank environment variables override `.env.local`; never print/copy secret values.
-- Provider budget: A used two Alpha probes (one stored POST-not-allowed response); integrator used two successful GET history calls (XOM/SPY) after confirmed Stooq connection timeouts. At least four probes accounted. No more Alpha calls without explicit remaining-budget allocation.
+- Provider budget: five Alpha probes accounted (A two POST failures, main XOM/SPY GET successes, A one AAPL GET success07:42:01Z). A's second commit8a11027 corrected GET auth/no logging and restored finnhub shared-reservation key prefix. No further calls without budget allocation.
 - Main recorded seven FRED series (WTI, broad USD, DGS10, investment-grade spread, import-price IR, DTB3, CRE BOGZ1FL075035503Q) and real XOM/SPY weekly-adjusted Alpha fixtures with 1403 observations each. These are for D; preserve source units (IR monthly, CRE quarterly—not weekly independent observations).
 - Stooq SPY/XOM captures failed; diagnostic GET reports UND_ERR_CONNECT_TIMEOUT. This is an open live-history blocker, not a passing check. AAPL Alpha worker fixture currently contains a POST-not-allowed error; never treat as history. Cannot message running agents via resume (tool rejected); forward GET/budget correction when A reports.
 - File ownership adjustments: E creates new news adapter instead of editing A's finnhub.ts; G owns imports/provider.ts, F all other import logic; route validation edits coordinate through integrator.
@@ -78,4 +80,4 @@ See BLOCKERS.md. No current permission blocker.
 
 ## Next action
 
-Six agents are running. Continue independent API provenance/no-Gemini verification in main checkout, review IC route fix when a slot frees, then integrate workstream reports only after TS/security reviews and full gates per merge. Do not modify worker-owned files. Begin D when real A/B/C fixture contracts are available; H follows first merges. Do not stop for routine questions.
+Commit reviewed main fixes after full24-check release/typecheck/lint/build PASS. Finish G review dispositions, commit parent live-check wait tweak on ws/g and merge G; run full integrated gates. Six background reviewers currently cover B/C/F (IDs table). Start D on committed real FRED/XOM/SPY fixtures as slots free, then H after first data merges. A Stooq, E GDELT and C sector integration remain explicitly blocked; do not weaken tests to merge them.

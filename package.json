@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:release": "node --import tsx scripts/check-aperture-release.ts && node --import tsx scripts/check-fallbacks.ts",
+    "test:release": "node scripts/check-all.mjs",
     "warm": "node --import tsx scripts/warm.ts"
   },
   "dependencies": {

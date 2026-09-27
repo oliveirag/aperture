@@ -2,7 +2,7 @@
 import { memo } from "@/lib/cache";
 import { finnhubConfigured, getCompanyNews, getMetrics, getNextEarnings, getProfile, getQuote, getRecommendation, type Profile } from "@/lib/finnhub";
 import { formatPct, formatUSD } from "@/lib/format";
-import { generateGrounded, geminiConfigured } from "@/lib/gemini";
+import { geminiAvailable, generateGrounded } from "@/lib/gemini";
 import { cachedRadarFor } from "@/lib/radar/live";
 import {
   companyFor,
@@ -26,7 +26,17 @@ const CONTEXT_CHARS = 6000;
 const EXCERPT_CHARS = 480;
 const MAX_NEWS = 4;
 
-export type Fact = Source & { content: string };
+// Numbers behind a fact, for the rules-based committee. Stripped before a fact reaches the browser.
+export type Signal =
+  | { kind: "revenue" | "netIncome"; latest: number; yearAgo: number | null; end: string }
+  | { kind: "cash"; latest: number; prior: number | null; end: string }
+  | { kind: "debt"; value: number }
+  | { kind: "market"; price: number | null; pe: number | null; low: number | null; high: number | null; beta: number | null; margin: number | null }
+  | { kind: "analysts"; positive: number; neutral: number; negative: number }
+  | { kind: "earnings"; date: string }
+  | { kind: "radar"; label: string; category: string; severity: string | null; change: "new" | "changed" | "removed"; form: string };
+
+export type Fact = Source & { content: string; signal?: Signal };
 export type FactPack = { ticker: string; name: string; profile: Profile | null; facts: Fact[]; notes: string[] };
 
 export const factSteps = (ticker: string) => [
@@ -57,12 +67,12 @@ function body(section: string) {
   return paras.slice(i < paras.length ? i : 0).join("\n");
 }
 
-const billions = (n: number) => {
+export const billions = (n: number) => {
   const abs = Math.abs(n);
   const s = abs >= 1e9 ? `$${(abs / 1e9).toFixed(2)}B` : abs >= 1e6 ? `$${(abs / 1e6).toFixed(1)}M` : formatUSD(abs);
   return n < 0 ? `−${s}` : s;
 };
-const monthYear = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", year: "numeric" });
+export const monthYear = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", year: "numeric" });
 
 async function filingFacts(company: Company, name: string): Promise<Draft[]> {
   const tenK = (await listFilings(company.cik)).find((f: Filing) => f.form === "10-K");
@@ -104,7 +114,8 @@ const periodLabel = (q: Quarter) => `quarter ended ${monthYear(q.end)}`;
 // Deterministic sentences from XBRL numbers; the source is the filing that reported the latest value.
 export function fundamentalFacts(company: Company, name: string, f: Fundamentals): Draft[] {
   const out: Draft[] = [];
-  const source = (q: Quarter, what: string, content: string): Draft => ({
+  const source = (q: Quarter, what: string, content: string, signal?: Signal): Draft => ({
+    signal,
     title: `${name} ${what} (SEC XBRL)`,
     docType: q.form === "10-K" ? "10-K" : "10-Q",
     issuer: company.name,
@@ -114,16 +125,17 @@ export function fundamentalFacts(company: Company, name: string, f: Fundamentals
     url: filingIndexUrl(company.cik, q.accn),
     content,
   });
-  const series = (list: Quarter[], label: string) => {
+  const series = (list: Quarter[], label: string, kind: "revenue" | "netIncome") => {
     if (list.length < 2) return;
     const latest = list[list.length - 1];
     const yearAgo = list.length >= 5 ? list[list.length - 5] : null;
     const growth = yearAgo && yearAgo.value > 0 ? ` That is ${formatPct(latest.value / yearAgo.value - 1)} vs the same quarter a year earlier.` : "";
     const trail = list.map((q) => `${monthYear(q.end)} ${billions(q.value)}`).join(", ");
-    out.push(source(latest, `${label.toLowerCase()}, last ${list.length} quarters`, `${label} by quarter: ${trail}. Latest (${periodLabel(latest)}): ${billions(latest.value)}.${growth}`));
+    const signal: Signal = { kind, latest: latest.value, yearAgo: yearAgo?.value ?? null, end: latest.end };
+    out.push(source(latest, `${label.toLowerCase()}, last ${list.length} quarters`, `${label} by quarter: ${trail}. Latest (${periodLabel(latest)}): ${billions(latest.value)}.${growth}`, signal));
   };
-  series(f.revenue, "Revenue");
-  series(f.netIncome, "Net income");
+  series(f.revenue, "Revenue", "revenue");
+  series(f.netIncome, "Net income", "netIncome");
   if (f.operatingCashFlow.length > 0) {
     const [prev, last] = f.operatingCashFlow.length > 1 ? f.operatingCashFlow : [null, f.operatingCashFlow[0]];
     out.push(
@@ -131,10 +143,11 @@ export function fundamentalFacts(company: Company, name: string, f: Fundamentals
         last!,
         "operating cash flow",
         `Operating cash flow for the fiscal year ended ${monthYear(last!.end)}: ${billions(last!.value)}${prev ? ` (prior year ${billions(prev.value)})` : ""}.`,
+        { kind: "cash", latest: last!.value, prior: prev?.value ?? null, end: last!.end },
       ),
     );
   }
-  if (f.debt) out.push(source(f.debt, "total debt", `Total debt as of ${monthYear(f.debt.end)}: ${billions(f.debt.value)}.`));
+  if (f.debt) out.push(source(f.debt, "total debt", `Total debt as of ${monthYear(f.debt.end)}: ${billions(f.debt.value)}.`, { kind: "debt", value: f.debt.value }));
   return out;
 }
 
@@ -157,28 +170,32 @@ async function marketFacts(ticker: string, name: string): Promise<Draft[]> {
       m?.netMarginTTM !== null && m?.netMarginTTM !== undefined ? `net margin (TTM) ${m.netMarginTTM.toFixed(1)}%` : "",
     ].filter(Boolean);
     const content = `${parts.join("; ")}.`;
-    out.push({ title: `${name} valuation and price`, docType: "Market data", issuer: "Finnhub", date: today, excerpt: content, url: FINNHUB_URL, content });
+    const signal: Signal = { kind: "market", price: q?.price ?? null, pe: m?.peTTM ?? null, low: m?.week52Low ?? null, high: m?.week52High ?? null, beta: m?.beta ?? null, margin: m?.netMarginTTM ?? null };
+    out.push({ title: `${name} valuation and price`, docType: "Market data", issuer: "Finnhub", date: today, excerpt: content, url: FINNHUB_URL, content, signal });
   }
   const r = reco.status === "fulfilled" ? reco.value : null;
   if (r) {
     const positive = r.strongBuy + r.buy;
     const negative = r.sell + r.strongSell;
     const content = `Analyst ratings for ${monthYear(r.period)}: ${positive} positive, ${r.hold} neutral, ${negative} negative.`;
-    out.push({ title: `${name} analyst ratings`, docType: "Market data", issuer: "Finnhub", date: r.period, excerpt: content, url: "https://finnhub.io/docs/api/recommendation-trends", content });
+    out.push({ title: `${name} analyst ratings`, docType: "Market data", issuer: "Finnhub", date: r.period, excerpt: content, url: "https://finnhub.io/docs/api/recommendation-trends", content, signal: { kind: "analysts", positive, neutral: r.hold, negative } });
   }
   const e = earnings.status === "fulfilled" ? earnings.value : null;
   if (e) {
     const est = [e.revenueEstimate ? `revenue estimate ${billions(e.revenueEstimate)}` : "", e.epsEstimate ? `EPS estimate $${e.epsEstimate.toFixed(2)}` : ""].filter(Boolean).join(", ");
     const content = `Next earnings report scheduled for ${e.date}${est ? ` (${est})` : ""}.`;
-    out.push({ title: `${name} next earnings`, docType: "Market data", issuer: "Finnhub", date: e.date, excerpt: content, url: "https://finnhub.io/docs/api/earnings-calendar", content });
+    out.push({ title: `${name} next earnings`, docType: "Market data", issuer: "Finnhub", date: e.date, excerpt: content, url: "https://finnhub.io/docs/api/earnings-calendar", content, signal: { kind: "earnings", date: e.date } });
   }
   return out;
 }
 
+// Stock-picking and promotional headlines are opinion, not news; the committee shouldn't cite them as facts.
+const PROMO = /\b(stocks?|shares?) to (buy|sell|own|avoid)\b|\bto buy (now|and hold|before)\b|\bshould you (buy|sell)\b|\bif you (invest|put|had invested)\b|\bmillionaire\b|\bup next\b|\bprice target\b|\b(buy|sell) (rating|signal)\b|\bno-brainer\b|\bmake you rich\b|\bunstoppable\b/i;
+
 // Recent news with web citations from Gemini's Google Search grounding; Finnhub company news when grounding fails.
 async function newsFacts(ticker: string, name: string): Promise<Draft[]> {
   const today = new Date().toISOString().slice(0, 10);
-  if (geminiConfigured()) {
+  if (geminiAvailable()) {
     try {
       const { value } = await generateGrounded({
         tag: "ic-news",
@@ -201,7 +218,7 @@ async function newsFacts(ticker: string, name: string): Promise<Draft[]> {
   }
   if (!finnhubConfigured()) return [];
   const news = await getCompanyNews(ticker).catch(() => []);
-  return news.slice(0, MAX_NEWS).map((n) => {
+  return news.filter((n) => !PROMO.test(n.headline)).slice(0, MAX_NEWS).map((n) => {
     const content = n.summary ? `${n.headline}. ${clip(n.summary, 300)}` : n.headline;
     return {
       title: n.headline,
@@ -221,7 +238,8 @@ async function radarFact(ticker: string, name: string): Promise<Draft[]> {
   if (!filing || !top) return [];
   const quote = top.kind === "removed" ? (top.prior ?? "") : top.current;
   const content = `${filing.title}. ${filing.summary} Quoted from the ${filing.filingType}: "${quote}"`;
-  return [{ title: `${name} Filing Radar: ${filing.title}`, docType: filing.filingType, issuer: filing.company, date: filing.filedAt, section: filing.section, excerpt: quote, url: filing.url, content }];
+  const signal: Signal = { kind: "radar", label: top.label, category: filing.category, severity: filing.severity, change: top.kind, form: filing.filingType };
+  return [{ title: `${name} Filing Radar: ${filing.title}`, docType: filing.filingType, issuer: filing.company, date: filing.filedAt, section: filing.section, excerpt: quote, url: filing.url, content, signal }];
 }
 
 async function settle<T>(p: Promise<T[]>, label: string, notes: string[]): Promise<T[]> {

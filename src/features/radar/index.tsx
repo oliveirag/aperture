@@ -45,7 +45,7 @@ export function RadarPage() {
     );
   }
   return <div className="space-y-6">
-    <div className="flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{example ? "Illustrative filing feed. Sample wording has not been verified against SEC filings." : "SEC filings. Quotes are checked against the retrieved filing text; summaries are AI interpretations."}</span>{!imported && <button className="underline underline-offset-4" onClick={() => setExample(!example)}>{example ? "Read live filings" : "View labeled example feed"}</button>}</div>
+    <div className="flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{example ? "Illustrative filing feed. Sample wording has not been verified against SEC filings." : "SEC filings. Quotes are checked against the retrieved filing text. Summaries are AI interpretations when Gemini is available, otherwise a sentence-by-sentence comparison."}</span>{!imported && <button className="underline underline-offset-4" onClick={() => setExample(!example)}>{example ? "Read live filings" : "View labeled example feed"}</button>}</div>
     {example && !imported ? <DemoRadar /> : <LiveRadar model={xray.model} holdings={imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))} />}
   </div>;
 }

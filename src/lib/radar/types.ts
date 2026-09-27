@@ -20,6 +20,8 @@ export interface RadarFiling {
   // Items Gemini proposed whose quotes weren't found verbatim in the filings.
   dropped: number;
   model: string;
+  // "model": Gemini proposed the changes; "text": a sentence-level comparison found them. Both are quote-verified.
+  method?: "model" | "text";
   checkedAt: string;
 }
 

@@ -87,7 +87,8 @@ function defaultExpanded(level: Level, ids: string[]) {
   return [];
 }
 
-// Filing Radar for an imported or practice portfolio: real SEC filings, compared by Gemini, quotes verified server-side.
+// Filing Radar for an imported or practice portfolio: real SEC filings, compared by Gemini (or sentence by sentence
+// when Gemini is unavailable), quotes verified server-side.
 export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: ImportedHolding[] }) {
   const level = useLevel((s) => s.level);
   const entries = useLiveRadar((s) => s.entries);

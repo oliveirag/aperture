@@ -1,10 +1,9 @@
-import { geminiConfigured } from "@/lib/gemini";
 import { radarFor } from "@/lib/radar/live";
 import type { RadarEvent } from "@/lib/radar/types";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-// Two filings plus a long-context Gemini comparison.
+// Two filings plus a long-context Gemini comparison, or a sentence comparison when Gemini is unavailable.
 export const maxDuration = 60;
 
 const TICKER = /^[A-Z][A-Z.]{0,5}$/;
@@ -19,7 +18,6 @@ function fail(error: string, status: number) {
 export async function POST(request: Request) {
   const limited = await rateLimit(request, "radar");
   if (limited) return limited;
-  if (!geminiConfigured()) return fail("Filing Radar is not configured", 503);
   let body: { tickers?: unknown; fresh?: unknown };
   try {
     body = await request.json();
@@ -49,7 +47,7 @@ export async function POST(request: Request) {
             send({
               type: "error",
               ticker,
-              error: sec ? "SEC EDGAR didn't answer. Try again in a moment." : "Gemini couldn't compare the filings right now. Try again in a moment.",
+              error: sec ? "SEC EDGAR didn't answer. Try again in a moment." : "The filings couldn't be compared right now. Try again in a moment.",
             });
           }
         }),

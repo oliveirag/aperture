@@ -3,24 +3,26 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useShock } from "@/features/shock/store";
-import { useLevel, type Level } from "@/lib/level";
+import { LEVELS } from "@/lib/experience/policy";
+import { useExperience } from "@/lib/experience/store";
 import { usePortfolio } from "@/lib/portfolio-store";
 
 const ROUTES: Record<string, string> = { Digit1: "/xray", Digit2: "/shock", Digit3: "/radar", Digit4: "/ic" };
-const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
 
 function isTyping(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return target.isContentEditable || target.closest("input, textarea, select, [contenteditable='true']") !== null;
 }
 
-// Presenter shortcuts. Matches on e.code because macOS turns Alt+1 into "¡".
+// Presenter shortcuts, active only on the demo portfolio so they never change a real user's saved preference.
+// Matches on e.code because macOS turns Alt+1 into "¡".
 export function DemoKeys() {
   const router = useRouter();
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (!e.altKey || e.ctrlKey || e.metaKey || e.repeat || isTyping(e.target)) return;
+      if (usePortfolio.getState().imported) return;
 
       const route = ROUTES[e.code];
       if (route) {
@@ -31,7 +33,7 @@ export function DemoKeys() {
 
       if (e.code === "KeyL") {
         e.preventDefault();
-        const { level, setLevel } = useLevel.getState();
+        const { level, setLevel } = useExperience.getState();
         setLevel(LEVELS[(LEVELS.indexOf(level) + 1) % LEVELS.length]);
         return;
       }
@@ -40,7 +42,7 @@ export function DemoKeys() {
         e.preventDefault();
         useShock.getState().reset();
         usePortfolio.getState().resetToDemo();
-        useLevel.getState().setLevel("intermediate");
+        useExperience.getState().setLevel("intermediate");
         router.push("/");
       }
     }

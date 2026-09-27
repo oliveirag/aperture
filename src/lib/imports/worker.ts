@@ -37,7 +37,7 @@ async function fund(ticker: string): Promise<NonNullable<ApertureInput["etf"]>> 
     }
     const accounted = [...holdings,...exclusions].reduce((sum,h)=>sum+h.weight,0);
     if (Math.abs(accounted-1) > 0.01) throw new Error("ETF weights do not reconcile to full net assets; verified coverage is required.");
-    return { holdings, sectors: (raw.sectors ?? []).map((s:{sector:string;weight:string})=>({sector:sectorFromGics(s.sector),weight:Number(s.weight)})), asOf:raw.last_updated, exclusions };
+    return { holdings, sectors: (raw.sectors ?? []).map((s:{sector:string;weight:string})=>({sector:sectorFromGics(s.sector),weight:Number(s.weight)})), asOf:raw.last_updated, exclusions, source:"verified" as const };
   });
 }
 

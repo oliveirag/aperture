@@ -3,14 +3,17 @@
 import { useRef, type KeyboardEvent } from "react";
 import { Check, LineChart, Microscope, Sprout, type LucideIcon } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import type { Level } from "@/lib/level";
+import type { Level } from "@/lib/experience/policy";
 import { cn } from "@/lib/utils";
 
+// Each option says what you'll see, not who you are: the level sets how much detail starts open, never the numbers.
 const OPTIONS: { value: Level; title: string; body: string; icon: LucideIcon }[] = [
-  { value: "beginner", title: "Beginner", body: "I haven't bought my first stock yet, or I just started.", icon: Sprout },
-  { value: "intermediate", title: "Intermediate", body: "I own a few stocks or ETFs and check on them sometimes.", icon: LineChart },
-  { value: "advanced", title: "Advanced", body: "I read earnings and filings and follow valuation.", icon: Microscope },
+  { value: "beginner", title: "Walk me through it", body: "Plain words, the three things that matter most, and definitions right where you need them.", icon: Sprout },
+  { value: "intermediate", title: "Show me connections", body: "How your holdings overlap, what changed since last time, and a checklist for researching ideas.", icon: LineChart },
+  { value: "advanced", title: "Give me everything", body: "Full tables, every assumption and calculation open, and the sources behind each number.", icon: Microscope },
 ];
+
+export const LEVEL_NAMES: Record<Level, string> = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" };
 
 // Native radio semantics: arrow keys move and select, Space/Enter select, one tab stop for the group.
 export function LevelOptions({ value, onChange }: { value: Level | null; onChange: (l: Level) => void }) {
@@ -64,7 +67,8 @@ export function LevelOptions({ value, onChange }: { value: Level | null; onChang
                 className={cn("size-6 text-text-muted transition-opacity duration-150", selected && "opacity-0")}
               />
             </span>
-            <span className="display mt-auto pt-10 text-[30px] leading-tight text-text">{o.title}</span>
+            <span className="mt-auto pt-10 text-[12px] font-medium tracking-[0.08em] text-text-subtle uppercase">{LEVEL_NAMES[o.value]}</span>
+            <span className="display mt-1 text-[30px] leading-tight text-text">{o.title}</span>
             <span className="mt-2 text-[16px] leading-[1.55] text-text-muted">{o.body}</span>
 
             <AnimatePresence>

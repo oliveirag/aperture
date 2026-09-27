@@ -1,7 +1,7 @@
 import { formatPct } from "@/lib/format";
 import { sectorFromIndustry, type SectorLabel } from "@/lib/sectors";
 import type { Flag, LeveledText, SectorSlice, Source } from "@/types/demo";
-import type { Connector, MapExposure, MapPosition, XExposure, XOverlap, XrayModel, XSource } from "./types";
+import type { Connector, Coverage, MapExposure, MapPosition, Valuation, XExposure, XOverlap, XrayModel, XSource } from "./types";
 
 export const COMPANY_THRESHOLD = 0.1;
 export const SECTOR_THRESHOLD = 0.35;
@@ -22,13 +22,25 @@ export type ApertureInput = {
   // A stock (with its Finnhub industry), an ETF with holdings, or an ETF/unknown we can't see into.
   kind: "stock" | "etf" | "opaque" | "cash";
   industry?: string | null;
+  // Whether `price` is a live quote or a supplied value (import-time or saved valuation).
+  priced?: "quote" | "supplied";
   etf?: {
     holdings: { ticker: string; name: string; weight: number }[];
     sectors: { sector: SectorLabel; weight: number }[];
     asOf: string;
     exclusions?: { name: string; weight: number; kind: string }[];
+    // Where the holdings came from: the committed seed file, a live Alpha Vantage call, or the saved-import worker's
+    // reconciled (verified) record. Absent on older records.
+    source?: "seed" | "live" | "verified";
   };
 };
+
+const ETF_SOURCE: Record<NonNullable<NonNullable<ApertureInput["etf"]>["source"]>, string> = {
+  seed: "Alpha Vantage ETF_PROFILE (dated seed file)",
+  live: "Alpha Vantage ETF_PROFILE",
+  verified: "Alpha Vantage ETF_PROFILE (reconciled to net assets)",
+};
+const etfSource = (etf: NonNullable<ApertureInput["etf"]>) => (etf.source ? ETF_SOURCE[etf.source] : "Alpha Vantage ETF_PROFILE");
 
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const word = (n: number) => WORDS[n] ?? String(n);
@@ -206,6 +218,7 @@ export function computeXray(
   inputs: ApertureInput[],
   knownColors: Map<string, string> = new Map(),
   names: Map<string, string> = new Map(),
+  valuation?: Valuation,
 ): XrayModel {
   const rows = inputs.filter((p) => p.shares > 0 && p.price > 0);
   const total = rows.reduce((s, p) => s + p.shares * p.price, 0);
@@ -225,6 +238,7 @@ export function computeXray(
   const positions: MapPosition[] = [];
   const opaque: string[] = [];
   const sources: Source[] = [];
+  const coverage: Coverage[] = [];
 
   for (const p of rows) {
     const value = p.shares * p.price;
@@ -232,7 +246,10 @@ export function computeXray(
     if (p.kind === "cash") {
       addSector("Other", value);
       positions.push({ id:p.ticker,ticker:p.ticker,category:"USD cash",value,weight:value/total,color });
+      coverage.push({ ticker: p.ticker, kind: "cash", visibleShare: 1, asOf: null, source: "Confirmed USD balance" });
     } else if (p.kind === "etf" && p.etf) {
+      const visible = p.etf.holdings.reduce((s, h) => s + h.weight, 0);
+      coverage.push({ ticker: p.ticker, kind: "etf", visibleShare: Math.min(1, visible), asOf: p.etf.asOf || null, source: etfSource(p.etf) });
       let covered = 0;
       for (const h of p.etf.holdings) {
         addExposure(h.ticker, h.name, p.ticker, value * h.weight);
@@ -252,7 +269,7 @@ export function computeXray(
         id: `s-${p.ticker.toLowerCase()}-holdings`,
         title: `${p.name} (${p.ticker}) holdings`,
         docType: "ETF holdings",
-        issuer: "Alpha Vantage",
+        issuer: etfSource(p.etf),
         date: p.etf.asOf,
         excerpt: `Top holdings: ${top.map((h) => `${h.name} ${formatPct(h.weight)}`).join(", ")}. ${p.etf.holdings.length} holdings.`,
         highlight: top[0] ? `${top[0].name} ${formatPct(top[0].weight)}` : undefined,
@@ -260,6 +277,11 @@ export function computeXray(
       });
     } else {
       addExposure(p.ticker, p.name, "Direct", value);
+      coverage.push(
+        p.kind === "opaque"
+          ? { ticker: p.ticker, kind: "opaque", visibleShare: 0, asOf: null, source: "No published holdings found" }
+          : { ticker: p.ticker, kind: "stock", visibleShare: 1, asOf: null, source: "Held directly" },
+      );
       if (p.kind === "opaque") {
         opaque.push(p.ticker);
         addSector("Other", value);
@@ -328,8 +350,9 @@ export function computeXray(
   ];
 
   const topTen = all.slice(0, 10);
-  const etfColumns = [...etfs].sort((a, b) => b.shares * b.price - a.shares * a.price).slice(0, 3).map((p) => p.ticker);
+  const etfColumns = [...etfs].sort((a, b) => b.shares * b.price - a.shares * a.price).map((p) => p.ticker);
   const text = copy(total, all, flags, sectorSlices, overlaps, rows.length);
+  coverage.sort((a, b) => (a.visibleShare ?? 0) - (b.visibleShare ?? 0));
 
   return {
     mode: "live",
@@ -340,11 +363,14 @@ export function computeXray(
     subline: text.subline,
     map: buildMap(positions, all, total),
     topTen,
+    exposures: all,
     etfColumns,
     sectors: sectorSlices,
     overlaps,
     flags,
     sources,
     opaque,
+    coverage,
+    ...(valuation ? { valuation } : {}),
   };
 }

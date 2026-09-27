@@ -8,7 +8,7 @@ import { SourceChip } from "@/components/shared/source-chip";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatPct, formatUSD } from "@/lib/format";
-import { useLevel } from "@/lib/level";
+import { useLevelValue } from "@/lib/experience/store";
 import { cn } from "@/lib/utils";
 import type { MapExposure, XrayModel } from "@/lib/xray/types";
 
@@ -35,7 +35,7 @@ export function ApertureMap({ model }: { model: XrayModel }) {
   const MAP = model.map;
   const total = model.total;
   const PIN: Selection = { kind: "exposure", id: MAP.pinId };
-  const level = useLevel((s) => s.level);
+  const level = useLevelValue();
   const advanced = level === "advanced";
   const still = Boolean(useReducedMotion());
   const [phase, setPhase] = useState(0); // 0: reveal, 1: weights counted, 2: NVIDIA pinned

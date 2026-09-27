@@ -1,4 +1,4 @@
-// Plain-English definitions shown as tooltips at the Beginner level.
+// Plain-English definitions shown as tooltips at every level (underlined most visibly for Beginner).
 export const GLOSSARY = {
   ETF: "A fund you buy like one stock that holds a basket of many companies.",
   "look-through": "Adding up what your funds hold inside so you see every company you really own.",
@@ -15,6 +15,9 @@ export const GLOSSARY = {
   "stress test": "Checking how a portfolio would hold up if something bad happened.",
   thesis: "The reason you believe an investment will work out.",
   "investment committee": "A group that debates an investment and writes a memo before deciding.",
+  coverage: "How much of a fund we can see inside. The part we can't see is unknown, not empty.",
+  sensitivity: "An assumed size of reaction: how much a stock is set to move for each 1% move in the shock. A setting, not a forecast.",
+  "historical range": "How far this price has moved over past periods of the same length. It describes the past; it is not a prediction.",
 } as const;
 
 export type GlossaryTerm = keyof typeof GLOSSARY;

@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react";
 import { GLOSSARY, type GlossaryTerm } from "@/data/glossary";
-import { useLevel } from "@/lib/level";
+import { usePolicy } from "@/lib/experience/store";
+import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-// Beginner-only glossary tooltip. At other levels it renders the children untouched.
+// Glossary tooltip, reachable by hover and keyboard focus at every level. The level only changes how visibly the term
+// is marked: a dotted underline (Beginner), a faint one (Intermediate), none (Advanced).
 export function Term({ term, children }: { term: GlossaryTerm; children: ReactNode }) {
-  const level = useLevel((s) => s.level);
-  if (level !== "beginner") return <>{children}</>;
+  const { glossary } = usePolicy();
 
   return (
     <Tooltip>
@@ -16,7 +17,12 @@ export function Term({ term, children }: { term: GlossaryTerm; children: ReactNo
         render={
           <span
             tabIndex={0}
-            className="cursor-help underline decoration-text-subtle decoration-dotted underline-offset-4 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-accent"
+            aria-description={GLOSSARY[term]}
+            className={cn(
+              "cursor-help underline-offset-4 outline-none focus-visible:rounded-sm focus-visible:ring-2 focus-visible:ring-accent",
+              glossary === "inline" && "underline decoration-text-subtle decoration-dotted",
+              glossary === "subtle" && "underline decoration-text-subtle/40 decoration-dotted",
+            )}
           />
         }
       >

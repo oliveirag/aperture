@@ -1,54 +1,89 @@
 "use client";
 
 import { create } from "zustand";
-import type { Level } from "@/lib/level";
+import type { Level } from "@/lib/experience/policy";
 import { runResearch } from "@/features/shock/research-store";
 import { isScenarioQuestion } from "@/lib/shock/research-model";
 
-export type AskMessage = { id: number; role: "user" | "assistant"; text: string; scenario?: boolean; declined?: boolean; error?: boolean; pending?: boolean };
+// `level` is the level the answer was written for; a later level change doesn't rewrite it (Rephrase does, on request).
+export type AskMessage = {
+  id: number;
+  role: "user" | "assistant";
+  text: string;
+  level?: Level;
+  rephraseOf?: number;
+  scenario?: boolean;
+  declined?: boolean;
+  error?: boolean;
+  pending?: boolean;
+};
+
+type AskOptions = { rephraseOf?: number };
 
 type AskState = {
   open: boolean;
   messages: AskMessage[];
   busy: boolean;
+  // Why the conversation was reset, shown once above the empty state.
+  notice: string | null;
+  // The account and portfolio this conversation is about (features/account/scope-sync.ts).
+  scope: string;
   setOpen: (open: boolean) => void;
-  ask: (question: string, level: Level, context: unknown) => Promise<void>;
+  ask: (question: string, level: Level, context: unknown, opts?: AskOptions) => Promise<void>;
   stop: () => void;
   clear: () => void;
+  resetScope: (scope: string, notice: string) => void;
 };
 
 let nextId = 1;
 let controller: AbortController | null = null;
 
-// The Ask conversation for this tab. Answers stream into the last assistant message.
+// The Ask conversation for this tab and this portfolio. Answers stream into the last assistant message.
 export const useAsk = create<AskState>()((set, get) => ({
   open: false,
   messages: [],
   busy: false,
+  notice: null,
+  scope: "",
   setOpen: (open) => set({ open }),
   stop: () => controller?.abort(),
   clear: () => {
     controller?.abort();
-    set({ messages: [], busy: false });
+    set({ messages: [], busy: false, notice: null });
   },
-  ask: async (question, level, pageContext) => {
+  resetScope: (scope, notice) => {
+    controller?.abort();
+    set((s) => ({ scope, messages: [], busy: false, notice: s.messages.length ? notice : null }));
+  },
+  ask: async (question, level, pageContext, opts = {}) => {
     let context = pageContext;
     if (get().busy || !question.trim()) return;
+    const scope = get().scope;
     const history = get()
       .messages.filter((m) => !m.error && !m.pending)
       .map((m) => ({ role: m.role, text: m.text }));
     const answerId = nextId + 1;
     set((s) => ({
       busy: true,
-      messages: [...s.messages, { id: nextId++, role: "user", text: question.trim() }, { id: nextId++, role: "assistant", text: "", pending: true }],
+      notice: null,
+      messages: [
+        ...s.messages,
+        { id: nextId++, role: "user", text: question.trim(), level, rephraseOf: opts.rephraseOf },
+        { id: nextId++, role: "assistant", text: "", pending: true, level, rephraseOf: opts.rephraseOf },
+      ],
     }));
-    const patch = (fn: (m: AskMessage) => AskMessage) => set((s) => ({ messages: s.messages.map((m) => (m.id === answerId ? fn(m) : m)) }));
-    controller = new AbortController();
+    // A reset (portfolio or account change) empties the conversation; late chunks for it are dropped.
+    const patch = (fn: (m: AskMessage) => AskMessage) => {
+      if (get().scope !== scope) return;
+      set((s) => ({ messages: s.messages.map((m) => (m.id === answerId ? fn(m) : m)) }));
+    };
+    const mine = new AbortController();
+    controller = mine;
     // Scenario questions run the deterministic shock model first, then the model reasons over its output.
     let fallback = "";
     try {
-      if (isScenarioQuestion(question)) {
-        const result = await runResearch(question, controller.signal);
+      if (isScenarioQuestion(question) && !opts.rephraseOf) {
+        const result = await runResearch(question, mine.signal);
         const s = result.result.scenario;
         fallback = `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : result.evidenceMode === "filing" ? "Passages from the companies' own 10-K filings" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.`;
         context = {
@@ -75,7 +110,7 @@ export const useAsk = create<AskState>()((set, get) => ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: question.trim(), level, context, history }),
-        signal: controller.signal,
+        signal: mine.signal,
       });
       if (!res.ok || !res.body) {
         const data = await res.json().catch(() => ({}));
@@ -90,7 +125,7 @@ export const useAsk = create<AskState>()((set, get) => ({
       }
       patch((m) => ({ ...m, pending: false, declined }));
     } catch (err) {
-      const aborted = controller?.signal.aborted;
+      const aborted = mine.signal.aborted;
       patch((m) => ({
         ...m,
         pending: false,
@@ -98,8 +133,8 @@ export const useAsk = create<AskState>()((set, get) => ({
         text: aborted ? m.text || "Stopped." : fallback || (err instanceof Error ? err.message : "Ask failed"),
       }));
     } finally {
-      controller = null;
-      set({ busy: false });
+      if (controller === mine) controller = null;
+      if (get().scope === scope) set({ busy: false });
     }
   },
 }));

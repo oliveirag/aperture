@@ -31,7 +31,7 @@ function Fan({ o }: { o: Outlook }) {
   );
 }
 
-// A validated historical range for one holding. Deliberately not a price target.
+// An empirical historical range for one holding, checked against its own past. Deliberately not a price target or forecast.
 export function HistoricalRange() {
   const { holdings } = useLiveHoldings();
   const stocks = holdings.filter(h => h.price > 0);
@@ -55,7 +55,7 @@ export function HistoricalRange() {
   const mine = state?.key === key ? state : null;
   const o = mine?.outlook;
   return (
-    <DetailCard title="Historical range" headline="What this stock's own history says about the next 3 months" className="lg:col-span-12"
+    <DetailCard title="Historical range" headline="How far this holding's price has moved over past 3-month spans" className="lg:col-span-12"
       action={<select aria-label="Holding" value={chosen.ticker} onChange={e => setTicker(e.target.value)} className="h-8 border border-border bg-surface-1 px-2 text-[13px] text-text">{stocks.map(h => <option key={h.ticker}>{h.ticker}</option>)}</select>}>
       {!mine ? <p className="mt-5 flex items-center gap-3 text-[15px] text-text-muted"><LoaderCircle aria-hidden className="size-4 animate-spin text-accent" />Loading weekly history…</p>
         : !o ? <p className="mt-5 text-[15px] leading-6 text-text-muted">{mine.error}</p>
@@ -71,7 +71,7 @@ export function HistoricalRange() {
             {o.backtest.insideShare < 0.7 ? " That is well under the ideal, so treat this range as too narrow." : ""}
           </p>
           <p className="mt-2 text-[12px] leading-5 text-text-subtle">
-            Not a prediction or advice. It resamples {o.sampleWeeks} weeks of this stock&apos;s own past {o.horizonWeeks}-week returns (split- and dividend-adjusted weekly closes, Alpha Vantage). It cannot know about events, earnings or the scenarios in Shock Test.
+            Not a prediction or advice. It resamples {o.sampleWeeks} weeks of this holding&apos;s own past {o.horizonWeeks}-week returns (split- and dividend-adjusted weekly closes, Alpha Vantage). It cannot know about events, earnings or the scenarios in Shock Test.
           </p>
         </>}
     </DetailCard>

@@ -10,7 +10,7 @@ Use a 1440×900 or 1280×720 browser at 100% zoom. Start at `/` and select Inter
 4. Ask **What if Iran closes the Strait of Hormuz?** Inspect the reference/web label, source links, assumed oil-price magnitude, calculated effect and unknown holdings. When Gemini is unavailable, say explicitly that the EIA mechanism reference is being used without live web research. **What if Democrats win and tariffs go down?** models the tariff decrease the user stated. **What if Democrats win the election?** with working Gemini research proposes a driver only when cited sources describe the mechanism, labels it an assumption with its rationale and default size, and refuses when sources do not; without live research it refuses. Also try **Taiwan chip supply drops 30%** and **the dollar strengthens 10%**: with or without web research, the evidence includes verbatim risk-factor passages from the holdings' latest 10-Ks (NVIDIA on Taiwan supply, Apple on dollar strength), linked to EDGAR. On Advanced X-Ray, open Historical range and read the backtest coverage line.
 5. Open Radar. Every portfolio, the demo included, compares each company's latest 10-K or 10-Q with the prior one; quote verification precedes display. Inspect a source drawer: filing passages are labeled verbatim.
 6. Open IC Room. IC means investment committee. Every run is live research on the chosen ticker; without Gemini the memo is rules-based and says so. Inspect citations; Advanced adds an evidence audit.
-7. Switch levels: X-Ray changes row count and breakdowns; Shock changes graph node visibility and assumption tables; Radar changes low-severity inclusion and comparison expansion; IC changes point count and evidence detail.
+7. Switch levels: the numbers never change; what starts open does. X-Ray: three rows (Beginner) → top ten, sectors and fund comparison (Intermediate) → every company with a column per fund and calculations open (Advanced). Shock: filters and assumption tables start off or on; Advanced opens the scenario comparison. Radar: Beginner folds low-severity changes behind a counted "lower-severity change · Show" row, and the coverage count still includes them. IC: two points plus "Show more" (Beginner), research checklist (Intermediate), evidence audit and run record (Advanced). Every collapsed item stays one click away.
 
 ## Fallbacks
 
@@ -27,6 +27,6 @@ Gemini is optional for every page. When every configured key is out of quota (or
 - Accounts and saved imports stay off until `supabase/migrations` are applied and `NEXT_PUBLIC_ACCOUNTS=1` is set.
 - Put several Gemini keys in `GEMINI_API_KEYS` (comma-separated) for failover between keys.
 - `/shock?scenario=cre` and `/shock?scenario=ai-capex` select prepared scenarios. `/ic?run=1` no longer auto-starts a replay.
-- Presenter shortcuts: Alt+1 X-Ray, Alt+2 Shock, Alt+3 Radar, Alt+4 IC, Alt+L level, Alt+R reset demo.
+- Presenter shortcuts (demo portfolio only): Alt+1 X-Ray, Alt+2 Shock, Alt+3 Radar, Alt+4 IC, Alt+L level, Alt+R reset demo.
 
 Never call sample wording a verified filing quotation or claim every graph coefficient was measured from a filing. Educational tool, not investment advice.

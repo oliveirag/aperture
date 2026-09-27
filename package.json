@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:release": "node --import tsx scripts/check-aperture-release.ts && node --import tsx scripts/check-fallbacks.ts",
+    "test:experience": "node --import tsx scripts/check-experience.ts",
     "warm": "node --import tsx scripts/warm.ts"
   },
   "dependencies": {

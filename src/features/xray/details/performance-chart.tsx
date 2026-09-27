@@ -78,7 +78,7 @@ export function PerformanceChart({ series, children }: { series: PerformancePoin
           </Tabs.List>
         </Tabs.Root>
       }
-      className="lg:col-span-7"
+      className="lg:col-span-12"
     >
       <div className="mt-4 h-[240px]">
         <ResponsiveContainer width="100%" height="100%" initialDimension={{ width: 600, height: 240 }}>

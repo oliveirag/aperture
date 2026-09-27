@@ -208,7 +208,8 @@ async function newsFacts(ticker: string, name: string): Promise<Draft[]> {
       for (const claim of value.claims) {
         const cite = value.citations[claim.citations[0]];
         if (facts.some((f) => f.url === cite.url || f.excerpt === claim.text)) continue;
-        facts.push({ title: `${name} news: ${cite.title}`, docType: "News", issuer: cite.title, date: today, excerpt: claim.text, url: cite.url, content: claim.text });
+        // Grounding gives no article date: the date is when it was retrieved, and the section says so.
+        facts.push({ title: `${name} news: ${cite.title}`, docType: "News", issuer: cite.title, date: today, section: `Retrieved ${today}; article date not provided`, excerpt: claim.text, url: cite.url, content: claim.text });
         if (facts.length === MAX_NEWS) break;
       }
       if (facts.length > 0) return facts;

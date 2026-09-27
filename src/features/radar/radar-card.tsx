@@ -36,6 +36,8 @@ export function RadarCard({
   index,
   onRefresh,
   refreshing = false,
+  isNew = false,
+  onReviewed,
 }: {
   card: RadarCardData;
   expanded: boolean;
@@ -44,6 +46,9 @@ export function RadarCard({
   // Live cards only: re-check SEC for a newer filing of this company.
   onRefresh?: () => void;
   refreshing?: boolean;
+  // A filing newer than the one this device last saw or marked reviewed for this company.
+  isNew?: boolean;
+  onReviewed?: () => void;
 }) {
   const reduce = useReducedMotion();
   const panelId = `radar-${card.id}-changes`;
@@ -77,6 +82,7 @@ export function RadarCard({
               {card.filingType} · filed {formatSourceDate(card.filedAt)} · vs {formatSourceDate(card.priorFiledAt)}
             </p>
           </div>
+          {isNew ? <span className="border border-accent/60 px-1.5 py-px text-[11px] font-medium text-accent">New since your last visit</span> : null}
           <SeverityBadge severity={card.severity} />
         </div>
 
@@ -110,6 +116,11 @@ export function RadarCard({
             >
               <RefreshCw aria-hidden className={cn("size-3", refreshing && "animate-spin")} />
               {refreshing ? "Checking" : "Refresh"}
+            </button>
+          ) : null}
+          {isNew && onReviewed ? (
+            <button type="button" onClick={onReviewed} className="inline-flex h-6 items-center px-2 text-[12px] font-medium text-text-muted hover:text-text">
+              Mark reviewed
             </button>
           ) : null}
         </div>

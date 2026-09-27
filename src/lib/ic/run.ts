@@ -9,7 +9,7 @@ import { argue, chair, testAssumptions, type Context, type Side } from "./commit
 import { buildFactPack, factSteps, type Fact } from "./facts";
 import { computeFit, exposureNote, FIT_NOTE, withPosition } from "./fit";
 import { CHAIR_ONLY_NOTE, evaluate, rulesMemo, rulesSide } from "./rules";
-import type { IcEvent } from "./types";
+import type { IcEvent, RunModels } from "./types";
 
 const HOUR = 60 * 60 * 1000;
 const RUN_TTL = 24 * HOUR;
@@ -18,16 +18,13 @@ export const FIT_STEP = "Checking your look-through exposure";
 
 export type RunInput = { ticker: string; thesis: string; amount: number; holdings: Map<string, PositionInput> };
 // The portfolio itself is not stored: the run id hashes it, and the fit rows in `events` carry what the memo used.
+// Records are server-side only (replayed for an identical run the same day); there is no unauthenticated read route.
 export type AuditRecord = { runId: string; createdAt: string; input: { ticker: string; thesis: string; amount: number }; facts: Fact[]; events: IcEvent[] };
 
 export function runIdFor(input: RunInput) {
   const day = new Date().toISOString().slice(0, 10);
   const holdings = [...input.holdings].sort(([a], [b]) => a.localeCompare(b)).map(([t, h]) => [t, h.shares]);
   return createHash("sha256").update(JSON.stringify([input.ticker, input.thesis.trim(), input.amount, day, holdings])).digest("hex").slice(0, 16);
-}
-
-export async function auditFor(runId: string) {
-  return (await recall<AuditRecord>(`ic:audit:${runId}`)) ?? null;
 }
 
 async function portfolioFit(input: RunInput, name: string) {
@@ -58,7 +55,7 @@ function toSource(f: Fact) {
 // Streams a run. A cached run replays its events at once, so the AMD-style instant replay works for any ticker.
 export async function runCommittee(input: RunInput, send: (e: IcEvent) => void): Promise<void> {
   const runId = runIdFor(input);
-  const cached = await recall<AuditRecord>(`ic:audit:${runId}`);
+  const cached = await recall<AuditRecord>(`ic:audit:v2:${runId}`);
   if (cached) {
     cached.events.forEach(send);
     return;
@@ -105,7 +102,8 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
 
   const ctx: Context = { ticker: input.ticker, name, thesis: input.thesis.trim(), amount: input.amount, facts: pack.facts, fit: fit.fit };
   // Rules-based stand-ins, computed from the same facts. Each AI step that fails is replaced by its rules version,
-  // so a run always completes with cited points; the memo says which parts came from rules.
+  // so a run always completes with cited points; the memo says which parts came from rules. The run record names
+  // which model (or "rules") produced each step, since models are raced.
   const rules = evaluate(name, pack.facts, fit.fit);
   const ai = geminiAvailable();
   let usedRules = !ai;
@@ -115,24 +113,29 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
       usedRules = true;
       return alt();
     });
-  const assumptions = ai ? fallback("assumptions", testAssumptions(ctx), () => rules.assumptions) : Promise.resolve(rules.assumptions);
-  const bull: Promise<Side> = ai ? fallback("bull", argue("bull", ctx), () => rulesSide("bull", name, rules)) : Promise.resolve(rulesSide("bull", name, rules));
-  const bear: Promise<Side> = ai ? fallback("bear", argue("bear", ctx), () => rulesSide("bear", name, rules)) : Promise.resolve(rulesSide("bear", name, rules));
+  const RULES = "rules";
+  const rulesAssumptions = () => ({ assumptions: rules.assumptions, model: RULES });
+  const rulesArgument = (side: "bull" | "bear") => (): Side => ({ ...rulesSide(side, name, rules), model: RULES });
+  const assumptions = ai ? fallback("assumptions", testAssumptions(ctx), rulesAssumptions) : Promise.resolve(rulesAssumptions());
+  const bull: Promise<Side> = ai ? fallback("bull", argue("bull", ctx), rulesArgument("bull")) : Promise.resolve(rulesArgument("bull")());
+  const bear: Promise<Side> = ai ? fallback("bear", argue("bear", ctx), rulesArgument("bear")) : Promise.resolve(rulesArgument("bear")());
 
   const a = await assumptions;
-  emit({ type: "assumptions", assumptions: a });
+  emit({ type: "assumptions", assumptions: a.assumptions });
   const b = await bull;
   emit({ type: "bull", statement: b.statement, points: b.points });
   const r = await bear;
   emit({ type: "bear", statement: r.statement, points: r.points });
   const sidesFromRules = usedRules;
-  const m = ai && !sidesFromRules
-    ? await fallback("chair", chair(ctx, b, r, a), () => rulesMemo(name, rules, b, r, a, CHAIR_ONLY_NOTE))
-    : rulesMemo(name, rules, b, r, a);
-  emit({ type: "memo", memo: m, runId });
+  const { model: chairModel, ...m } =
+    ai && !sidesFromRules
+      ? await fallback("chair", chair(ctx, b, r, a.assumptions), () => ({ ...rulesMemo(name, rules, b, r, a.assumptions, CHAIR_ONLY_NOTE), model: RULES }))
+      : { ...rulesMemo(name, rules, b, r, a.assumptions), model: RULES };
+  const models: RunModels = { assumptions: a.model, bull: b.model, bear: r.model, chair: chairModel };
+  emit({ type: "memo", memo: m, runId, models });
 
   put<AuditRecord>(
-    `ic:audit:${runId}`,
+    `ic:audit:v2:${runId}`,
     {
       runId,
       createdAt: new Date().toISOString(),

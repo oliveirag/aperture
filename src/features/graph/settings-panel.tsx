@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { ChevronRight, RotateCcw, Search, Settings, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useGraphUi, type GraphSettings } from "./settings";
+import { useEffectiveGraphSettings, useGraphUi, type GraphSettings } from "./settings";
 
 function Section({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children: ReactNode }) {
   return (
@@ -23,7 +23,7 @@ function Section({ title, open, onToggle, children }: { title: string; open: boo
 }
 
 function Toggle({ label, k }: { label: string; k: keyof GraphSettings }) {
-  const value = useGraphUi((s) => s.settings[k]) as boolean;
+  const value = useEffectiveGraphSettings()[k] as boolean;
   const set = useGraphUi((s) => s.set);
   return (
     <div className="flex items-center justify-between gap-3 text-[12.5px] text-[#bdbdbd]">

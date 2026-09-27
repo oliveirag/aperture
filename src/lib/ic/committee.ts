@@ -4,7 +4,7 @@ import type { Assumption, FitRow, IcLevel, MemoPoint } from "@/data/ic-room";
 import { formatPct, formatUSD } from "@/lib/format";
 import { generateJson } from "@/lib/gemini";
 import type { Fact } from "./facts";
-import { STANCES, type IcMemo } from "./types";
+import { STANCES, type IcMemo, type MemoClaim } from "./types";
 
 export const FIT_REF = "FIT";
 
@@ -67,7 +67,7 @@ function statement(raw: unknown) {
   return s;
 }
 
-export type Side = { statement: string; points: MemoPoint[] };
+export type Side = { statement: string; points: MemoPoint[]; model?: string };
 
 export function argue(side: "bull" | "bear", c: Context): Promise<Side> {
   const valid = validIds(c.facts);
@@ -93,12 +93,12 @@ export function argue(side: "bull" | "bear", c: Context): Promise<Side> {
     temperature: 0.4,
     waveTimeoutMs: 15000,
     budgetMs: 25000,
-  }).then((a) => a.value);
+  }).then((a) => ({ ...a.value, model: a.model }));
 }
 
 const STATUSES = new Set(["supported", "contested", "unresolved"]);
 
-export function testAssumptions(c: Context): Promise<Assumption[]> {
+export function testAssumptions(c: Context): Promise<{ assumptions: Assumption[]; model?: string }> {
   const valid = validIds(c.facts);
   const line = { type: "object", properties: { text: { type: "string" }, fact_id: { type: "string" } }, required: ["text", "fact_id"] };
   return generateJson({
@@ -156,17 +156,68 @@ export function testAssumptions(c: Context): Promise<Assumption[]> {
     temperature: 0.3,
     waveTimeoutMs: 15000,
     budgetMs: 25000,
-  }).then((a) => a.value);
+  }).then((a) => ({ assumptions: a.value, model: a.model }));
 }
 
 const LEVELS: IcLevel[] = ["beginner", "intermediate", "advanced"];
+const CLAIM_KINDS = new Set(["fact", "calculation", "assumption", "interpretation"]);
 
-export function chair(c: Context, bull: Side, bear: Side, assumptions: Assumption[]): Promise<Omit<IcMemo, "bull" | "bear">> {
+// Numbers a summary may use: anything in the facts, the fit table (as displayed), the assumptions or the cited claims.
+export function numberCorpus(c: Pick<Context, "facts" | "fit" | "amount" | "thesis">, extra: string[]) {
+  const fit = c.fit.flatMap((r) =>
+    r.kind === "usd" ? [formatUSD(r.before), formatUSD(r.after)] : [formatPct(r.before), formatPct(r.after), formatPct(r.after - r.before)],
+  );
+  return [...c.facts.map((f) => f.content), ...fit, formatUSD(c.amount), c.thesis, ...extra].join(" ");
+}
+
+const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
+const toNumbers = (text: string) => (text.match(NUMBER) ?? []).map((n) => Number(n.replace(/,/g, ""))).filter(Number.isFinite);
+
+// True when every figure in `text` appears in the corpus (allowing display rounding). Small counts and years are
+// wording ("two risks", "2027"), not figures, so they are not checked.
+export function numbersSupported(text: string, corpus: string) {
+  const known = toNumbers(corpus);
+  return toNumbers(text)
+    .filter((n) => !(Number.isInteger(n) && (n < 10 || (n >= 1900 && n <= 2100))))
+    .every((n) => known.some((k) => Math.abs(k - n) <= Math.max(0.051, Math.abs(n) * 0.005)));
+}
+
+export type ChairMemo = Omit<IcMemo, "bull" | "bear">;
+
+// A deterministic summary built only from the cited material claims, used when a model summary fails a check.
+export function templateSummary(stance: string, claims: MemoClaim[]) {
+  const material = claims.filter((x) => x.material);
+  return [`${stance}.`, ...material.map((x) => x.text)].join(" ");
+}
+
+// Checks each level's summary against the shared claims: it must cover every material claim and use only supported
+// figures. A failing level gets the template summary instead, so all three always carry the same material points.
+export function checkSummaries(raw: Record<IcLevel, { text: string; covers: string[] }>, claims: MemoClaim[], stance: string, corpus: string) {
+  const material = claims.filter((x) => x.material).map((x) => x.id);
+  const summary = {} as Record<IcLevel, string>;
+  const source = {} as Record<IcLevel, "model" | "template">;
+  for (const level of LEVELS) {
+    const s = raw[level];
+    const ok = Boolean(s?.text) && !isAdvice(s.text) && material.every((id) => s.covers.includes(id)) && numbersSupported(s.text, corpus);
+    summary[level] = ok ? s.text : templateSummary(stance, claims);
+    source[level] = ok ? "model" : "template";
+  }
+  return { summary, source };
+}
+
+export function chair(c: Context, bull: Side, bear: Side, assumptions: Assumption[]): Promise<ChairMemo & { model: string }> {
+  const valid = validIds(c.facts);
   const debate = [
     `Bull: ${bull.statement}\n${bull.points.map((p) => `- ${p.text} [${p.refs.join(", ")}]`).join("\n")}`,
     `Bear: ${bear.statement}\n${bear.points.map((p) => `- ${p.text} [${p.refs.join(", ")}]`).join("\n")}`,
     `What must be true:\n${assumptions.map((a) => `- ${a.text} (${a.status})`).join("\n")}`,
   ].join("\n\n");
+  const cited = { type: "object", properties: { text: { type: "string" }, refs: REFS }, required: ["text", "refs"] };
+  const levelSummary = (d: string) => ({
+    type: "object",
+    properties: { text: { type: "string", description: d }, covers: { type: "array", items: { type: "string" }, description: "Ids of the claims this summary states." } },
+    required: ["text", "covers"],
+  });
   return generateJson({
     tag: "ic-chair",
     system: SYSTEM,
@@ -174,38 +225,70 @@ export function chair(c: Context, bull: Side, bear: Side, assumptions: Assumptio
       {
         text:
           `You are the chair. Weigh the debate and write the memo.\n\n${brief(c)}\n\n${debate}\n\n` +
-          `Stance must be one of: ${STANCES.join(", ")}. Write the summary three times: for a beginner (no jargon, 2 sentences), ` +
-          "an intermediate investor (2 to 3 sentences), and an advanced one (dense, cite assumption ids and the fit numbers). " +
-          "The chair note is one or two sentences on portfolio fit, using the FIT numbers exactly as given.",
+          `Stance must be one of: ${STANCES.join(", ")}. ` +
+          "First list 3 to 6 claims (they will be numbered C1, C2, ... in order): each one sentence, citing fact ids or FIT, with a kind (fact, calculation, assumption or interpretation) and whether it is material (it would change a careful reader's view, such as the biggest risk or the portfolio-fit change). " +
+          "Then write the summary three times, each stating every material claim and listing the claim ids it covers: for a beginner (no jargon, 2 to 3 sentences), " +
+          "an intermediate investor (2 to 3 sentences), and an advanced one (dense, cite assumption ids and the fit numbers). Use only numbers that appear in the facts or the fit table. " +
+          "Key risks and what to watch each cite fact ids. The chair note is one or two sentences on portfolio fit, using the FIT numbers exactly as given.",
       },
     ],
     schema: {
       type: "object",
       properties: {
         stance: { type: "string", enum: [...STANCES] },
-        summary_beginner: { type: "string" },
-        summary_intermediate: { type: "string" },
-        summary_advanced: { type: "string" },
-        key_risks: { type: "array", minItems: 2, maxItems: 4, items: { type: "string", description: "At most 8 words." } },
-        what_to_watch: { type: "array", minItems: 2, maxItems: 4, items: { type: "string", description: "At most 12 words." } },
+        claims: {
+          type: "array",
+          minItems: 2,
+          maxItems: 6,
+          items: {
+            type: "object",
+            properties: { text: { type: "string" }, refs: REFS, kind: { type: "string", enum: [...CLAIM_KINDS] }, material: { type: "boolean" } },
+            required: ["text", "refs", "kind", "material"],
+          },
+        },
+        summary_beginner: levelSummary("No jargon, 2 to 3 sentences."),
+        summary_intermediate: levelSummary("2 to 3 sentences."),
+        summary_advanced: levelSummary("Dense; cite assumption ids and fit numbers."),
+        key_risks: { type: "array", minItems: 2, maxItems: 4, items: cited },
+        what_to_watch: { type: "array", minItems: 2, maxItems: 4, items: cited },
         chair_note: { type: "string" },
       },
-      required: ["stance", "summary_beginner", "summary_intermediate", "summary_advanced", "key_risks", "what_to_watch", "chair_note"],
+      required: ["stance", "claims", "summary_beginner", "summary_intermediate", "summary_advanced", "key_risks", "what_to_watch", "chair_note"],
     },
-    validate: (v) => {
-      const o = v as Record<string, unknown>;
-      if (!STANCES.includes(o.stance as (typeof STANCES)[number])) throw new Error("bad stance");
-      const text = (k: string) => {
-        const s = typeof o[k] === "string" ? (o[k] as string).trim() : "";
-        if (!s || isAdvice(s)) throw new Error(`bad ${k}`);
-        return s;
-      };
-      const list = (k: string) => (Array.isArray(o[k]) ? (o[k] as unknown[]) : []).filter((x): x is string => typeof x === "string" && !!x.trim() && !isAdvice(x)).map((x) => x.trim());
-      const summary = Object.fromEntries(LEVELS.map((l) => [l, text(`summary_${l}`)])) as Record<IcLevel, string>;
-      return { stance: o.stance as IcMemo["stance"], summary, keyRisks: list("key_risks"), watch: list("what_to_watch"), chairNote: text("chair_note") };
-    },
+    validate: (v) => parseChair(v, valid, c, assumptions),
     temperature: 0.3,
     waveTimeoutMs: 15000,
     budgetMs: 25000,
-  }).then((a) => a.value);
+  }).then((a) => ({ ...a.value, model: a.model }));
+}
+
+// Pure: validates the chair's JSON. Claims, key risks and what-to-watch must cite valid ids; the chair note must use
+// supported figures; each level's summary is checked (and replaced by the template if it fails).
+export function parseChair(v: unknown, valid: Set<string>, c: Pick<Context, "facts" | "fit" | "amount" | "thesis">, assumptions: Assumption[]): ChairMemo {
+  const o = (v ?? {}) as Record<string, unknown>;
+  if (!STANCES.includes(o.stance as (typeof STANCES)[number])) throw new Error("bad stance");
+  const stance = o.stance as IcMemo["stance"];
+  const chairNote = typeof o.chair_note === "string" ? o.chair_note.trim() : "";
+  if (!chairNote || isAdvice(chairNote)) throw new Error("bad chair_note");
+  // Claim ids are assigned by position in the model's list, so summaries can refer to them.
+  const rawClaims = (Array.isArray(o.claims) ? o.claims : []) as { text?: unknown; refs?: unknown; kind?: unknown; material?: unknown }[];
+  const claims: MemoClaim[] = rawClaims.flatMap((raw, i) => {
+    const [point] = cleanPoints([raw], valid);
+    if (!point) return [];
+    const kind = CLAIM_KINDS.has(raw.kind as string) ? (raw.kind as MemoClaim["kind"]) : "interpretation";
+    return [{ id: `C${i + 1}`, text: point.text, refs: point.refs, kind, material: raw.material === true }];
+  });
+  if (claims.length === 0) throw new Error("no cited claims");
+  if (!claims.some((x) => x.material)) claims[0].material = true;
+  const summaries = Object.fromEntries(
+    LEVELS.map((l) => {
+      const s = o[`summary_${l}`] as { text?: unknown; covers?: unknown } | undefined;
+      const covers = Array.isArray(s?.covers) ? s.covers.filter((x): x is string => typeof x === "string").map((x) => x.trim().toUpperCase()) : [];
+      return [l, { text: typeof s?.text === "string" ? s.text.trim() : "", covers }];
+    }),
+  ) as Record<IcLevel, { text: string; covers: string[] }>;
+  const corpus = numberCorpus(c, [...claims.map((x) => x.text), ...assumptions.map((a) => a.text)]);
+  if (!numbersSupported(chairNote, corpus)) throw new Error("chair note uses unsupported figures");
+  const { summary, source } = checkSummaries(summaries, claims, stance, corpus);
+  return { stance, summary, summarySource: source, claims, keyRisks: cleanPoints(o.key_risks, valid), watch: cleanPoints(o.what_to_watch, valid), chairNote };
 }

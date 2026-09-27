@@ -1,7 +1,7 @@
 import { answerFromData } from "@/lib/ask/offline";
-import { DECLINE, DISCLAIMER, isBuySellQuestion, systemPrompt } from "@/lib/ask/prompt";
+import { DECLINE, DISCLAIMER, isBuySellQuestion, systemPrompt, userTurn } from "@/lib/ask/prompt";
+import type { Level } from "@/lib/experience/policy";
 import { geminiAvailable, streamText } from "@/lib/gemini";
-import type { Level } from "@/lib/level";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -54,8 +54,10 @@ export async function POST(request: Request) {
       try {
         for await (const chunk of streamText({
           tag: "ask",
-          system: `${systemPrompt(level)}\n\nPortfolio data (JSON):\n${context}`,
-          contents: [...history, { role: "user", parts: [{ text: question }] }],
+          // The portfolio JSON contains user- and web-supplied text, so it travels as fenced data in the user turn,
+          // never in the system instruction.
+          system: systemPrompt(level),
+          contents: [...history, { role: "user", parts: [{ text: userTurn(question, context) }] }],
           firstTokenMs: 6000,
           signal: request.signal,
         })) {

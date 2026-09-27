@@ -25,6 +25,19 @@ export type Connector = { id: string; from: string; to: string; value: number; e
 
 export type XOverlap = { a: string; b: string; overlap: number; sharedCompanies: number; aValue: number; bValue: number; bCount: number };
 
+// How much of one position the look-through can see. For an ETF, visibleShare is the fraction of the fund's weight
+// held in ticker-level companies; the rest (cash, futures, unlisted or undisclosed holdings) is unknown, not zero.
+export type Coverage = {
+  ticker: string;
+  kind: "stock" | "etf" | "opaque" | "cash";
+  visibleShare: number | null;
+  asOf: string | null;
+  source: string;
+};
+
+// When and where the prices behind this model came from.
+export type Valuation = { asOf: string; source: string };
+
 // Everything the X-Ray page draws. The demo portfolio gets the curated canon; an imported one gets it computed.
 export interface XrayModel {
   mode: "demo" | "live";
@@ -35,8 +48,12 @@ export interface XrayModel {
   subline: LeveledText;
   map: { positions: MapPosition[]; exposures: MapExposure[]; connectors: Connector[]; drawOrder: string[]; pinId: string; maxPosition: number };
   topTen: XExposure[];
-  // ETF columns in the advanced True Top 10 (at most three).
+  // Every look-through company, largest first. Optional: saved snapshots from before this field have only topTen.
+  exposures?: XExposure[];
+  // Every ETF with look-through, largest first (one path column each in the detailed table).
   etfColumns: string[];
+  coverage?: Coverage[];
+  valuation?: Valuation;
   sectors: SectorSlice[];
   overlaps: XOverlap[];
   flags: Flag[];

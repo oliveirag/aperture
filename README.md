@@ -15,10 +15,20 @@ Never commit `.env.local`. Finnhub supplies quotes and company profiles; Gemini 
 ## What the app actually does
 
 - **Import:** screenshot extraction through Gemini, typed positions, and local CSV/XLSX/XLS parsing. Excel users explicitly choose a worksheet. Only position fields are sent for pricing; spreadsheet files stay on the device. Review is required before X-Ray. Missing valuations block continuation; unavailable live quotes may use labeled supplied values. Cash and unsupported rows are listed as skipped.
-- **X-Ray:** deterministic company exposure and ETF overlap calculations. The demo portfolio and imported ones alike use live quotes and dated fund holdings; the demo's September 25 snapshot is only a labeled fallback. Beginner shows three top exposures, Intermediate adds holdings/sectors and the top ten, Advanced adds contribution columns and performance.
+- **X-Ray:** deterministic company exposure and ETF overlap calculations. The demo portfolio and imported ones alike use live quotes and dated fund holdings; the demo's September 25 snapshot is only a labeled fallback. Every company and every fund path is in the model; funds with partial holdings coverage are flagged at every level.
 - **Shock Test:** `/shock` is the primary graph, `/shock/flow` is optional detail, and `/shock/graph` redirects to the canonical page. CRE and AI spending packs use illustrative sensitivities. Custom scenarios support one explicit oil-price, import-cost, US-dollar or chip-supply change, including Hormuz closure and an explicitly assumed tariff decrease. Event questions can only be mapped to a driver when cited research establishes a mechanism; elections alone, combined drivers and percentage-point changes are rejected. Gemini grounding supplies cited mechanism summaries when available; otherwise known scenarios use clearly labeled EIA/USITC references. References do not establish current events or future stock returns. Assumptions and deterministic math remain separate from evidence. Unknown exposure is not zero risk.
-- **Filing Radar:** SEC retrieval and quote verification for every portfolio, the demo included. Provider errors remain visible. Beginner omits low-severity cards; Intermediate opens one comparison; Advanced opens all comparisons.
-- **IC Room:** investment committee research with source facts, bull/bear arguments and portfolio fit. Every run uses live collection; there is no scripted replay. Citations remain available at every level; Beginner shows fewer points, Advanced adds an evidence audit.
+- **Filing Radar:** SEC retrieval and quote verification for every portfolio, the demo included. Provider errors remain visible. Coverage counts every filing reviewed, and companies beyond the ten Radar reads are listed.
+- **IC Room:** investment committee research with source facts, bull/bear arguments and portfolio fit. Every run uses live collection; there is no scripted replay. The chair's summaries for each level must state the same cited material claims and use only figures from the facts or fit table; a summary that fails is replaced by one built from the claims. Rules-based memos are labeled as such.
+
+## Experience levels
+
+Beginner, Intermediate and Advanced set how much detail starts open; they never change inputs, calculations, rankings or sources, and nothing is removed. Collapsed items always show a count and a "Show" control, and every section has "What does this mean?" and "Show calculation". The rules live in one typed policy (`src/lib/experience/policy.ts`) with pure view selectors per feature.
+
+- **Beginner** (understand what I own): personal headline, three exposures, definitions inline, explanations open, lower-severity filing changes folded behind a counted row, two bull and two bear points plus "Show more".
+- **Intermediate** (connect and investigate): top ten, sectors, a fund-comparison table, "since your last visit" for X-Ray and Radar (stored on this device), a research checklist in the IC Room.
+- **Advanced** (inspect and operate): every exposure with a column per fund, calculations and assumption tables open, scenario comparison, IC evidence audit and run record (models used, run id), two-decimal precision.
+
+The material set (value and valuation time, concentration flags, coverage gaps, high-severity changes, assumption labels, errors, demo/practice labels) is shown at every level. The level is kept on the device (`localStorage`) and, when signed in, on the profile; the most recent explicit choice wins (apply `supabase/migrations/20260927000000_experience.sql`). Ask conversations, IC memos and scenario results are cleared when the account or portfolio changes.
 
 No model-based stock-prediction feature ships in this release. Advanced X-Ray can show an empirical historical range when a holding has enough weekly history; it is explicitly not a price target or forecast. Scenario coefficients are assumptions, not forecasts. Gemini is optional: when every key is out of quota, screenshot import uses local OCR, Filing Radar compares filings sentence by sentence, Shock Test cites the holdings' own 10-K passages, IC Room runs a labeled rules-based committee, and Ask answers from portfolio data. None of these fallbacks is presented as AI research. See [demo runbook](docs/DEMO.md#fallbacks).
 
@@ -28,6 +38,7 @@ Before a demo, run `npm run warm` against the running server; see the [runbook](
 
 ```sh
 npm run test:release
+npm run test:experience
 npx next typegen
 npx tsc --noEmit
 npm run lint

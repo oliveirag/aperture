@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGroup } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { AccountMenu } from "@/features/account/account-menu";
 import { AskButton } from "@/features/ask/ask-panel";
 import { cn } from "@/lib/utils";
-import { LevelSwitcher } from "./level-switcher";
 import { NAV_ITEMS } from "./nav-items";
 
 function useIsActive() {
@@ -16,7 +14,7 @@ function useIsActive() {
   return (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 }
 
-// Editorial masthead: boxed wordmark, plain-text navigation with a growing underline, Ask, level and account on the right.
+// Editorial masthead: boxed wordmark, plain-text navigation with a growing underline, Ask and account on the right.
 // Stays put while content scrolls under it; a hairline appears only once something is beneath it.
 export function SiteHeader() {
   const isActive = useIsActive();
@@ -60,20 +58,15 @@ export function SiteHeader() {
 
         <div className="hidden shrink-0 items-center gap-3 md:flex lg:gap-5 min-[1400px]:border-l min-[1400px]:border-border min-[1400px]:pl-6 2xl:gap-8 2xl:pl-8">
           <AskButton />
-          <LevelSwitcher />
           <AccountMenu />
         </div>
       </div>
 
-      {/* Below 1400px (masthead full with Ask, level and account) the destinations move to a row underneath. */}
+      {/* Below 1400px (masthead full with Ask and account) the destinations move to a row underneath. */}
       <nav aria-label="Primary" className="border-t border-border min-[1400px]:hidden">
         <div className="bx-container flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border py-3 md:hidden">
           <AskButton className="h-8" />
           <AccountMenu align="start" />
-          {/* Its own layout namespace so the underline doesn't fly between the two switchers. */}
-          <LayoutGroup id="level-mobile">
-            <LevelSwitcher />
-          </LayoutGroup>
         </div>
         <ul className="bx-container flex gap-7 overflow-x-auto py-3">
           {NAV_ITEMS.map(({ href, label }) => (

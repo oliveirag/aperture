@@ -1,7 +1,7 @@
 "use client";
 
 import { Menu } from "@base-ui/react/menu";
-import { Check, ChevronDown, FlaskConical, Sprout, Upload } from "lucide-react";
+import { Check, ChevronDown, FlaskConical, History, Sprout, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatSignedPct, formatSignedUSD, formatUSD } from "@/lib/format";
 import { usePortfolio } from "@/lib/portfolio-store";
@@ -99,6 +99,13 @@ export function PortfolioMenu({ value, align = "end" }: { value: Value; align?: 
                 <span className="flex-1">
                   Build a practice portfolio
                   <span className="block text-[12px] text-text-muted">Pretend money, real prices</span>
+                </span>
+              </Menu.Item>
+              <Menu.Item className={ITEM} onClick={() => router.push("/import/history")}>
+                <History aria-hidden className="size-4 text-text-muted" />
+                <span className="flex-1">
+                  Saved imports
+                  <span className="block text-[12px] text-text-muted">Signed-in history and audit records</span>
                 </span>
               </Menu.Item>
             </Menu.Group>

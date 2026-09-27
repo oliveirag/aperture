@@ -37,8 +37,3 @@ export function formatSignedPct(fraction: number, digits = 1) {
 export function scaleShock(base: number, severity: number, baseSeverity: number) {
   return (base * severity) / baseSeverity;
 }
-
-// Replaces every {key} in a template.
-export function fillTokens(template: string, tokens: Record<string, string>) {
-  return template.replace(/\{(\w+)\}/g, (match, key: string) => tokens[key] ?? match);
-}

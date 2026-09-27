@@ -182,7 +182,7 @@ export function ImportFlow() {
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
         <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
         <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
-          Drop a screenshot, upload your broker&apos;s CSV export, or type your positions. Finnhub prices every one live; nothing you upload is stored.
+          A screenshot, a CSV export or typed positions. Priced live; nothing you upload is stored.
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>

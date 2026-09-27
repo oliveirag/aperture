@@ -30,8 +30,6 @@ export function Hero() {
           <div>
             <p className="text-[20px] leading-[1.5] font-light text-text">
               NVIDIA looks like one holding. Through your ETFs it is three, and the largest single bet in the portfolio.
-              Lookthrough shows what&apos;s inside, what could hit it, what changed in the filings, and what to check
-              before you add more.
             </p>
             <TryDemoLink className="mt-10" />
           </div>

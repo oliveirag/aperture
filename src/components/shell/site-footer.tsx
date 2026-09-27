@@ -2,12 +2,6 @@ import Link from "next/link";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { NAV_ITEMS } from "./nav-items";
 
-const DEMO_LINKS = [
-  { href: "/", label: "Overview" },
-  { href: "/onboarding", label: "Choose your level" },
-  { href: "/import", label: "Import a portfolio" },
-];
-
 // Closing black band: wordmark left, link columns right, disclosure along the bottom hairline.
 export function SiteFooter() {
   return (
@@ -19,9 +13,8 @@ export function SiteFooter() {
             See what you actually own. Built for the Blackstone challenge at ShellHacks 2026.
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-x-16 gap-y-10 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-x-16 gap-y-10">
           <FooterColumn title="Explore" links={NAV_ITEMS} />
-          <FooterColumn title="Demo" links={DEMO_LINKS} />
           <div>
             <h2 className="text-[17px] font-normal text-text">Disclosure</h2>
             <p className="mt-5 max-w-[26ch] text-[14px] leading-6 text-text-muted">

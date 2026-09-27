@@ -8,7 +8,6 @@ import { motion } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { DEFAULT_PRACTICE_AMOUNT, PRACTICE_AMOUNTS, PRACTICE_TEMPLATES } from "@/data/practice";
-import { StepIndicator } from "@/features/onboarding/step-indicator";
 import { formatUSD } from "@/lib/format";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,6 @@ import { usePracticePrices, type PracticeLeg } from "./use-practice-prices";
 
 const MIN_AMOUNT = 100;
 const MAX_AMOUNT = 1_000_000;
-const STEPS = ["Experience", "Practice", "X-Ray"];
 
 const formatShares = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: n < 1 ? 4 : 3 });
 
@@ -113,7 +111,9 @@ export function PracticeBuilder() {
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={2} steps={STEPS} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">

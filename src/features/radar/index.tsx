@@ -41,8 +41,8 @@ export function RadarPage() {
       </div>
     );
   }
-  return <div className="space-y-6">
-    <p className="text-[13px] text-text-muted">SEC filings. Quotes are checked against the retrieved filing text. Summaries are AI interpretations when Gemini is available, otherwise a sentence-by-sentence comparison.</p>
+  return <div className="flex flex-col gap-6">
+    <p className="order-last text-[13px] text-text-muted">SEC filings. Quotes are checked against the retrieved filing text. Summaries are AI interpretations when Gemini is available, otherwise a sentence-by-sentence comparison.</p>
     <LiveRadar model={xray.model} holdings={imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))} />
   </div>;
 }

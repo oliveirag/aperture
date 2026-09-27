@@ -1,12 +1,10 @@
 "use client";
 
-import { accountsEnabled } from "@/lib/supabase";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 import { Wordmark } from "@/components/shared/lens-mark";
-import { StepIndicator } from "@/features/onboarding/step-indicator";
 import { CsvZone, type CsvFile } from "./csv-zone";
 import { DropZone, MAX_IMAGE_BYTES, MAX_SCREENSHOTS, releaseStaged, type ImportImage, type Phase } from "./drop-zone";
 import { ExtractedPanel } from "./extracted-panel";
@@ -170,17 +168,18 @@ export function ImportFlow() {
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={2} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
         <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
         <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
-          Drop a screenshot, upload CSV, XLSX or XLS, or type your positions. Review the extracted rows before opening your analysis. Spreadsheet files stay on your device; screenshots are read by Gemini, or by text recognition on our server when Gemini is unavailable.
+          Drop a screenshot, upload a spreadsheet, or type your positions. Review the rows, then see what&apos;s inside.
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>
-          {accountsEnabled() && <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>}
         </p>
       </section>
 

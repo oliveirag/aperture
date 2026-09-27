@@ -32,7 +32,7 @@ async function main() {
       const facts = await fundamentals("0000320193");
       const latest = facts?.revenue.at(-1);
       if (!latest || !Number.isFinite(latest.value)) throw new Error("No revenue series");
-      const cachedAt = fresh("sec:facts:0000320193");
+      const cachedAt = fresh("sec:facts:v2:0000320193");
       return { detail: `AAPL revenue ${latest.value}; cache stored ${cachedAt}`, asOf: latest.end };
     } },
     // Workstream owners register their integrated provider adapters here; SKIP is never a passing check.

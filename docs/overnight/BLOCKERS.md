@@ -1,49 +1,55 @@
-# Overnight blockers
+# Overnight blockers and boundaries
 
-## Resolved: installed Next.js guide access
+STATE.md is authoritative for branch/agent status. No DONE.md or full-product completion claim is warranted yet.
 
-Observed in iteration 1 on 2026-09-27.
+## Resolved setup blockers
 
-The repository requires reading the version-specific Next.js guides before writing code. The read tool denied:
+- Installed Next.js guide access works. The route/fetch/cache docs and `generate-agent-files.js` were read; the generated AGENTS block is genuine. Do not restart this investigation.
+- The user approved excluding only protected local `docs/audit-2026-09-27/**` from ESLint. Application rules remain unchanged. Full lint passes.
+- Git's initial exclusion assumption was stale: the three protected local paths were not excluded. They were added only to `.git/info/exclude`; contents remain untouched/uncommitted.
 
-- `node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md`
-- `node_modules/next/dist/docs/01-app/01-getting-started/08-caching.md`
-- `node_modules/next/dist/docs/01-app/03-api-reference/04-functions/fetch.md`
+## Open: Stooq availability and market-data acceptance
 
-Decisive error: `Access denied ... is matched by an ignore file ... The agent is not allowed to read or modify ignored files.`
+- Node requests failed with `UND_ERR_CONNECT_TIMEOUT`; webfetch also failed.
+- A's bounded IPv4 curl probes to both resolved addresses and ordinary Node IPv4/TLS probe could not establish TCP/TLS. No HTTP body or authentic Stooq CSV was obtained. See `ws/a` `scripts/fixtures/README-prices.md` for diagnostics.
+- No verified official replacement hostname was established; no proxy, CAPTCHA or access-control bypass is authorized.
+- Actual Alpha GET fallback is verified with original source timestamps: AAPL/XOM/SPY histories and AAPL GLOBAL_QUOTE. This does not establish Stooq correctness. Full Stooq-specific fixture/live gates remain failed, not skipped.
+- Known project Alpha calls: initial two unsuccessful POST probes, three adjusted-history GETs for XOM/SPY/AAPL, one GLOBAL_QUOTE GET, and D's six history GETs = twelve accounted. External/team use may also consume the provider's 25/day. No further allocation without checking the budget.
 
-Earlier `request_scope` did not override Desktop's ignore policy. In iteration 3 the read tool successfully read the installed route-handler and fetch guides, relevant cache guidance, and the actual `generate-agent-files.js` source confirming the managed AGENTS block. Access is resolved; do not restart this investigation.
+## Open: GDELT availability and news acceptance
 
-## Resolved: full lint included protected local audit material
+- Initial DOC2 requests returned HTTP429. Parent retry after substantial backoff failed transport. No successful macro fixture is present.
+- E's full check exits1; `--available-fixtures` is explicitly only a partial check, not workstream acceptance.
+- SEC/Finnhub news and durable webhook implementation have separate passing tests. Do not invent a DOC2 response or silently replace a publisher's publication date with GDELT observation time.
 
-Iteration 2: the user explicitly approved resolving the access/lint blockers. Reproduced the three `@typescript-eslint/no-require-imports` errors in `docs/audit-2026-09-27/extract-inventory.cjs`, then added only `docs/audit-2026-09-27/**` to the existing ESLint global ignores. The protected file was not edited or committed. No application lint rule was disabled or weakened.
+## Publication quarantine: original ws/c history
 
-`npm run lint && git diff --check` passed (exit 0), with zero lint warnings. Code and TypeScript reviewers approved the precise scope. The audit extractor is intentionally outside the application lint boundary under the user's approval.
+- Original commit `7ad3f55` contains raw SSGA SPY/DIA workbooks and an issuer-derived seed. SSGA terms permit limited personal/internal copying and restrict public dissemination: https://www.ssga.com/us/en/footer/terms-and-conditions . Do not push that branch/history without resolved rights.
+- C follow-up `f7557f7` replaces default SPY/DIA inputs with genuine SEC N-30D schedules and derives partial sectors from SEC SIC evidence. It does not erase the earlier private history.
+- Parent created `ws/c-public` from main `5d0ce3f` and selectively restored current code, SEC/OpenFIGI fixtures and SEC-only generated seed, excluding the entire issuer-file fixture directory. No history rewrite or deletion performed; original ws/c is preserved privately and is abandoned as a publication branch.
+- Verify no private C commit is an ancestor and no issuer-file blob is tracked anywhere on the clean branch before publishing. SEC accessibility is not a blanket copyright claim; keep source attribution and provider rights notes.
+- `ws/c-public` still needs graph/calculate residual integration: only subtract classified-and-modeled constituents from a partially classified sector total. Do not restore invented sectors or weaken tests.
 
-## Open: remote Supabase mutations must remain disabled
+## Open product integration and verification
 
-Source inspection found `src/lib/cache.ts` can invoke `sharedLoad`, which calls `src/lib/imports/provider.ts` RPCs to reserve quota, claim cache leases and save results. These write remotely when Supabase is configured. Existing webhooks/import/account paths can also write.
+- Value-only/cash/unsupported holding metadata must survive every store, API request and cache identity. F follow-ups and H integration are in progress; passing pure math is not proof the browser flow is complete.
+- D's measured engine has real regression and episode diagnostics, but sector-constituent pools and B/FDIC explanation channels need integration. Monthly IR/quarterly CRE are not 104 independent weekly observations. Physical capex/chip-supply magnitudes must not be equated silently to equity-return proxies.
+- Current-vintage episode diagnostics must remain labeled; they are not proof of vintage-correct predictive performance. Display the actual errors, including large misses.
+- Numeric provenance validators enforce structure, not truth. Full API coverage, every displayed financial figure, final exact rendered quote checks, the 50-figure independent trace and full Playwright matrix are still required.
+- H must rerun after data merges. No blanket browser/axe/link-check success has been claimed.
 
-Baseline scripts ran with Supabase URL, anon key and service-role key explicitly blank in the child process, and remote KV configuration blank. Production build additionally disabled market and Gemini keys. `.env.local` itself was not modified. Future live tests/dev servers must maintain this isolation, not merely avoid migration commands.
+## Mandatory remote-service isolation
 
-Team action after the mission: review and apply any pending import/provider-cache migrations to the intended Supabase project separately. This session has not checked or changed the remote schema and must not do so.
+- No remote Supabase migrations or data writes, Redis mutations, deployments, billing changes, email delivery or webhook registration are authorized by this mission.
+- All local live/server processes explicitly blank Supabase URL/anon/service-role and Upstash/KV URL/token variables. Gemini is disabled during non-model verification. `.env.local` is never printed, copied or modified.
+- Main now supports `APERTURE_LOCAL_VERIFICATION=1`; browser verification also sets `NEXT_PUBLIC_APERTURE_LOCAL_VERIFICATION=1` before build. These only disable remote stores, never bypass auth/RLS or manufacture sessions.
+- Offline release checks blank real credentials and clear inherited isolation flags so their own deliberate mock production tests can verify fail-closed behavior.
+- Team-only later action: review/apply pending import/cache migrations and E's durable webhook migration through the normal approved deployment process. Nothing has been applied remotely. Missing durable store causes webhook503, not a success ACK.
 
-## Open: harness specification versus installed plugin
+## Harness and resource boundaries
 
-The project already loads pinned ECC v2.2.1 through `.devin/config.json`. Reusing the pinned plugin avoids duplicate agent/skill discovery. Nine new workstream/verifier profiles, a shared mission skill, and `.devin/README.md` are now present; `devin doctor --json` recognizes 77 profiles. Common rules are referenced rather than duplicated verbatim in each profile. Literal `.claude/skills` vendoring in the original mission is not claimed; the operational harness uses the previously approved existing plugin.
-
-`agentshield` is not installed. Use a bounded manual review of the new project harness; do not install an unreviewed CLI or hooks overnight.
-
-## Permissions to allow
-
-- Guide access is resolved. Future background denials must be reported once with the exact denied command, then handled in the foreground if permitted. Do not repeatedly retry denied operations.
-- Live lock deliberately fails closed after a crash. Timeout reports validated owner PID/acquisition time; never auto-delete based only on lock age. Operator recovery requires checking that no worker owns it and explicit permission to remove that specific orphan.
-
-## Not blockers, but important limits
-
-- The mission incorrectly assumed the three protected local paths were already in `.git/info/exclude`. They were not. This session added only those exclusions locally; their contents remain unchanged and uncommitted.
-
-- The mission's 19 existing `scripts/check-*.ts` files are deterministic checks, not real-provider fixture/live dual-mode checks. Passing them with an ignored `--live` argument would not be evidence.
-- Feature waves, the Playwright matrix and independent source traces remain outstanding. One real Apple submissions fixture is captured; that alone does not establish any feature's live completeness.
-- Shared provenance validation checks shape, not source authenticity or correct numeric calculations. Each provider adapter must bind trusted hosts and preserve raw-source evidence; final independent traces remain mandatory.
-- The mission's full completion criteria remain unmet; never create DONE.md on the basis of this baseline.
+- Existing ECC is pinned and reused, not installed twice. Nine project profiles/shared skill/README exist and doctor recognizes77profiles. This is a deliberate adaptation of the original literal-vendoring instruction, not a claim that `.claude/skills` was duplicated.
+- New custom profiles were discovered but could not spawn in the current session; general agents execute their explicit profile files instead. AgentShield absent; scoped independent manual reviews are recorded in STATE/PROGRESS.
+- At most six background agents; foreground reviews may run while workers progress. A running agent cannot be resumed to send a message, so queue integration notes for its completion rather than repeatedly trying.
+- Live locks fail closed and provide owner information. Contention is handled with bounded waiting. Never steal a lock based only on age; removal of a confirmed orphan needs specific approval.
+- The original deterministic scripts ignore `--live`; passing them with that argument is not live-provider evidence. New provider checks explicitly distinguish fixture/live modes and failures.

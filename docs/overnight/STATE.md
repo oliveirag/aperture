@@ -1,6 +1,6 @@
-# Overnight state — iteration 3, Wave 0 integration
+# Overnight state — iteration 4, data integration and scenario/UI work
 
-## Phase: 1-data-wave
+## Phase: 2-scenario-wave
 
 Mission: `/Users/zakariakhan/aperture-overnight-mission.md`, fully re-read this iteration.
 Branch: `overnight/real-data`, based on `origin/main` at `06d5e3c`.
@@ -12,14 +12,15 @@ No host loop-review findings supplied; independent foundation reviews handled be
 | id | profile | branch | worktree | status | last gate result | next step |
 |---|---|---|---|---|---|---|
 | 0 | integrator | overnight/real-data | main checkout | merged | Release, all 21 checks, typegen, tsc, zero-warning lint and webpack build pass after fixes | Commit base, create six worktrees and dispatch |
-| A | general + A profile | ws/a | ../lookthru-wt/a | blocked | 8a11027: quote/Alpha fallback pass; Stooq full checks fail | Review corrected GET/prefix; resolve Stooq timeout |
-| B | general + B profile | ws/b | ../lookthru-wt/b | review | 072dfc3: SEC/quotes fixture+live and standard gates pass | Reviewers 1c61ace8 / 4656f3cf |
-| C | general + C profile | ws/c | ../lookthru-wt/c | blocked | 7ad3f55: 18fund fixture/live pass; release sector residual assertion fails | Reviewers aff0f7c5 / c1cc9d16; sourced-sector integration |
-| D | aperture-ws-d-scenarios | not created | not created | todo | not run | Factor model after real A/B/C fixtures |
-| E | general + E profile | ws/e | ../lookthru-wt/e | blocked | 3727f68: Finnhub/SEC/webhook pass; missing GDELT fixture, live429 | Retry after backoff; no merge with failed full checks |
-| F | general + F profile | ws/f | ../lookthru-wt/f | review | a640391: own gates pass; parent live/replay PASS07:53:42Z; parent fixture+wait tweak uncommitted | Fix value-only store/history/performance integration before acceptance |
+| A | general + A profile | ws/a | ../lookthru-wt/a | blocked | 2a2633c: GET quote/history verified; full Stooq gates blocked | 1b07f2d7 done; no more ordinary probes until service recovers |
+| B | general + B profile | ws/b | ../lookthru-wt/b | merged | 5d0ce3f; parent live/quotes PASS08:20:33–37Z | foreign UI/API adoption and source links pending |
+| C private | general + C profile | ws/c | ../lookthru-wt/c | blocked | f7557f7 SEC replacements; private7ad3f55 ancestor | Explicitly abandoned for PUBLICATION; preserve privately, never push/merge history |
+| C-public | general integration | ws/c-public | ../lookthru-wt/c-public | review | f91332a: full31checks/build/repro/live PASS, no privateancestor/issuerfiles | reviewers7a57db15/f3455560, then parent gates |
+| D | general + D profile | ws/d | ../lookthru-wt/d | running | 44ee53f real OLS/HC3 independently reproduced; parser/quarterdating issues found | agent619ba1a4 fixes adversarial findings + F/C contracts |
+| E | general + E profile | ws/e | ../lookthru-wt/e | blocked | a0c0ef4 durable route/PGlite passed; GDELT missing | TS15ffbd8e/security5cd3f74c approve scopedcode; fullnewscheck still fails |
+| F | general + F profile | ws/f | ../lookthru-wt/f | review | 57e7ee5 transport/currency/React integration checks pass | reviewers7a8cd30c/f153f787; requires Playwright dependency in main |
 | G | general + G profile | ws/g | ../lookthru-wt/g | merged | 376e3ea merge; all27 integrated checks/typegen/tsc/lint/build PASS; live PASS07:32:18Z | API helper adoption and new-provider warm registration later |
-| H | aperture-ws-h-ui-qa | not created | not created | todo | not run | Provenance UI, copy and Playwright matrix |
+| H | general + H profile | ws/h | ../lookthru-wt/h | running | base5d0ce3f; npm ci started shell1d5c2d | agent134944d1: shared provenance UI and real browser matrix |
 | I | aperture-adversarial-verifier | not created | not created | todo | not run | Independent 50-figure trace |
 
 ## Definition of Done checklist (section 4)
@@ -67,7 +68,7 @@ No host loop-review findings supplied; independent foundation reviews handled be
 See BLOCKERS.md. No current permission blocker.
 
 - Remote Supabase/Redis must stay disabled in ALL local live/test/server processes. Explicit blank environment variables override `.env.local`; never print/copy secret values.
-- Provider budget: five Alpha probes accounted (A two POST failures, main XOM/SPY GET successes, A one AAPL GET success07:42:01Z). A's second commit8a11027 corrected GET auth/no logging and restored finnhub shared-reservation key prefix. No further calls without budget allocation.
+- Provider budget: TWELVE Alpha calls accounted: A2POSTfailures, mainXOM/SPY2GET, AAPLhistory1GET, D6GET (XLE/SMH/KRE/XLF/XLRE/NVDA), AAPLGLOBAL_QUOTE1GET08:19:53Z. No further allocation without checking shared daily budget.
 - Main recorded seven FRED series (WTI, broad USD, DGS10, investment-grade spread, import-price IR, DTB3, CRE BOGZ1FL075035503Q) and real XOM/SPY weekly-adjusted Alpha fixtures with 1403 observations each. These are for D; preserve source units (IR monthly, CRE quarterly—not weekly independent observations).
 - Stooq SPY/XOM captures failed; diagnostic GET reports UND_ERR_CONNECT_TIMEOUT. This is an open live-history blocker, not a passing check. AAPL Alpha worker fixture currently contains a POST-not-allowed error; never treat as history. Cannot message running agents via resume (tool rejected); forward GET/budget correction when A reports.
 - File ownership adjustments: E creates new news adapter instead of editing A's finnhub.ts; G owns imports/provider.ts, F all other import logic; route validation edits coordinate through integrator.
@@ -80,4 +81,4 @@ See BLOCKERS.md. No current permission blocker.
 
 ## Next action
 
-G merged and27-check integrated gates pass after runner-env correction. Commit checkpoint, create/start D on real FRED/XOM/SPY fixtures. Independently gate/merge B (three reviews approve). Resume F for value-only store/history/performance integration. C needs honest sourced sector/residual type integration and issuer terms review; A Stooq/E GDELT remain blocked. Re-review E TS using explicit absolute paths (previous reviewer inspected wrong checkout). Start H after B/F interface alignment. Do not weaken gates or claim DONE.
+Current background: D619ba1a4, H134944d1, C-public reviewers7a57db15/f3455560, F reviewers7a8cd30c/f153f787. Other workers completed. Root30checks/tsc/lint/build and SEC live PASS; commit reviewed IC/debt/source-doc checkpoint. Install H-matching Playwright1.55.1 devDependency to make F Chromium check reproducible, then integrate F/C-public only after reviews and full gates each. Keep A/E blocked checks honest. Preserve C-public residual fix when merging D; wire D unavailable status through H. Final API-wide checker and50figure audit remain pending.

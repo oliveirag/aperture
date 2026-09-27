@@ -2,7 +2,6 @@
 import assert from "node:assert/strict";
 import { getScenario, scenarioTotals } from "../src/data/shock";
 import { parseProfile } from "../src/lib/etf";
-import { etfInput } from "../src/lib/imports/quotes";
 import { scaleShock } from "../src/lib/format";
 import { buildLiveScenario } from "../src/lib/shock/live";
 import { computeXray, type ApertureInput } from "../src/lib/xray/compute";
@@ -11,9 +10,7 @@ import seed from "../src/data/etf-seed.json";
 const SEED = seed as unknown as Record<string, Parameters<typeof parseProfile>[1]>;
 const etf = (ticker: string) => {
   const p = parseProfile(ticker, SEED[ticker], "seed")!;
-  const input = etfInput(p);
-  assert.ok(input, "Use the same validated, sourced ETF adapter as production");
-  return input;
+  return { holdings: p.holdings, sectors: p.sectors, asOf: p.asOf };
 };
 
 // $10k BXP direct, $5k KRE held without look-through, $20k VOO (seed), $10k AAPL, $5k a mystery fund.
@@ -55,11 +52,7 @@ const edgeIds = new Set(s.edges.map((e) => e.id));
 for (const i of s.impacts) for (const id of i.pathEdgeIds) assert.ok(edgeIds.has(id), `${i.ticker} path ${id}`);
 const nodeIds = new Set(s.nodes.map((n) => n.id));
 for (const e of s.edges) assert.ok(nodeIds.has(e.from) && nodeIds.has(e.to), e.id);
-const vooSource = s.sources.find((x) => x.id === "s-voo-holdings")!;
-assert.equal(vooSource.issuer, "sec-nport", "Actual filing provider wins over the old demo attribution");
-assert.equal(vooSource.url, vooEtf.holdingsSource?.url);
-assert.match(vooSource.url!, /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//);
-assert.equal(vooSource.date, vooEtf.asOf);
+assert.match(s.sources.find((x) => x.id === "s-voo-holdings")!.issuer, /^Alpha Vantage/, "live ETF source wins over the demo canon");
 assert.match(s.headline.advanced, /3 modeled holdings.*2 holdings have no modeled path/);
 
 // AI capex: NVDA inside VOO and QQQ, MSFT direct.

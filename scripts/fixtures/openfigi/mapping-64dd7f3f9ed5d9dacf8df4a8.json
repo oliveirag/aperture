@@ -1,8 +1,0 @@
-{
-  "provider": "openfigi",
-  "endpoint": "https://api.openfigi.com/v3/mapping",
-  "retrievedAt": "2026-09-27T07:42:27.454Z",
-  "body": "[{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"}]",
-  "schemaVersion": 1,
-  "sha256": "3e815c7d9d100053e9e943dca08a2b14cfe1ee8ae419a74608cc850a645ee00a"
-}

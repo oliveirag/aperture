@@ -16,11 +16,9 @@ assert.equal(nvda.name, "NVIDIA"); // direct (Finnhub) name wins, suffix dropped
 assert.equal(nvda.value, 10000 + 5000 + 2000);
 assert.deepEqual(nvda.sources.map((s) => s.via), ["Direct", "AAA", "BBB"]);
 assert.equal(m.topTen.find((e) => e.ticker === "AAPL")!.value, 5000);
-assert.equal(m.topTen.some((e) => e.ticker === "ZZZ"), false, "Opaque securities are not disclosed underlying companies");
-assert.equal(m.map.positions.find((p) => p.ticker === "ZZZ")!.value, 5000, "Unsupported value remains in the denominator");
-assert.equal(m.map.exposures.find(e => e.id === "rest")!.value, 6000, "Undisclosed ETF residual plus unsupported value is conserved");
+assert.equal(m.topTen.find((e) => e.ticker === "ZZZ")!.value, 5000);
 assert.deepEqual(m.opaque, ["ZZZ"]);
-assert.equal(m.underlyingCompanies, 3); // NVDA AAPL MSFT; ZZZ is unknown, not a company claim
+assert.equal(m.underlyingCompanies, 4); // NVDA AAPL MSFT ZZZ
 // Overlap AAA vs BBB = min(.5,.4) NVDA = 0.4, 1 shared.
 assert.equal(m.overlaps.length, 1);
 assert.equal(m.overlaps[0].a, "AAA");
@@ -28,7 +26,7 @@ assert.ok(Math.abs(m.overlaps[0].overlap - 0.4) < 1e-9);
 assert.equal(m.overlaps[0].sharedCompanies, 1);
 // Sectors: tech = 10k (semis) + 10k + 4k = 24k = 80%; other = 1k (BBB) + 5k (ZZZ) = 20%.
 assert.deepEqual(m.sectors.map((s) => [s.sector, +s.weight.toFixed(4)]), [["Technology", 0.8], ["Other", 0.2]]);
-assert.deepEqual(m.flags.map((f) => f.id), ["f-nvda", "f-aapl", "f-technology"]);
+assert.deepEqual(m.flags.map((f) => f.id), ["f-nvda", "f-aapl", "f-zzz", "f-technology"]);
 assert.equal(m.headline.intermediate, "NVIDIA isn't one position. It's three, and 56.7% of your money.");
 // Map: rows sum to total; every connector ends on a row.
 const rowSum = m.map.exposures.reduce((s, e) => s + e.value, 0);

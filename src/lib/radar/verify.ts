@@ -32,9 +32,6 @@ export function parseProposed(value: unknown): ProposedChange[] {
     if (!SEVERITIES.has(c?.severity as string)) throw new Error("bad severity");
     const label = str(c.label);
     if (!label) throw new Error("missing label");
-    // Models may select numeric source quotes, but must not author new numeric claims.
-    // The deterministic text-diff fallback is unaffected by this model-response guard.
-    if (/\d/.test([label, str(c.summary), str(c.category)].join(" "))) throw new Error("generated numeric claim");
     return {
       kind: c.kind as ProposedChange["kind"],
       label,
@@ -54,21 +51,6 @@ export function appearsIn(excerpt: string, normalizedText: string) {
   return n.length >= MIN_EXCERPT && normalizedText.includes(n);
 }
 
-// Match tolerant formatting, but return ONLY the original source slice. The displayed quote
-// must not inherit model-modified case, punctuation or whitespace, even when the match is valid.
-export function sourceQuote(excerpt: string, text: string): string | null {
-  const n = normalizeForMatch(excerpt.replace(/^["“]|["”]$/g, ""));
-  if (n.length < MIN_EXCERPT || n.length > 4000) return null;
-  const pattern = [...n].map(char => {
-    if (char === " ") return "\\s+";
-    if (char === "'") return "['‘’‛′]";
-    if (char === '"') return '["“”‟″]';
-    if (char === "-") return "[-‐‑‒–—−]";
-    return char.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  }).join("");
-  return new RegExp(pattern, "i").exec(text)?.[0] ?? null;
-}
-
 // Keeps only changes whose excerpts are verbatim in the right filing and whose kind the text supports:
 // a "new" quote must be absent from the prior filing, a "removed" one absent from the latest.
 export function verifyChanges(proposed: ProposedChange[], latestText: string, priorText: string) {
@@ -76,8 +58,8 @@ export function verifyChanges(proposed: ProposedChange[], latestText: string, pr
   const prior = normalizeForMatch(priorText);
   const kept: VerifiedChange[] = [];
   for (const c of proposed) {
-    const cur = c.latestExcerpt ? sourceQuote(c.latestExcerpt, latestText) : null;
-    const old = c.priorExcerpt ? sourceQuote(c.priorExcerpt, priorText) : null;
+    const cur = c.latestExcerpt;
+    const old = c.priorExcerpt;
     let ok = false;
     if (c.kind === "new") ok = !!cur && appearsIn(cur, latest) && !appearsIn(cur, prior);
     else if (c.kind === "removed") ok = !!old && appearsIn(old, prior) && !appearsIn(old, latest);

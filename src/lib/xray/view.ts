@@ -9,7 +9,7 @@ export const COVERAGE_NOTICE = 0.99;
 
 export type XrayMaterial = {
   total: number;
-  valuation: XrayModel["priceBasis"] | null;
+  valuation: XrayModel["valuation"] | null;
   flags: XrayModel["flags"];
   // Funds we can only partly see into, and positions we can't see into at all.
   partial: Coverage[];
@@ -28,7 +28,7 @@ export type XrayView = {
 export function xrayMaterial(model: XrayModel): XrayMaterial {
   return {
     total: model.total,
-    valuation: model.priceBasis ?? null,
+    valuation: model.valuation ?? null,
     flags: model.flags,
     partial: (model.coverage ?? []).filter((c) => c.kind === "etf" && c.visibleShare !== null && c.visibleShare < COVERAGE_NOTICE),
     opaque: model.opaque,

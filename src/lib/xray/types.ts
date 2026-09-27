@@ -1,5 +1,4 @@
 import type { Flag, LeveledText, SectorSlice, Source } from "@/types/demo";
-import type { Provenance } from "@/lib/provenance";
 
 // "Direct", or the ticker of the ETF the money flows through.
 export type Via = string;
@@ -43,11 +42,6 @@ export type Valuation = { asOf: string; source: string };
 export interface XrayModel {
   mode: "demo" | "live";
   total: number;
-  // Shared immutable valuation for header, X-Ray, Shock and IC consumers.
-  valuation?: {
-    currency: "USD"; total: number; status: "sourced" | "source-unavailable"; provenance?: Provenance;
-    positions: { ticker: string; shares: number; price: number; value: number; kind: "stock" | "etf" | "opaque" | "cash"; provenance?: Provenance }[];
-  };
   positionsCount: number;
   underlyingCompanies: number;
   headline: LeveledText;
@@ -59,10 +53,8 @@ export interface XrayModel {
   // Every ETF with look-through, largest first (one path column each in the detailed table).
   etfColumns: string[];
   coverage?: Coverage[];
-  // Where the prices came from and when (shown with the value).
-  priceBasis?: Valuation;
+  valuation?: Valuation;
   sectors: SectorSlice[];
-  sectorSources?: { ticker: string; method: string; provenance?: Provenance; status: "sourced" | "source-unavailable" }[];
   overlaps: XOverlap[];
   flags: Flag[];
   sources: Source[];

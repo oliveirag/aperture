@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { HOLDINGS } from "@/data/portfolio";
 import type { MarketResponse, Profile, Quote } from "@/lib/finnhub";
-import { portfolioHoldings, usePortfolio, type PortfolioHolding } from "@/lib/portfolio-store";
-import { positionValue } from "@/lib/xray/valuation";
+import { portfolioHoldings, usePortfolio } from "@/lib/portfolio-store";
+import type { Holding } from "@/types/demo";
 
 // "offline" means Finnhub could not be reached; every view falls back to the demo snapshot.
 type Status = "idle" | "loading" | "live" | "offline";
@@ -80,18 +80,18 @@ export const useMarket = create<MarketState>()((set, get) => ({
   },
 }));
 
-export interface LiveHolding extends PortfolioHolding {
+export interface LiveHolding extends Holding {
   live: boolean;
   change: number;
   changePct: number;
 }
 
 // Holdings repriced with live quotes. A holding without a quote keeps its snapshot price and no day change.
-export function priceHoldings(quotes: Record<string, Quote>, base: PortfolioHolding[] = HOLDINGS) {
+export function priceHoldings(quotes: Record<string, Quote>, base: Holding[] = HOLDINGS) {
   const holdings: LiveHolding[] = base.map((h) => {
     const q = quotes[h.ticker];
-    if (!q || h.kind === "cash" || h.kind === "opaque" || h.marketValue !== undefined || h.shares <= 0) return { ...h, value: positionValue(h), live: false, change: 0, changePct: 0 };
-    return { ...h, price: q.price, value: positionValue({ ...h, price: q.price }), live: true, change: h.shares * q.change, changePct: q.changePct };
+    if (!q) return { ...h, live: false, change: 0, changePct: 0 };
+    return { ...h, price: q.price, value: h.shares * q.price, live: true, change: h.shares * q.change, changePct: q.changePct };
   });
   const total = holdings.reduce((s, h) => s + h.value, 0);
   const dayChange = holdings.reduce((s, h) => s + h.change, 0);
@@ -111,9 +111,7 @@ export function useLiveHoldings() {
   const imported = usePortfolio((s) => s.imported);
   const snapshot = useSnapshot();
   const base = useMemo(() => portfolioHoldings(imported), [imported]);
-  // Reviewed imports are frozen across every view. Only an explicit portfolio
-  // refresh replaces their valuation; background quote polling is not consent.
-  const priced = useMemo(() => priceHoldings(status === "live" && !snapshot && imported === null ? quotes : {}, base), [status, snapshot, imported, quotes, base]);
+  const priced = priceHoldings(status === "live" && !snapshot ? quotes : {}, base);
   const live = status === "live" && priced.holdings.some((h) => h.live);
   return { live, imported: imported !== null, ...priced };
 }

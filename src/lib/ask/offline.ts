@@ -23,7 +23,7 @@ type Scenario = {
   evidence?: { text: string }[];
   impacts?: { ticker: string; returnFraction: number; dollar: number; path?: string }[];
   modeledShare?: number;
-  notModeled?: (string | { ticker: string; weight: number })[];
+  notModeled?: string[];
 };
 
 const NOTE = "Answered directly from your portfolio data; the AI assistant is unavailable right now.";
@@ -83,7 +83,7 @@ function scenarioAnswer(sc: Scenario, c: Context) {
     lines.push(`Calculated effect: ${signed(dollars)}${total ? ` (${formatPct(dollars / total)} of your portfolio)` : ""}. Largest moves:`);
     for (const i of impacts.slice(0, 4)) lines.push(`- ${i.ticker}: ${formatPct(i.returnFraction)} (${signed(i.dollar)})${i.path ? `, via ${i.path}` : ""}`);
   }
-  if (sc.notModeled?.length) lines.push(`Not modeled: ${sc.notModeled.map(item => typeof item === "string" ? item : `${item.ticker} (${pct(item.weight)} of your portfolio)`).join(", ")}. Their risk is unknown, not zero.`);
+  if (sc.notModeled?.length) lines.push(`Not modeled: ${sc.notModeled.join(", ")}. Their risk is unknown, not zero.`);
   if (sc.evidence?.length) lines.push(`Evidence: ${sc.evidence[0].text}`);
   lines.push("The size and sensitivities are assumptions, not forecasts. Open the scenario graph to change the size.");
   return lines.join("\n");

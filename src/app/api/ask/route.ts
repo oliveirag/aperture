@@ -1,5 +1,4 @@
 import { answerFromData } from "@/lib/ask/offline";
-import { validAskContext } from "@/lib/ask/validate-context";
 import { DECLINE, DISCLAIMER, isBuySellQuestion, systemPrompt, userTurn } from "@/lib/ask/prompt";
 import type { Level } from "@/lib/experience/policy";
 import { geminiAvailable, streamText } from "@/lib/gemini";
@@ -32,13 +31,11 @@ export async function POST(request: Request) {
   } catch {
     return fail("Expected JSON", 400);
   }
-  if (!body || typeof body !== "object" || Array.isArray(body)) return fail("Expected a JSON object", 400);
   const question = typeof body.question === "string" ? body.question.trim() : "";
   if (!question || question.length > MAX_QUESTION) return fail(`Ask a question of at most ${MAX_QUESTION} characters`, 400);
   const level = (LEVELS.has(body.level as string) ? body.level : "intermediate") as Level;
   const context = JSON.stringify(body.context ?? null);
   if (context.length > MAX_CONTEXT) return fail("Portfolio context is too large", 413);
-  if (!validAskContext(body.context)) return fail("Invalid portfolio context", 400);
   const history = (Array.isArray(body.history) ? (body.history as Turn[]) : [])
     .filter((t) => (t?.role === "user" || t?.role === "assistant") && typeof t.text === "string")
     .slice(-MAX_TURNS)

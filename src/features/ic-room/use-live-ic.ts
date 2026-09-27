@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import type { IcEvent, IcRunData } from "@/lib/ic/types";
-import type { ImportedHolding } from "@/lib/portfolio-store";
 import { readNdjson } from "@/lib/ndjson";
 import { useIcMemos } from "./memos";
 import { CHARS_PER_MS, typed, type Frame, type RunStatus } from "./use-ic-run";
@@ -19,7 +18,7 @@ export type LiveInput = {
   ticker: string;
   thesis: string;
   amount: number;
-  holdings: ImportedHolding[];
+  holdings: { ticker: string; shares: number; price: number; name: string }[];
 };
 
 type Arrivals = Partial<Record<"assumptions" | "bull" | "bear" | "memo", number>>;

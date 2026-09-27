@@ -10,8 +10,7 @@ import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio, type ImportedHolding 
 import { DEMO_XRAY } from "@/lib/xray/demo";
 import type { XrayModel } from "@/lib/xray/types";
 
-// Values, classification and source evidence are all part of a frozen portfolio.
-const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings);
+const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings.map((h) => [h.ticker, h.shares]));
 
 type Entry = { key: string; status: "loading" | "ready" | "error"; model: XrayModel | null; error: string | null };
 
@@ -26,7 +25,7 @@ const useAperture = create<{ entry: Entry | null; load: (holdings: ImportedHoldi
     importFetch("/api/aperture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ holdings }),
+      body: JSON.stringify({ holdings: holdings.map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name })) }),
     })
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
@@ -66,7 +65,7 @@ export function useXray(): XrayState {
     if(!hydrated || !snapshot)return;
     const controller=new AbortController();
     importFetch(`/api/imports/snapshot?id=${encodeURIComponent(snapshot.id)}`,{cache:"no-store",signal:controller.signal}).then(async response=>{
-      const data=await response.json();if(controller.signal.aborted)return;if(!response.ok)throw new Error(data.error);
+      const data=await response.json();if(!response.ok)throw new Error(data.error);
       setVerified({id:snapshot.id,model:data.model});
     }).catch(e=>{if(!controller.signal.aborted)setVerified({id:snapshot.id,model:null,error:e.message});});
     const subscription=browserClient()?.auth.onAuthStateChange((event)=>{if(event==="SIGNED_OUT"){setVerified(null);usePortfolio.getState().resetToDemo();}});

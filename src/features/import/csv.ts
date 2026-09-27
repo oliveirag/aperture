@@ -1,15 +1,11 @@
 // Reads a brokerage positions export (Fidelity, Schwab, Vanguard, or a plain ticker,shares file) into rows to price.
 // Runs in the browser; the file never leaves the device, only ticker/shares/value go to /api/price.
 
-export type ParsedRow = {
-  ticker: string; shares: number | null; marketValue: number | null; name?: string;
-  currency?: string; rowType?: "position" | "cash" | "total" | "unresolved";
-  sourceLine?: number; reviewState?: "required"; rawText?: string;
-};
+export type ParsedRow = { ticker: string; shares: number | null; marketValue: number | null; name?: string };
 export type SkippedRow = { line: number; text: string; reason: string };
 export type CsvResult = { rows: ParsedRow[]; skipped: SkippedRow[]; error: string | null };
 
-const TICKER_HEADERS = ["symbol", "ticker", "securitysymbol", "symbolcusip", "tickersymbol", "instrument"];
+const TICKER_HEADERS = ["symbol", "ticker", "securitysymbol", "symbolcusip", "tickersymbol"];
 const SHARES_HEADERS = ["quantity", "shares", "qty", "units", "sharesquantity", "quantityshares"];
 const NAME_HEADERS = ["description", "securitydescription", "investmentname", "name", "securityname"];
 const VALUE_HEADERS = ["marketvalue", "currentvalue", "totalvalue", "value", "mktval", "marketvaluemktval", "positionvalue"];
@@ -82,36 +78,12 @@ function findColumn(header: string[], names: string[]) {
 // Lossless review path: retain rows separately, including unrecognized securities and cash.
 // The legacy parser below remains for the practice/demo flow.
 export function parseReviewCsv(input: string): CsvResult {
-  const table = tokenize(input.replace(/^\uFEFF/, ""), detectDelimiter(input));
-  const isHeader = (r: string[]) => findColumn(r, TICKER_HEADERS) !== -1 && (findColumn(r, SHARES_HEADERS) !== -1 || findColumn(r, VALUE_HEADERS) !== -1);
-  const headerAt = table.findIndex(isHeader);
-  let header = headerAt >= 0 ? table[headerAt] : ["ticker", "shares"];
-  const rows: ParsedRow[] = [];
-  for (let i = headerAt + 1; i < table.length; i++) {
-    const r = table[i];
-    if (!r.some(Boolean)) continue;
-    // IBKR statements have independently headed sections. Preserve other sections
-    // as unresolved rather than interpreting transactions as current positions.
-    if (isHeader(r)) { header = r; continue; }
-    const ibkr = header[1] === "Header";
-    const wrongSection = ibkr && (r[0] !== header[0] || r[1] !== "Data");
-    const activity = findColumn(header, ["transcode", "activitydate", "transactiontype", "tradedate"]) >= 0 || (ibkr && !/^open positions$/i.test(header[0]));
-    const ticker = wrongSection ? "" : (r[findColumn(header, TICKER_HEADERS)] ?? "").trim().toUpperCase().replace(/\*+$/, "").replace(/[/-]/g, ".");
-    const name = r[findColumn(header, NAME_HEADERS)] ?? "";
-    const label = `${ticker} ${name}`.trim();
-    const summary = /^(?:account\s+|portfolio\s+|grand\s+)?totals?\b/i.test(label) || (ibkr && r.some(c => /^total(?: in .+)?$/i.test(c)));
-    const cash = /^(?:USD|CASH|SPAXX|VMFXX|SWVXX|FDRXX|FCASH)$/.test(ticker) || /^(?:cash & cash investments|cash balance|settlement fund)$/i.test(ticker || name);
-    const currencyIndex = findColumn(header, ["currency", "currencycode", "ccy"]);
-    const valueText = r[findColumn(header, VALUE_HEADERS)] ?? "";
-    // A bare amount (or ambiguous dollar sign) is not a currency declaration.
-    // Review must explicitly confirm USD; this parser never performs FX conversion.
-    const currency = currencyIndex >= 0 ? (r[currencyIndex] ?? "").toUpperCase() : /€/.test(valueText) ? "EUR" : /£/.test(valueText) ? "GBP" : "UNKNOWN";
-    rows.push({ ticker, name, shares: wrongSection ? null : parseNumber(r[findColumn(header, SHARES_HEADERS)]),
-      marketValue: wrongSection ? null : parseNumber(valueText.replace(/[€£¥]/g, "")), currency,
-      rowType: summary ? "total" : activity ? "unresolved" : cash ? "cash" : !wrongSection && /^[A-Z][A-Z0-9.]{0,14}$/.test(ticker) ? "position" : "unresolved",
-      sourceLine: i + 1, reviewState: "required", rawText: r.join(" | ").slice(0, 2000) });
-  }
-  return { rows, skipped: [], error: rows.length ? null : "No rows found in this CSV." };
+  const table=tokenize(input.replace(/^\uFEFF/,""),detectDelimiter(input));
+  const headerAt=table.findIndex(r=>findColumn(r,TICKER_HEADERS)!==-1 && (findColumn(r,SHARES_HEADERS)!==-1 || findColumn(r,VALUE_HEADERS)!==-1));
+  const header=headerAt>=0?table[headerAt]:["ticker","shares"];
+  const ticker=findColumn(header,TICKER_HEADERS), shares=findColumn(header,SHARES_HEADERS), value=findColumn(header,VALUE_HEADERS), name=findColumn(header,NAME_HEADERS);
+  const rows=table.slice(headerAt+1).filter(r=>r.some(Boolean)).map(r=>({ticker:r[ticker]??"",shares:parseNumber(r[shares]),marketValue:parseNumber(r[value]),name:r[name]??""}));
+  return {rows,skipped:[],error:rows.length?null:"No rows found in this CSV."};
 }
 
 export function parsePositionsCsv(input: string): CsvResult {

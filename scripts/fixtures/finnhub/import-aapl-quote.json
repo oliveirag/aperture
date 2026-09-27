@@ -1,8 +1,0 @@
-{
-  "provider": "finnhub",
-  "endpoint": "https://finnhub.io/api/v1/quote?symbol=AAPL",
-  "retrievedAt": "2026-09-27T07:53:42.759Z",
-  "body": "{\"c\":341.07,\"d\":5.15,\"dp\":1.5331,\"h\":341.67,\"l\":334.53,\"o\":336.04,\"pc\":335.92,\"t\":1790366400}",
-  "schemaVersion": 1,
-  "sha256": "18ec34de8a27e2ef9a7a5167b598d4baf738d5f78c041daeecfcd35ae76aec5b"
-}

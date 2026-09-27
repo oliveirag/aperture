@@ -38,7 +38,7 @@ const DEMO_MODEL: ShockModel = {
   modeledShare: {},
 };
 
-const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings);
+const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings.map((h) => [h.ticker, h.shares]));
 
 type Entry = { key: string; status: "loading" | "ready" | "error"; model: ShockModel | null; error: string | null };
 
@@ -52,7 +52,7 @@ const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHold
     fetch("/api/shock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ holdings, priceMode }),
+      body: JSON.stringify({ holdings: holdings.map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name })), priceMode }),
     })
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as ShockResponse & { error?: string };

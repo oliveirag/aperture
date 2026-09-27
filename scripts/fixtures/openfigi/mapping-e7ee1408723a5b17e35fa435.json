@@ -1,8 +1,0 @@
-{
-  "provider": "openfigi",
-  "endpoint": "https://api.openfigi.com/v3/mapping",
-  "retrievedAt": "2026-09-27T07:45:19.019Z",
-  "body": "[{\"data\":[{\"figi\":\"BBG014KFRYB8\",\"name\":\"PRESIDIO PROPERTY TRST -CW27\",\"ticker\":\"SQFTW\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG014KFRYB8\",\"securityType\":\"Equity WRT\",\"marketSector\":\"Equity\",\"shareClassFIGI\":null,\"securityType2\":\"Warrant\",\"securityDescription\":\"SQFTW\"}]},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"}]",
-  "schemaVersion": 1,
-  "sha256": "617ea399fce073bac04035c9e517b5bf38a85ac85aa636bf090d4a35cd6f6564"
-}

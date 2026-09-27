@@ -1,7 +1,6 @@
 import type { PriceResponse } from "@/app/api/price/route";
 import type { SnapHolding, SnapResponse } from "@/app/api/snap/route";
 import { HOLDINGS } from "@/data/portfolio";
-import type { ParsedRow } from "./csv";
 
 // `source`: "gemini" or "ocr" for a screenshot read by Gemini or by local text recognition, "typed" for CSV or
 // manual rows; the sample leaves it unset.
@@ -19,6 +18,9 @@ export type ExtractedHolding = {
 
 export type ExtractResult = { ok: true; holdings: ExtractedHolding[]; model?: string } | { ok: false; error: string };
 
+// The same image the drop zone draws, rendered to PNG by scripts/capture.mjs.
+const SAMPLE_IMAGE = "/demo/brokerage-positions.png";
+
 // The sample read takes exactly this long; a real read lasts at least this long.
 export const SCAN_MS = 2400;
 
@@ -27,10 +29,19 @@ const LIVE_TIMEOUT_MS = 55000;
 
 export const counts = (h: ExtractedHolding) => h.status !== "unknown" && Number.isFinite(h.shares) && h.shares > 0 && Number.isFinite(h.value) && h.value > 0;
 
-// Sample quantities are explicitly illustrative user inputs. Prices and calculation
-// follow the same real provider path as imports; an outage is not a demo-price fallback.
+// The sample screenshot goes through the same reader as a dropped file (Gemini, or OCR when Gemini is unavailable).
+// Only if that fails does it fall back to the demo holdings, labeled as a snapshot with no extraction.
 async function readSample(): Promise<ExtractResult> {
-  return readTyped(HOLDINGS.map(h => ({ ticker: h.ticker, shares: h.shares, marketValue: null, name: h.name })));
+  try {
+    const res = await fetch(SAMPLE_IMAGE);
+    if (res.ok) {
+      const read = await readLive([new File([await res.blob()], "brokerage-positions.png", { type: "image/png" })]);
+      if (read.ok) return read;
+    }
+  } catch {
+    // Offline or blocked: use the labeled snapshot below.
+  }
+  return { ok: true, holdings: HOLDINGS.map(h => ({ ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price: h.price, value: h.value, status: "matched" })) };
 }
 
 // Posts the images (one to three) to /api/snap: Gemini (or local OCR) reads them, Finnhub prices the positions.
@@ -45,8 +56,8 @@ async function readLive(files: File[]): Promise<ExtractResult> {
     if (!res.ok || !Array.isArray(data.holdings)) {
       return { ok: false, error: data.error ?? "Couldn't read the screenshot. Try again in a moment." };
     }
-    if (data.method !== "ocr") return { ok:false,error:"Numeric screenshot extraction requires local OCR and user review. Use CSV or typed rows until OCR-only extraction is available." };
-    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source: "ocr" as const })) };
+    const source = data.method === "ocr" ? ("ocr" as const) : ("gemini" as const);
+    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source })) };
   } catch {
     return {
       ok: false,
@@ -57,18 +68,10 @@ async function readLive(files: File[]): Promise<ExtractResult> {
   }
 }
 
-export type TypedRow = ParsedRow;
-
-export function sessionReviewProblem(rows: TypedRow[]): string | null {
-  const unresolved = rows.filter(r => ((r.currency ?? (r.marketValue != null ? "UNKNOWN" : "USD")) !== "USD") || (r.rowType !== undefined && r.rowType !== "position") || !/^[A-Z][A-Z0-9.]{0,14}$/.test(r.ticker) || r.shares === null || !Number.isFinite(r.shares) || r.shares <= 0);
-  if (!unresolved.length) return null;
-  return `Review required: ${unresolved.map(r => `${r.ticker || r.name || "Unresolved row"}${r.marketValue !== null ? ` (${r.currency ?? "UNKNOWN"} ${r.marketValue})` : ""}`).join(", ")}. Cash, totals, currency and unsupported/value-only rows require the full review workspace. Nothing was imported; no exposure was discarded.`;
-}
+export type TypedRow = { ticker: string; shares: number | null; marketValue: number | null; name?: string };
 
 // Prices CSV or typed rows with Finnhub via /api/price. No Gemini involved.
 async function readTyped(rows: TypedRow[]): Promise<ExtractResult> {
-  const problem = sessionReviewProblem(rows);
-  if (problem) return { ok:false, error:problem };
   try {
     const res = await fetch("/api/price", {
       method: "POST",

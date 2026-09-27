@@ -3,7 +3,6 @@
 import type { Snapshot } from "@/lib/imports/types";
 import { mergeInputs } from "@/lib/imports/types";
 import { formatUSD } from "@/lib/format";
-import { positionValue } from "@/lib/xray/valuation";
 
 export function SnapshotHistory({ snapshots, busy, onOpen, onRefresh }: {
   snapshots: Snapshot[];
@@ -38,8 +37,8 @@ export function SnapshotHistory({ snapshots, busy, onOpen, onRefresh }: {
             <thead><tr><th className="text-left">Holding</th><th>Current value</th><th>Previous value</th><th>Change</th></tr></thead>
             <tbody>{mergeInputs(snapshot.results).map(p => {
               const old = previousPositions.get(p.ticker);
-              const value = positionValue(p);
-              const before = old ? positionValue(old) : null;
+              const value = p.shares * p.price;
+              const before = old ? old.shares * old.price : null;
               return <tr key={p.ticker} className="border-t border-border"><td className="py-2">{p.ticker}</td><td className="text-center">{formatUSD(value)}</td><td className="text-center">{before === null ? "—" : formatUSD(before)}</td><td className="text-center">{before === null ? "—" : formatUSD(value - before)}</td></tr>;
             })}</tbody>
           </table></div>
@@ -47,7 +46,7 @@ export function SnapshotHistory({ snapshots, busy, onOpen, onRefresh }: {
         <details>
           <summary className="cursor-pointer">Sources and timestamps</summary>
           {snapshot.results.map((result, i) => <p key={i} className="py-1 text-sm">
-            {snapshot.rows[i]?.ticker || snapshot.rows[i]?.name}: {result.valuation ? `${result.valuation.source} · effective ${result.valuation.asOf} · retrieved/confirmed ${result.valuation.retrievedAt}` : result.input ? `Reviewed position value · effective ${snapshot.rows[i]?.valuationDate || "not supplied"}${result.input.provenance?.kind === "retrieved" ? ` · confirmed ${result.input.provenance.retrievedAt}` : ""}` : "Explicitly excluded during review"}
+            {snapshot.rows[i]?.ticker || snapshot.rows[i]?.name}: {result.valuation ? `${result.valuation.source} · effective ${result.valuation.asOf} · retrieved/confirmed ${result.valuation.retrievedAt}` : "Explicitly excluded during review"}
             {result.input?.etf && ` · constituent data as of ${result.input.etf.asOf}`}
             {result.warnings?.length ? ` · ${result.warnings.join(" ")}` : ""}
           </p>)}

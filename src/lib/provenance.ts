@@ -26,7 +26,7 @@ export type NumericProvenance = Readonly<Record<string, Provenance>>;
 export type SourcedValue<T> = { value: T; provenance: Provenance };
 export type DataEnvelope<T> = { data: T; provenance: NumericProvenance };
 
-const PUBLIC_PARAMS = new Set(["symbol", "symbols", "ticker", "tickers", "function", "id", "s", "i", "cik", "accession", "form", "metric", "from", "to", "start_date", "end_date", "date", "series_id"]);
+const PUBLIC_PARAMS = new Set(["symbol", "symbols", "ticker", "tickers", "function", "id", "s", "i", "cik", "accession", "form", "metric", "from", "to", "start_date", "end_date", "date", "series_id", "filters", "fields", "sort_by", "sort_order", "limit", "format", "query", "mode", "maxrecords", "timespan"]);
 function fail(message: string): never { throw new Error(`Invalid provenance: ${message}`); }
 const text = (value: unknown): value is string => typeof value === "string" && value.length <= 8192 && value.trim().length > 0;
 

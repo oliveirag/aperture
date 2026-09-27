@@ -19,7 +19,7 @@ const HOSTS: Partial<Record<Provider, readonly string[]>> = {
   "sec-edgar": ["www.sec.gov", "data.sec.gov", "efts.sec.gov"],
   "sec-xbrl": ["data.sec.gov"], "sec-nport": ["www.sec.gov", "data.sec.gov"],
   finnhub: ["finnhub.io"], "alpha-vantage": ["www.alphavantage.co"],
-  fred: ["fred.stlouisfed.org", "api.stlouisfed.org"], fdic: ["banks.data.fdic.gov"],
+  fred: ["fred.stlouisfed.org", "api.stlouisfed.org"], fdic: ["banks.data.fdic.gov", "api.fdic.gov"],
   stooq: ["stooq.com"], gdelt: ["api.gdeltproject.org"], openfigi: ["api.openfigi.com"],
   eia: ["www.eia.gov"], usitc: ["www.usitc.gov"],
   "issuer-file": ["www.ishares.com", "www.ssga.com", "www.invesco.com", "investor.vanguard.com", "fund-docs.vanguard.com", "www.schwabassetmanagement.com", "ark-funds.com"],

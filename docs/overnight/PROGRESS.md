@@ -110,3 +110,14 @@
 - D7eab021 corrected firstadversarialfindings; independent361cb858 re-executedmath/HTTP/nullableconsumers and confirmedgoldenHC3,257/11/298quarterdenominators, nonnullXLREunit equivalence and honestextrapolationwarnings. Foundadditionalnegation; securitya6c8fb62 foundclientprovenancespoof and inheriteddriver lookup. Followup896a614 fixes allthree with RED→GREEN tests and no repricing/providercalls. Final narrowreviews/integration pending.
 - Corrected parentreview path typo (commit was accidentallyconcatenated to directory). ActualH reviews completed via explicitabsolute reads: Reactb319c4e0/a11y01f23307/TS94074eae/security6e7d2e83. Securitypasses; actualUI fixes still needed for IC announcements, decorativemotion/mainlandmark, provenancecontainers and performanceprop/deriveddelta wiring. Neverinherit unrelatedouterevidence as a shortcut.
 - Mission re-read in full; all14DoD itemsremainunchecked pendingfullintegration/evidence. No DONE, push, PR, deployment orremoteDB/KVwrite. Next: checkpoint thesefixes, updateH againstmain, begin APIproducer/provenance integration andfinishD/H.
+
+## Checkpoint — FDIC endpoint resolution + handoff PR preparation
+
+- FDIC: old `banks.data.fdic.gov/api/financials` endpoint was wrong; official current base is `https://api.fdic.gov/banks/` (per API101 docs). Keyless.
+- Captured real Zions CERT2270 fixtures: latest financials (11:01:47Z), stable Q2 20260630 report (11:05:53Z), institution identity (11:05:52Z). Live re-check passed 11:11:47Z, all identity fields matched.
+- Broad secured-loan ratio: (3222840 + 3561743 + 16899417) / 62557386 = 23684000/62557386 = 0.3785963818884632. Explicitly NOT regulatory CRE concentration, loss rate, or stock beta. D production adapter still unwired.
+- `provenance.ts` PUBLIC_PARAMS extended for reproducible FDIC/GDELT queries (filters/fields/sort/limit/format/query/mode/maxrecords/timespan); api_key/token still stripped (tested in check-provenance-contract).
+- Stooq: still connection timeouts (no body captured). GDELT: HTTP 429 again at 10:54:25Z. Both remain honestly blocked.
+- Release suite: all 36 checks + typegen + tsc + lint + webpack build PASS.
+- Quota exhausted for background subagents this session; remaining work is serial.
+- Next: draft PR to main for handoff; ws/d, ws/h, ws/i-api integration and remaining DoD items continue in the handoff session.

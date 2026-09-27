@@ -18,7 +18,7 @@ STATE.md is authoritative for branch/agent status. No DONE.md or full-product co
 
 ## Open: GDELT availability and news acceptance
 
-- Initial DOC2 requests returned HTTP429. Parent retry after substantial backoff failed transport. No successful macro fixture is present.
+- Initial DOC2 requests returned HTTP429. Parent retry after substantial backoff failed transport; another bounded 24h/10article request at10:54:25.931Z again returned429. No successful macro fixture is present.
 - E's full check exits1; `--available-fixtures` is explicitly only a partial check, not workstream acceptance.
 - SEC/Finnhub news and durable webhook implementation have separate passing tests. Do not invent a DOC2 response or silently replace a publisher's publication date with GDELT observation time.
 
@@ -34,6 +34,7 @@ STATE.md is authoritative for branch/agent status. No DONE.md or full-product co
 
 - Value-only/cash/unsupported holding metadata must survive every store, API request and cache identity. F follow-ups and H integration are in progress; passing pure math is not proof the browser flow is complete.
 - D's measured engine has real regression and episode diagnostics, but sector-constituent pools and B/FDIC explanation channels need integration. Monthly IR/quarterly CRE are not 104 independent weekly observations. Physical capex/chip-supply magnitudes must not be equated silently to equity-return proxies.
+- FDIC connectivity is resolved via the official current `https://api.fdic.gov/banks/` base. Real Zions CERT2270 June30 financials and institution identity captured11:01/11:05Z, independently live-rechecked11:11:47Z. Source ratio23684000/62557386=0.3785963818884632, explicitly broad secured loans, not regulatory CRE/capital or equity sensitivity. D production adapter still needs the newhost/actualrecords; other fundamental channels remain pending.
 - Current-vintage episode diagnostics must remain labeled; they are not proof of vintage-correct predictive performance. Display the actual errors, including large misses.
 - Numeric provenance validators enforce structure, not truth. Full API coverage, every displayed financial figure, final exact rendered quote checks, the 50-figure independent trace and full Playwright matrix are still required.
 - H must rerun after data merges. No blanket browser/axe/link-check success has been claimed.

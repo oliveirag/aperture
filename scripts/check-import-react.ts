@@ -67,6 +67,7 @@ async function main() {
     let holdCreate=false,holdConfirm=false;
     let pendingConfirm:(()=>Promise<void>)|null=null;
     let creates=0,confirms=0;
+    let failHistory=false,historySeries=false;
     const requests:Record<string,unknown[][]>={aperture:[],shock:[],performance:[],ic:[]};
     await page.route("**/api/**",async (route: {request:()=>{url:()=>string;method:()=>string;postDataJSON:()=>Record<string,unknown>};fulfill:(options:unknown)=>Promise<void>})=>{
       const req=route.request(),url=new URL(req.url());
@@ -91,7 +92,7 @@ async function main() {
         const data=req.postDataJSON();requests[kind].push(data.holdings as unknown[]);
         if(kind==="aperture")return reply(computeXray(data.holdings as typeof holdings));
         if(kind==="shock")return reply({total:650,colors:{},values:{},scenarios:[]});
-        if(kind==="performance")return reply({series:[],holdings:[],excluded:[],coverage:0});
+        if(kind==="performance")return failHistory ? route.fulfill({status:503,json:{error:{code:"PROVIDER_UNAVAILABLE",message:"History unavailable in local test"}}}) : reply(historySeries ? {series:[{date:"2024-01-05",value:100},{date:"2024-01-12",value:111}],holdings:[{ticker:"AAPL",returns:{}}],excluded:[],coverage:1} : {series:[],holdings:[],excluded:[],coverage:0});
         return route.fulfill({contentType:"application/x-ndjson",body:JSON.stringify({type:"error",error:"End of local transport test"})+"\n"});
       }
       throw new Error(`Unexpected local request ${url.pathname}`);
@@ -165,6 +166,18 @@ async function main() {
     await page.evaluate("window.test.set([]);window.test.mount('probe')");
     await page.getByText("No positions are available, so there is no price history to chart.").waitFor();
     assert.ok(!(await page.locator("body").innerText()).includes("Loading a year"));
+    failHistory=true;
+    const historyBefore=requests.performance.length;
+    await page.evaluate(`window.test.set(${JSON.stringify(holdings)})`);
+    await page.waitForTimeout(250);
+    assert.equal(requests.performance.length,historyBefore+1,"A failed history request must settle, not automatically retry on every render");
+    await page.getByText(/History unavailable in local test/).waitFor();
+    await page.getByRole("button",{name:"Retry history"}).click();
+    await page.waitForTimeout(150);
+    assert.equal(requests.performance.length,historyBefore+2,"Explicit retry makes exactly one new request");
+    failHistory=false;historySeries=true;
+    await page.getByRole("button",{name:"Retry history"}).click();
+    await page.getByText("$111",{exact:true}).waitFor();
     assert.deepEqual(failures,[]);
     console.log("React integration OK: passive history, explicit Open, stale CSV/account/logout and refresh guards, complete hook HTTP/cache identities, IC composer payload, frozen totals, empty performance.");
   } finally {await browser.close();await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));}

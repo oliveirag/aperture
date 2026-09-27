@@ -1,6 +1,7 @@
 import { HOLDINGS } from "@/data/portfolio";
-import { geminiConfigured, generateGrounded, generateJson } from "@/lib/gemini";
+import { geminiAvailable, generateGrounded, generateJson } from "@/lib/gemini";
 import { rateLimit } from "@/lib/rate-limit";
+import { filingEvidence } from "@/lib/shock/filing-evidence";
 import { buildLiveScenario } from "@/lib/shock/live";
 import { DRIVER_IDS, DRIVERS, knownPlan, planFromProposal, REFERENCES, researchScenario, portfolioKey, type ResearchEvidence, type ResearchPlan, type ResearchResult } from "@/lib/shock/research-model";
 import { apertureInputs, modelFor, parseHoldings, MAX_POSITIONS } from "@/lib/xray/live";
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
   let evidence: ResearchEvidence[] = [];
   let evidenceMode: ResearchResult["evidenceMode"] = "reference";
   try {
-    if (geminiConfigured()) {
+    if (geminiAvailable()) {
       try {
         const research = await generateGrounded({
           tag: "scenario-research", budgetMs: 30000,
@@ -82,10 +83,14 @@ export async function POST(request: Request) {
     if (!plan) return Response.json({ error: evidenceMode === "web"
       ? "The cited sources did not establish a modelable link from this event to a supported economic driver (oil, import costs, US dollar, chip supply). State the driver and direction yourself, for example “tariffs fall 10%”. No estimate was produced."
       : "Live research is unavailable, so only an explicit driver can be modeled. Try “oil rises 20%”, “tariffs fall 10%”, “the dollar strengthens 10%” or “Taiwan chip supply drops 20%”." }, { status: 422 });
-    if (evidenceMode === "reference") {
+    // The holdings' own 10-K passages on this driver: verbatim, dated and portfolio-specific, with or without web research.
+    const filings = await filingEvidence(plan.driver, [...holdings.keys()]).catch(() => []);
+    if (evidenceMode === "web") evidence = [...evidence, ...filings];
+    else {
       const reference = REFERENCES[plan.driver];
-      if (!reference) return Response.json({ error: "This driver needs live web sources, which are unavailable right now. No estimate was produced." }, { status: 503 });
-      evidence = [reference];
+      evidence = [...(reference ? [reference] : []), ...filings];
+      if (!evidence.length) return Response.json({ error: "No web research or SEC filing passage describes this driver right now. No estimate was produced." }, { status: 503 });
+      if (filings.length) evidenceMode = "filing";
     }
     const { base, table, assumption, sensitivities } = researchScenario(plan, evidence);
     const inputs = await apertureInputs(holdings);

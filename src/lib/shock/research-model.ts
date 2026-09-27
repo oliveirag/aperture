@@ -10,7 +10,8 @@ export type ResearchEvidence = { text: string; sources: { title: string; url: st
 export type ResearchResult = {
   question: string;
   researchedAt: string;
-  evidenceMode: "web" | "reference";
+  // web: Gemini search with citations; filing: reference plus verbatim 10-K passages; reference: fixed references only.
+  evidenceMode: "web" | "filing" | "reference";
   plan: { driver: Driver; basis: PlanBasis; trigger: string; rationale?: string; magnitudeStated: boolean };
   evidence: ResearchEvidence[];
   assumption: string;

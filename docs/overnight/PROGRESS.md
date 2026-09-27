@@ -66,3 +66,14 @@
 - Main code review66f47202 approves, TS87308f81 findings addressed, securitye55c8cd6 root spot-check found no new blocker. All24checks pass under the new release command; typecheck/lint pass, production webpack build passes37pages after no-Gemini fixes.
 - G reviewer allegation of double-reserved Finnhub quota rejected with baseline evidence: it reserves both possible retries deliberately. Never remove the second reservation without moving reservations to each actual attempt. G route-guard differences are branch-base differences; merge retains main fixes.
 - Six background reviewers now cover B/C/F types/security. Next merge G after remaining code review and full integration gates; no worker branch accepted solely on an implementation report.
+
+### G integrated; review-driven follow-ups
+
+- G code reviewer07dc969c confirmed two reservations correctly prepay Finnhub's possible two attempts. Parent tweaks committed48a180d; merged ws/g as376e3ea.
+- First integrated release failed429vs503: runner forced the PUBLIC local-verification flag, masking a test's deliberate production fail-closed mode. Fixed runner to clear both mode flags while still blanking all real credentials; tests select their own mock modes. No production controls changed. Code reviewb99e4723 approves this correction.
+- Full integrated gate rerun PASS: all27 check scripts, typegen, tsc, zero-warning lint, webpack build37pages. This includes real local PGlite RLS/quota/lease tests and cache-codec regression coverage.
+- F parent live/replay PASS2026-09-27T07:53:42.759Z: AAPL341.07 as-of2026-09-25, synthetic reviewed2shares+USD50 totals732.14. Real fixture saved in F worktree; bounded-wait test tweak and fixture still need commit with F follow-up.
+- F reviews correctly flag value-only activation/store/history/performance integration gaps. F security review quoted the old CSV helper from wrong scope; current F csv.ts:4–7 already neutralizes formula prefixes, independently verified by parent. Do not apply duplicate fix.
+- B TS1c61ace8/security4656f3cf/codeb99e4723 approve current implementation; parent full gate execution remains necessary. Rare Unicode phrase offset issue is nonblocking but should be fixed in source search.
+- C reviews confirm honest empty sectors and source reconciliation; release sector-node assertion and downstream stale seed casts/source labels require actual integration, not fabricated sectors. Raw SSGA fixture redistribution terms remain unverified before publishing branches.
+- E security notes route not wired and memory-store durability limitations (known integration work). E TS843c948f inspected wrong checkout and is NOT a valid review; rerun with explicit absolute files. A security flags old ETF/import Alpha paths outside A ownership; C removes ETF Alpha, F must adopt hardened chain during integration.

@@ -17,8 +17,8 @@ No host loop-review findings supplied; independent foundation reviews handled be
 | C | general + C profile | ws/c | ../lookthru-wt/c | blocked | 7ad3f55: 18fund fixture/live pass; release sector residual assertion fails | Reviewers aff0f7c5 / c1cc9d16; sourced-sector integration |
 | D | aperture-ws-d-scenarios | not created | not created | todo | not run | Factor model after real A/B/C fixtures |
 | E | general + E profile | ws/e | ../lookthru-wt/e | blocked | 3727f68: Finnhub/SEC/webhook pass; missing GDELT fixture, live429 | Retry after backoff; no merge with failed full checks |
-| F | general + F profile | ws/f | ../lookthru-wt/f | review | a640391: property/standard checks pass; live fixture lock-blocked | Reviewers 2887bfef / 8a262039; retry live with bounded wait |
-| G | general + G profile | ws/g | ../lookthru-wt/g | review | b1e4116: offline gates pass; parent live PASS07:32:18Z | Commit parent bounded-wait test tweak, resolve reviews, merge first |
+| F | general + F profile | ws/f | ../lookthru-wt/f | review | a640391: own gates pass; parent live/replay PASS07:53:42Z; parent fixture+wait tweak uncommitted | Fix value-only store/history/performance integration before acceptance |
+| G | general + G profile | ws/g | ../lookthru-wt/g | merged | 376e3ea merge; all27 integrated checks/typegen/tsc/lint/build PASS; live PASS07:32:18Z | API helper adoption and new-provider warm registration later |
 | H | aperture-ws-h-ui-qa | not created | not created | todo | not run | Provenance UI, copy and Playwright matrix |
 | I | aperture-adversarial-verifier | not created | not created | todo | not run | Independent 50-figure trace |
 
@@ -80,4 +80,4 @@ See BLOCKERS.md. No current permission blocker.
 
 ## Next action
 
-Commit reviewed main fixes after full24-check release/typecheck/lint/build PASS. Finish G review dispositions, commit parent live-check wait tweak on ws/g and merge G; run full integrated gates. Six background reviewers currently cover B/C/F (IDs table). Start D on committed real FRED/XOM/SPY fixtures as slots free, then H after first data merges. A Stooq, E GDELT and C sector integration remain explicitly blocked; do not weaken tests to merge them.
+G merged and27-check integrated gates pass after runner-env correction. Commit checkpoint, create/start D on real FRED/XOM/SPY fixtures. Independently gate/merge B (three reviews approve). Resume F for value-only store/history/performance integration. C needs honest sourced sector/residual type integration and issuer terms review; A Stooq/E GDELT remain blocked. Re-review E TS using explicit absolute paths (previous reviewer inspected wrong checkout). Start H after B/F interface alignment. Do not weaken gates or claim DONE.

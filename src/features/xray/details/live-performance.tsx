@@ -6,15 +6,20 @@ import { create } from "zustand";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { formatPct, formatSignedPct } from "@/lib/format";
 import { useLiveHoldings } from "@/lib/market";
-import type { PerformanceResponse } from "@/lib/performance";
+import type { PerformanceHolding, PerformanceResponse } from "@/lib/performance";
+import { positionValue } from "@/lib/xray/valuation";
 import { cn } from "@/lib/utils";
 import { DetailCard } from "./card";
 import { PerformanceChart } from "./performance-chart";
 
 type Entry = { key: string; status: "loading" | "ready" | "error"; data: PerformanceResponse | null; error: string | null };
 
-// Keyed by positions (not prices) so live quote ticks don't refetch; the server caches history for a day anyway.
-const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: { ticker: string; shares: number; price: number }[]) => void }>()(
+export function performancePositions(holdings: readonly PerformanceHolding[]): PerformanceHolding[] {
+  return holdings.map(({ ticker, shares, price, kind, marketValue }) => ({ ticker, shares, price, kind, marketValue }));
+}
+
+// Keyed by the full shared valuation so refresh cannot reuse an old coverage denominator.
+const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: PerformanceHolding[]) => void }>()(
   (set, get) => ({
     entry: null,
     load: (key, holdings) => {
@@ -48,8 +53,8 @@ function Empty({ children }: { children: React.ReactNode }) {
 // Performance for an imported or practice portfolio: weekly closes at today's share counts, ending at today's value.
 export function LivePerformance() {
   const { holdings } = useLiveHoldings();
-  const positions = useMemo(() => holdings.map((h) => ({ ticker: h.ticker, shares: h.shares, price: h.price })), [holdings]);
-  const key = JSON.stringify(positions.map((p) => [p.ticker, p.shares]));
+  const positions = useMemo(() => performancePositions(holdings), [holdings]);
+  const key = JSON.stringify(positions);
   const entry = usePerformance((s) => s.entry);
   const load = usePerformance((s) => s.load);
 
@@ -81,7 +86,7 @@ export function LivePerformance() {
   const { data } = mine;
   // The last point follows live quotes as they arrive, so the chart ends at the portfolio's value right now.
   const included = new Set(data.holdings.map((h) => h.ticker));
-  const now = positions.filter((p) => included.has(p.ticker)).reduce((s, p) => s + p.shares * p.price, 0);
+  const now = positions.filter((p) => included.has(p.ticker)).reduce((s, p) => s + positionValue(p), 0);
   const series = [...data.series.slice(0, -1), { ...data.series[data.series.length - 1], value: Math.round(now) }];
   return (
     <PerformanceChart series={series}>
@@ -125,7 +130,7 @@ export function LivePerformance() {
           Assumes you held today&apos;s share counts for the whole period. Weekly closes adjusted for splits and dividends (Alpha Vantage);
           the last point is today&apos;s price.
           {data.excluded.length > 0
-            ? ` Not included (no price history): ${data.excluded.join(", ")}, ${formatPct(1 - data.coverage)} of your money.`
+            ? ` Not included (unsupported/value-only/cash or no price history): ${data.excluded.join(", ")}, ${formatPct(1 - data.coverage)} of your money.`
             : ""}
         </p>
       </div>

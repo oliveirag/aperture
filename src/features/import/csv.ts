@@ -103,7 +103,9 @@ export function parseReviewCsv(input: string): CsvResult {
     const cash = /^(?:USD|CASH|SPAXX|VMFXX|SWVXX|FDRXX|FCASH)$/.test(ticker) || /^(?:cash & cash investments|cash balance|settlement fund)$/i.test(ticker || name);
     const currencyIndex = findColumn(header, ["currency", "currencycode", "ccy"]);
     const valueText = r[findColumn(header, VALUE_HEADERS)] ?? "";
-    const currency = currencyIndex >= 0 ? (r[currencyIndex] ?? "").toUpperCase() : /€/.test(valueText) ? "EUR" : /£/.test(valueText) ? "GBP" : /¥/.test(valueText) ? "UNKNOWN" : "USD";
+    // A bare amount (or ambiguous dollar sign) is not a currency declaration.
+    // Review must explicitly confirm USD; this parser never performs FX conversion.
+    const currency = currencyIndex >= 0 ? (r[currencyIndex] ?? "").toUpperCase() : /€/.test(valueText) ? "EUR" : /£/.test(valueText) ? "GBP" : "UNKNOWN";
     rows.push({ ticker, name, shares: wrongSection ? null : parseNumber(r[findColumn(header, SHARES_HEADERS)]),
       marketValue: wrongSection ? null : parseNumber(valueText.replace(/[€£¥]/g, "")), currency,
       rowType: summary ? "total" : activity ? "unresolved" : cash ? "cash" : !wrongSection && /^[A-Z][A-Z0-9.]{0,14}$/.test(ticker) ? "position" : "unresolved",

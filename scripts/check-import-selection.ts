@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 async function main() {
+  process.env.APERTURE_CACHE_DIR = await mkdtemp(path.join(tmpdir(),"aperture-selection-"));
+  globalThis.fetch = async () => { throw new Error("Selection regression must not access the network"); };
   const values = new Map<string,string>();
   const storage = {getItem:(key:string)=>values.get(key)??null,setItem:(key:string,value:string)=>{values.set(key,value);},removeItem:(key:string)=>{values.delete(key);}};
   Object.defineProperty(globalThis,"sessionStorage",{value:storage,configurable:true});
@@ -26,6 +31,65 @@ async function main() {
   activateSnapshot(snapshot);
   usePortfolio.getState().setImported([{ticker:"MSFT",name:"Microsoft",shares:1,price:200,industry:null}],"practice");
   assert.equal(useSnapshots.getState().snapshot,null);
-  console.log("Snapshot selection checks passed: activation, refresh, demo and practice transitions.");
+  const {portfolioHoldings} = await import("../src/lib/portfolio-store");
+  const {priceHoldings} = await import("../src/lib/market");
+  const {positionValue, repricePositions} = await import("../src/lib/xray/valuation");
+  const {parseHoldings, apertureInputs, modelFor} = await import("../src/lib/xray/live");
+  const {buildPerformance} = await import("../src/lib/performance");
+  const {performancePositions} = await import("../src/features/xray/details/live-performance");
+  const {SnapshotHistory} = await import("../src/features/import/snapshot-history");
+  const React = await import("react");
+  Object.assign(globalThis,{React});
+  const {renderToStaticMarkup} = await import("react-dom/server");
+  const {withPosition, exposureValue} = await import("../src/lib/ic/fit");
+  const mixed = [input,
+    {ticker:"PRIVATE NOTE",name:"Reviewed note",shares:0,price:0,marketValue:400,kind:"opaque" as const},
+    {ticker:"USD",name:"Cash",shares:50,price:1,kind:"cash" as const},
+    {ticker:"VALUEONLY",name:"Reviewed value-only equity",shares:0,price:0,marketValue:150,kind:"stock" as const},
+  ];
+  const mixedSnapshot = {...snapshot,id:"mixed",model:computeXray(mixed),results:mixed.map(input=>({state:"ready" as const,attempts:0,input}))};
+  assert.doesNotThrow(()=>activateSnapshot(mixedSnapshot),"Reviewed unsupported/cash/value-only snapshot must open, not fail closed");
+  assert.equal(mixedSnapshot.model.total,800);
+  const html = renderToStaticMarkup(React.createElement(SnapshotHistory,{snapshots:[mixedSnapshot],busy:false,onOpen:()=>{},onRefresh:()=>{}}));
+  assert.match(html,/PRIVATE NOTE<\/td><td[^>]*>\$400/,"History row displays the real unsupported value");
+  assert.ok(!html.includes("Explicitly excluded during review"),"Valued cash/unsupported rows are not mislabeled excluded");
+  assert.deepEqual(usePortfolio.getState().imported?.map(positionValue),[200,400,50,150]);
+  const savedMixed = storage.getItem("aperture-import-snapshot")!;
+  useSnapshots.setState({snapshot:null,hydrated:false});
+  storage.setItem("aperture-import-snapshot",savedMixed);
+  await usePortfolio.persist.rehydrate();
+  await useSnapshots.persist.rehydrate();
+  assert.equal(useSnapshots.getState().snapshot?.model.total,800,"Reload retains the selected model and denominator");
+  const display = portfolioHoldings(usePortfolio.getState().imported);
+  assert.equal(display.reduce((sum,h)=>sum+h.value,0),800,"Header equals X-Ray");
+  const quotes = Object.fromEntries(mixed.map(p=>[p.ticker,{price:150,change:50,changePct:0.5,prevClose:100,time:Date.now()/1000}]));
+  const priced = priceHoldings(quotes,display);
+  assert.equal(priced.total,900,"Only the quoted stock may reprice; unsupported/cash/value-only values remain authoritative");
+  assert.equal(priced.holdings.find(p=>p.ticker==="PRIVATE NOTE")?.value,400);
+  assert.equal(priced.holdings.find(p=>p.ticker==="USD")?.value,50);
+  assert.equal(priced.holdings.find(p=>p.ticker==="VALUEONLY")?.value,150);
+  assert.deepEqual(priced.holdings.map(p=>p.shares),display.map(p=>p.shares),"Never manufacture quantities");
+  const refreshed = repricePositions(mixed,new Map([["AAPL",150],["USD",999],["PRIVATE NOTE",999],["VALUEONLY",999]]));
+  activateSnapshot({...mixedSnapshot,id:"refreshed",model:computeXray(refreshed),results:refreshed.map(input=>({state:"ready" as const,attempts:0,input}))});
+  assert.equal(portfolioHoldings(usePortfolio.getState().imported).reduce((s,p)=>s+p.value,0),900);
+  const parsed = parseHoldings(JSON.parse(JSON.stringify(usePortfolio.getState().imported)));
+  assert.equal(parsed.size,4,"Reanalysis must not drop zero-quantity or unsupported identifiers");
+  const rebuilt = await apertureInputs(parsed);
+  assert.equal((await modelFor(rebuilt))?.total,900);
+  assert.equal((await modelFor([mixed[1]]))?.total,400,"Unsupported-only X-Ray is a real valued model");
+  const cashOnly = {...mixed[2],shares:0,price:0,marketValue:50};
+  assert.equal((await modelFor(await apertureInputs(parseHoldings([cashOnly]))))?.total,50,"Value-only cash opens a consistent X-Ray");
+  assert.equal((await modelFor([{...cashOnly,marketValue:0}]))?.total,0,"A reviewed zero balance is valid, not an unavailable-price placeholder");
+  const history = [{date:"2025-01-01",close:90},{date:"2025-01-08",close:100}];
+  const payload = performancePositions(display);
+  assert.equal(payload.find(p=>p.ticker==="PRIVATE NOTE")?.marketValue,400,"Performance request retains explicit values");
+  assert.equal(payload.find(p=>p.ticker==="USD")?.kind,"cash","Performance request retains exclusions");
+  const performance = buildPerformance(payload,Object.fromEntries(mixed.map(p=>[p.ticker,history])),"2025-01-09");
+  assert.equal(performance.coverage,200/800);
+  assert.deepEqual([...performance.excluded].sort(),["PRIVATE NOTE","USD","VALUEONLY"].sort());
+  assert.equal(exposureValue(mixed,"VALUEONLY"),150,"IC uses actual value, not a fabricated share count");
+  assert.equal(computeXray(withPosition(mixed,{...mixed[3],marketValue:25})).total,825,"IC adds value-only candidate dollars");
+  assert.equal(computeXray(withPosition(mixed,{...mixed[1],marketValue:25})).total,825,"IC retains existing unsupported value");
+  console.log("Snapshot selection checks passed: mixed-value activation, session reload, explicit refresh/repricing, model/header/performance/IC conservation, demo and practice transitions.");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

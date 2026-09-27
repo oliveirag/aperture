@@ -35,6 +35,11 @@ assert.equal(rowProblem(unsupported),null);
 assert.ok(rowProblem({...unsupported,shares:-2}),"Signed/short quantities require resolution, not an invalid ready valuation");
 const reviewed = reviewedValueInput(unsupported,"2025-01-02T00:00:00.000Z");
 assert.equal(reviewed.shares,0,"No invented share count for a value-only security");
+const reviewedCash = reviewedValueInput(readRows([{ticker:"USD",name:"Cash",kind:"cash",shares:null,marketValue:50,valuationDate:"2025-01-01"}])[0],"2025-01-02T00:00:00Z");
+assert.equal(reviewedCash.shares,0,"Cash value must not be invented security units");
+assert.equal(reviewedCash.marketValue,50);
+assert.equal(positionValue(reviewedCash),50);
+assert.ok(rowProblem(readRows([{ticker:"USD",name:"Cash",kind:"cash",shares:-1,marketValue:50,valuationDate:"2025-01-01"}])[0]),"A signed cash quantity must be reviewed, not passed to a ready model");
 assert.equal(positionValue(reviewed),400);
 assertProvenance(reviewed.provenance);
 assert.equal(reviewed.provenance?.kind,"retrieved");
@@ -52,6 +57,9 @@ const combinedUnsupported=mergeInputs([{state:"ready",attempts:0,input:reviewed}
 assert.equal(positionValue(combinedUnsupported[0]),800);
 assert.equal(combinedUnsupported[0].shares,0);
 assert.equal(computeXray(mergeInputs(Array.from({length:100},()=>({state:"ready" as const,attempts:0,input:reviewed})))).total,40000,"Many accounts must not overflow provenance nesting");
+const parsedRepeated = parseHoldings(Array.from({length:50},()=>reviewed)).get(reviewed.ticker)!;
+assert.equal(parsedRepeated.marketValue,20000,"Request parser conserves repeated explicit values");
+assertProvenance(parsedRepeated.provenance);
 assert.equal(readRows([{...unsupported,reviewState:"confirmed"}])[0].reviewState,"required");
 async function checkReviewGate() {
   const pending={state:"pending" as const,attempts:0};
@@ -79,6 +87,10 @@ const activity=parseReviewCsv('Activity Date,Instrument,Trans Code,Quantity,Pric
 assert.equal(activity.rows[0].rowType,"unresolved","Robinhood activity is not a current-positions statement");
 assert.equal(activity.rows[0].marketValue,null,"Trade amount is not portfolio market value");
 assert.ok(sessionReviewProblem(activity.rows));
+const unmarked = readRows(parseReviewCsv('Symbol,Quantity,Market Value\nAAPL,2,300').rows)[0];
+assert.equal(unmarked.currency,"UNKNOWN","Unmarked export requires currency confirmation, not inferred FX/USD");
+assert.match(rowProblem({...unmarked,kind:"stock",valuationDate:"2025-01-01"}) ?? "",/currency|USD/i);
+assert.equal(rowProblem({...unmarked,kind:"stock",currency:"USD",valuationDate:"2025-01-01"}),null,"Explicit USD confirmation resolves unmarked export without changing value");
 const foreign = readRows(parseReviewCsv('Symbol,Quantity,Market Value,Currency\nSAP,2,300,EUR').rows)[0];
 assert.equal(foreign.currency, "EUR");
 assert.match(rowProblem({ ...foreign, kind: "stock", valuationDate: "2025-01-01" }) ?? "", /currency|USD/i);

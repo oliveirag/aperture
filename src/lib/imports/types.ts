@@ -41,7 +41,7 @@ export function rowProblem(row: ImportRow): string | null {
   if (row.currency !== undefined && row.currency !== "USD") return "Confirm a USD valuation and currency; foreign amounts cannot be treated as dollars.";
   if (row.kind === "unknown") return "Confirm whether this is a stock, ETF, USD cash, or unsupported security.";
   if (row.kind === "unsupported") return row.name.trim() && (row.shares === null || (Number.isFinite(row.shares) && row.shares >= 0 && row.shares <= 1e15)) && Number.isFinite(row.marketValue) && row.marketValue! > 0 && validValuationDate(row.valuationDate) ? null : "Enter a security name, nonnegative quantity (or leave it empty), and a dated USD value; unsupported exposure stays in portfolio value.";
-  if (row.kind === "cash") return Number.isFinite(row.marketValue) && row.marketValue! >= 0 && validValuationDate(row.valuationDate) ? null : "Enter the USD cash balance and its valuation date.";
+  if (row.kind === "cash") return (row.shares === null || (Number.isFinite(row.shares) && row.shares >= 0 && row.shares <= 1e15)) && Number.isFinite(row.marketValue) && row.marketValue! >= 0 && validValuationDate(row.valuationDate) ? null : "Enter the USD cash balance and its valuation date; any supplied quantity must be nonnegative.";
   if (!/^[A-Z][A-Z0-9.]{0,14}$/.test(row.ticker)) return "Confirm the security ticker.";
   if (!Number.isFinite(row.shares) || row.shares! <= 0 || row.shares! > 1e15) return "Enter a positive share quantity below 1 quadrillion.";
   if (row.marketValue !== null && (!Number.isFinite(row.marketValue) || row.marketValue <= 0)) return "Enter a positive market value or leave it empty.";

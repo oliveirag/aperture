@@ -12,7 +12,7 @@ export function reviewedValueInput(row: ImportRow, reviewedAt: string): Aperture
   const problem = rowProblem(row);
   if (problem || row.excluded || row.marketValue === null) throw new Error(problem ?? "A reviewed market value is required.");
   const provenance = reviewedSource(row, reviewedAt);
-  if (row.kind === "cash") return { ticker: "USD", name: "USD cash", kind: "cash", shares: row.marketValue, price: 1, provenance };
+  if (row.kind === "cash") return { ticker: "USD", name: "USD cash", kind: "cash", shares: row.shares ?? 0, price: 0, marketValue: row.marketValue, provenance };
   if (row.kind === "unsupported") return { ticker: row.ticker || `UNSUPPORTED:${row.name}`, name: row.name, kind: "opaque", shares: row.shares ?? 0, price: 0, marketValue: row.marketValue, provenance };
   return { ticker: row.ticker, name: row.name || row.ticker, kind: row.kind as "stock" | "etf", shares: row.shares!, price: row.marketValue / row.shares!, provenance };
 }

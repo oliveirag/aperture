@@ -4,8 +4,8 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { HOLDINGS } from "@/data/portfolio";
 import type { MarketResponse, Profile, Quote } from "@/lib/finnhub";
-import { portfolioHoldings, usePortfolio } from "@/lib/portfolio-store";
-import type { Holding } from "@/types/demo";
+import { portfolioHoldings, usePortfolio, type PortfolioHolding } from "@/lib/portfolio-store";
+import { positionValue } from "@/lib/xray/valuation";
 
 // "offline" means Finnhub could not be reached; every view falls back to the demo snapshot.
 type Status = "idle" | "loading" | "live" | "offline";
@@ -80,18 +80,18 @@ export const useMarket = create<MarketState>()((set, get) => ({
   },
 }));
 
-export interface LiveHolding extends Holding {
+export interface LiveHolding extends PortfolioHolding {
   live: boolean;
   change: number;
   changePct: number;
 }
 
 // Holdings repriced with live quotes. A holding without a quote keeps its snapshot price and no day change.
-export function priceHoldings(quotes: Record<string, Quote>, base: Holding[] = HOLDINGS) {
+export function priceHoldings(quotes: Record<string, Quote>, base: PortfolioHolding[] = HOLDINGS) {
   const holdings: LiveHolding[] = base.map((h) => {
     const q = quotes[h.ticker];
-    if (!q) return { ...h, live: false, change: 0, changePct: 0 };
-    return { ...h, price: q.price, value: h.shares * q.price, live: true, change: h.shares * q.change, changePct: q.changePct };
+    if (!q || h.kind === "cash" || h.kind === "opaque" || h.marketValue !== undefined || h.shares <= 0) return { ...h, value: positionValue(h), live: false, change: 0, changePct: 0 };
+    return { ...h, price: q.price, value: positionValue({ ...h, price: q.price }), live: true, change: h.shares * q.change, changePct: q.changePct };
   });
   const total = holdings.reduce((s, h) => s + h.value, 0);
   const dayChange = holdings.reduce((s, h) => s + h.change, 0);

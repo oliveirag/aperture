@@ -1,18 +1,10 @@
 import { admin } from "@/lib/supabase/server";
-import { getQuote, getProfile } from "./quotes";
+import { getQuote, getProfile, getVerifiedEtfProfile } from "./quotes";
 import { computeXray, type ApertureInput } from "@/lib/xray/compute";
-import { getEtfProfile } from "@/lib/etf";
 import { companyFor } from "@/lib/sec";
 import { QuotaWait } from "./provider";
 import { reviewedSource, reviewedValueInput } from "./valuation";
 import { mergeInputs, rowProblem, type ImportJob, type ImportRow, type PositionResult } from "./types";
-
-// Use the shared ETF adapter, not a second Alpha-only importer. C's adapter
-// must supply actual source provenance before holdings can be called verified.
-async function fund(ticker: string): Promise<NonNullable<ApertureInput["etf"]> | null> {
-  const profile: ApertureInput["etf"] | null = await getEtfProfile(ticker);
-  return profile?.provenance ? profile : null;
-}
 
 export async function resolvePosition(row: ImportRow, previous: PositionResult, review=false, reviewedAt?: string): Promise<PositionResult> {
   if (row.excluded) return { state:"ready",attempts:0 };
@@ -24,7 +16,7 @@ export async function resolvePosition(row: ImportRow, previous: PositionResult, 
   try {
     if (!valuation) {
       const q = await getQuote(row.ticker);
-      if (q && q.retrievedAt) valuation = {price:q.price,source:"Finnhub",asOf:new Date(q.time*1000).toISOString(),retrievedAt:q.retrievedAt,provenance:{kind:"retrieved",provider:"finnhub",endpoint:`https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(row.ticker)}`,retrievedAt:q.retrievedAt,asOf:new Date(q.time*1000).toISOString()}};
+      if (q) valuation = q;
       else if (row.marketValue && row.valuationDate) valuation = {price:row.marketValue/row.shares!,source:"User-confirmed brokerage valuation",asOf:row.valuationDate,retrievedAt:reviewedAt,provenance:reviewedSource(row,reviewedAt)};
       else return {state:"needs_input",attempts:previous.attempts,error:"No quote found. Verify the ticker or provide a dated market value."};
       return {state:"pending",attempts:previous.attempts,valuation};
@@ -32,7 +24,7 @@ export async function resolvePosition(row: ImportRow, previous: PositionResult, 
     const input: ApertureInput = {ticker:row.ticker,name:row.name || row.ticker,shares:row.shares!,price:valuation.price,kind:row.kind as "stock"|"etf",provenance:valuation.provenance ? {kind:"computed",formula:"reviewed share quantity × sourced unit price",inputs:[reviewedSource(row,reviewedAt),valuation.provenance]} : undefined};
     const warnings:string[]=[];
     if (row.kind === "etf") {
-      const holdings = await fund(row.ticker).catch(()=>null);
+      const holdings = await getVerifiedEtfProfile(row.ticker).catch(()=>null);
       if (holdings) input.etf = holdings;
       else { input.kind="opaque"; warnings.push("Verified ETF holdings unavailable; position value retained without look-through."); }
     }

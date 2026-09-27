@@ -31,4 +31,9 @@ assert.equal(publicSourceUrl("https://www.alphavantage.co/query?function=GLOBAL_
 assert.equal(publicSourceUrl("https://finnhub.io/quote?symbol=AAPL&access_token=private&other=private"), "https://finnhub.io/quote?symbol=AAPL");
 assert.throws(() => publicSourceUrl("https://user:password@finnhub.io/quote"));
 assert.throws(() => publicSourceUrl("file:///etc/passwd"));
+const fdicUrl = "https://api.fdic.gov/banks/financials?filters=CERT%3A2270&fields=CERT%2CREPDTE&sort_by=REPDTE&sort_order=DESC&limit=1&format=json";
+assert.equal(publicSourceUrl(`${fdicUrl}&api_key=private`), fdicUrl, "Preserve the actual public FDIC query while dropping credentials");
+assert.doesNotThrow(() => assertProvenance({ ...retrieved, provider: "fdic", endpoint: fdicUrl }));
+const gdeltUrl = "https://api.gdeltproject.org/api/v2/doc/doc?query=Hormuz&mode=ArtList&format=json&maxrecords=10&timespan=24h";
+assert.equal(publicSourceUrl(`${gdeltUrl}&token=private`), gdeltUrl);
 console.log("provenance contract OK: required sources, timestamps, formulas, assumptions, numeric paths and secret-free URLs");

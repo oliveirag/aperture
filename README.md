@@ -20,7 +20,7 @@ Never commit `.env.local`. Finnhub supplies quotes and company profiles; Gemini 
 - **Filing Radar:** SEC retrieval and quote verification for live comparisons. Provider errors remain visible. The demo portfolio offers a separately labeled illustrative feed with a replay button; it is not a live filing comparison. Beginner omits low-severity cards; Intermediate opens one comparison; Advanced opens all comparisons.
 - **IC Room:** investment committee research with source facts, bull/bear arguments and portfolio fit. New runs use live collection and never substitute an AMD memo. Only **Replay labeled AMD example** starts the illustrative replay. Citations remain available at every level; Beginner shows fewer points, Advanced adds an evidence audit.
 
-No model-based stock-prediction feature ships in this release. Advanced X-Ray can show an empirical historical range when a holding has enough weekly history; it is explicitly not a price target or forecast. Scenario coefficients are assumptions, not forecasts. Live Gemini features require available quota; a quota failure is not a successful AI research run.
+No model-based stock-prediction feature ships in this release. Advanced X-Ray can show an empirical historical range when a holding has enough weekly history; it is explicitly not a price target or forecast. Scenario coefficients are assumptions, not forecasts. Gemini is optional: when every key is out of quota, screenshot import uses local OCR, Filing Radar compares filings sentence by sentence, Shock Test cites the holdings' own 10-K passages, IC Room runs a labeled rules-based committee, and Ask answers from portfolio data. None of these fallbacks is presented as AI research. See [demo runbook](docs/DEMO.md#fallbacks).
 
 ## Verification
 

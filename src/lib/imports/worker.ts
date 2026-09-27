@@ -1,78 +1,49 @@
 import { admin } from "@/lib/supabase/server";
-import { getQuote, getProfile } from "./quotes";
+import { getQuote, getProfile, getVerifiedEtfProfile } from "./quotes";
 import { computeXray, type ApertureInput } from "@/lib/xray/compute";
-import { sectorFromGics } from "@/lib/sectors";
-import { cachedProvider, reserve, cooldown, QuotaWait } from "./provider";
+import { companyFor } from "@/lib/sec";
+import { QuotaWait } from "./provider";
+import { reviewedSource, reviewedValueInput } from "./valuation";
 import { mergeInputs, rowProblem, type ImportJob, type ImportRow, type PositionResult } from "./types";
 
-async function fund(ticker: string): Promise<NonNullable<ApertureInput["etf"]>> {
-  return cachedProvider(`verified-etf:${ticker}`,86400000, async () => {
-    if (!process.env.ALPHA_VANTAGE_API_KEY) throw new Error("ETF holdings provider is not configured.");
-    await reserve("alpha");
-    const url = new URL("https://www.alphavantage.co/query");
-    url.search = new URLSearchParams({ function: "ETF_PROFILE", symbol: ticker, apikey: process.env.ALPHA_VANTAGE_API_KEY }).toString();
-    const response = await fetch(url,{ cache:"no-store", signal:AbortSignal.timeout(8000) });
-    if (response.status === 429) await cooldown("alpha",86400);
-    if (!response.ok) throw new Error(`ETF provider HTTP ${response.status}`);
-    const raw = await response.json();
-    if (raw.Note || raw.Information) await cooldown("alpha",86400);
-    if (!Array.isArray(raw.holdings) || !raw.holdings.length) throw new Error("ETF constituent coverage is unavailable.");
-    if (!raw.last_updated || !Number.isFinite(Date.parse(raw.last_updated))) throw new Error("ETF provider did not supply a verifiable holdings date.");
-    const holdings: {ticker:string;name:string;weight:number}[] = [];
-    const exclusions: {name:string;weight:number;kind:string}[] = [];
-    for (const item of raw.holdings) {
-      const ticker = String(item.symbol ?? "").trim().toUpperCase().replace(/[/-]/g,".");
-      const name = String(item.description ?? ticker);
-      const weight = Number(item.weight);
-      if (!Number.isFinite(weight)) throw new Error("ETF contains an unresolved constituent weight.");
-      const equitySymbol=/^[A-Z][A-Z.]{0,9}$/.test(ticker);
-      // A company's name can contain "Option", "Cash", or "Trust". Never classify
-      // a valid equity symbol as a derivative from its name alone.
-      if ((!equitySymbol || ticker === "USD") && /\b(swaps?|futures?|options?|calls?|puts?|cash|treasury|bonds?)\b/i.test(name)) {
-        exclusions.push({name,weight,kind:"non-equity"});
-      } else if (equitySymbol && weight > 0) {
-        if (/\bETF\b|\bfund\b/i.test(name)) throw new Error(`Nested fund ${name} requires verified constituent data.`);
-        holdings.push({ticker,name,weight});
-      } else throw new Error(`Unresolved ETF constituent: ${name}`);
-    }
-    const accounted = [...holdings,...exclusions].reduce((sum,h)=>sum+h.weight,0);
-    if (Math.abs(accounted-1) > 0.01) throw new Error("ETF weights do not reconcile to full net assets; verified coverage is required.");
-    return { holdings, sectors: (raw.sectors ?? []).map((s:{sector:string;weight:string})=>({sector:sectorFromGics(s.sector),weight:Number(s.weight)})), asOf:raw.last_updated, exclusions, source:"verified" as const };
-  });
-}
-
-async function resolve(row: ImportRow, previous: PositionResult, review=false): Promise<PositionResult> {
+export async function resolvePosition(row: ImportRow, previous: PositionResult, review=false, reviewedAt?: string): Promise<PositionResult> {
   if (row.excluded) return { state:"ready",attempts:0 };
   const problem = rowProblem(row);
   if (problem && !review) return {state:"needs_input",attempts:0,error:problem};
-  if (review && !/^[A-Z][A-Z0-9.]{0,14}$/.test(row.ticker)) return {state:"needs_input",attempts:0,error:problem??"Confirm ticker"};
-  const now = new Date().toISOString();
-  if (row.kind === "cash") return problem ? {state:"needs_input",attempts:0,error:problem} : {state:"ready",attempts:0,input:{ticker:"USD",name:"USD cash",kind:"cash",shares:row.marketValue!,price:1},valuation:{price:1,source:"Confirmed USD balance",asOf:row.valuationDate,retrievedAt:now}};
+  if (review || !reviewedAt) return {state:"needs_input",attempts:0,error:"User review and its recorded confirmation time are required before valuation."};
+  if (row.kind === "cash" || row.kind === "unsupported") return {state:"ready",attempts:0,input:reviewedValueInput(row,reviewedAt),warnings:row.kind === "unsupported"?["Unsupported security; reviewed value retained, look-through unavailable."]:[]};
   let valuation = previous.valuation;
   try {
     if (!valuation) {
       const q = await getQuote(row.ticker);
-      if (q) valuation = {price:q.price,source:"Finnhub",asOf:new Date(q.time*1000).toISOString(),retrievedAt:q.retrievedAt??now};
-      else if (!review && row.marketValue && row.valuationDate) valuation = {price:row.marketValue/row.shares!,source:"User-confirmed brokerage valuation",asOf:row.valuationDate,retrievedAt:now};
+      if (q) valuation = q;
+      else if (row.marketValue && row.valuationDate) valuation = {price:row.marketValue/row.shares!,source:"User-confirmed brokerage valuation",asOf:row.valuationDate,retrievedAt:reviewedAt,provenance:reviewedSource(row,reviewedAt)};
       else return {state:"needs_input",attempts:previous.attempts,error:"No quote found. Verify the ticker or provide a dated market value."};
       return {state:"pending",attempts:previous.attempts,valuation};
     }
-    if (review) return {state:"pending",attempts:previous.attempts,valuation};
-    const input: ApertureInput = {ticker:row.ticker,name:row.name || row.ticker,shares:row.shares!,price:valuation.price,kind:row.kind as "stock"|"etf"};
+    const input: ApertureInput = {ticker:row.ticker,name:row.name || row.ticker,shares:row.shares!,price:valuation.price,kind:row.kind as "stock"|"etf",provenance:valuation.provenance ? {kind:"computed",formula:"reviewed share quantity × sourced unit price",inputs:[reviewedSource(row,reviewedAt),valuation.provenance]} : undefined};
     const warnings:string[]=[];
-    if (row.kind === "etf") input.etf = await fund(row.ticker);
+    if (row.kind === "etf") {
+      const holdings = await getVerifiedEtfProfile(row.ticker).catch(()=>null);
+      if (holdings) input.etf = holdings;
+      else { input.kind="opaque"; warnings.push("Verified ETF holdings unavailable; position value retained without look-through."); }
+    }
     else {
       // The reviewed security type is authoritative. Optional company metadata
       // must not hold up an otherwise valued, confirmed stock position.
       const profile = await getProfile(row.ticker).catch(()=>null);
       if(profile){input.name=profile.name;input.industry=profile.industry;}
-      else warnings.push("Company metadata unavailable; using the user-confirmed stock identity. Sector is unclassified.");
+      else {
+        const sec = await companyFor(row.ticker).catch(()=>null);
+        if (!sec) { input.kind="opaque"; warnings.push("Ticker could not be verified against Finnhub or SEC; value retained as unsupported exposure."); }
+        else warnings.push("SEC ticker verified; Finnhub sector metadata unavailable. Sector is unclassified.");
+      }
     }
     return {state:"ready",attempts:previous.attempts,valuation,input,warnings};
   } catch (error) {
     if (error instanceof QuotaWait) return {state:"pending",attempts:previous.attempts,valuation,retryAt:error.retryAt,error:error.message};
     const attempts = previous.attempts+1;
-    if(!valuation && attempts>=4 && row.marketValue && row.shares && row.valuationDate && !review) return {state:"pending",attempts:0,valuation:{price:row.marketValue/row.shares,source:"User-confirmed brokerage valuation after provider failure",asOf:row.valuationDate,retrievedAt:now}};
+    if(!valuation && attempts>=4 && row.marketValue && row.shares && row.valuationDate && !review) return {state:"pending",attempts:0,valuation:{price:row.marketValue/row.shares,source:"User-confirmed brokerage valuation after provider failure",asOf:row.valuationDate,retrievedAt:reviewedAt,provenance:reviewedSource(row,reviewedAt)}};
     return {state:attempts>=4?"blocked":"pending",attempts,valuation,error:error instanceof Error?error.message:"Provider unavailable",retryAt:new Date(Date.now()+Math.min(300000,10000*2**attempts)).toISOString()};
   }
 }
@@ -92,7 +63,7 @@ export async function processImports() {
   for(let offset=0;offset<eligible.length;offset+=4) {
     if(Date.now()>=deadline)break;
     const batch=eligible.slice(offset,offset+4);
-    const settled=await Promise.all(batch.map(i=>resolve(job.rows[i],results[i],job.status==="review")));
+    const settled=await Promise.all(batch.map(i=>resolvePosition(job.rows[i],results[i],job.status==="review",job.confirmed_at??undefined)));
     batch.forEach((i,n)=>{results[i]=settled[n];processed++;});
     const checkpoint=await db.rpc("checkpoint_import",{p_id:job.id,p_token:job.lease_token,p_results:results});
     if(checkpoint.error || !checkpoint.data)return {processed,committed:false};

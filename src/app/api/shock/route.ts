@@ -2,7 +2,7 @@ import { SCENARIOS } from "@/data/shock";
 import { buildLiveScenario, type LiveScenario } from "@/lib/shock/live";
 import { apertureInputs, applySuppliedPrices, MAX_POSITIONS, modelFor, parseHoldings, priceModeOf } from "@/lib/xray/live";
 import { rateLimit } from "@/lib/rate-limit";
-import type { Valuation } from "@/lib/xray/types";
+import type { Valuation, XrayModel } from "@/lib/xray/types";
 
 export const runtime = "nodejs";
 // A 50-position portfolio can wait on the shared Finnhub rate limit.
@@ -13,7 +13,8 @@ export type ShockResponse = {
   colors: Record<string, string>;
   // Each position's value at the prices used, so the graph draws the same dollars the totals use.
   values: Record<string, number>;
-  valuation?: Valuation;
+  valuation?: XrayModel["valuation"];
+  priceBasis?: Valuation;
   scenarios: LiveScenario[];
 };
 
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   const model = await modelFor(inputs);
   if (!model) return fail("No prices available", 502);
   const colors = Object.fromEntries(model.map.positions.map((p) => [p.ticker, p.color]));
-  const values = Object.fromEntries(inputs.filter((p) => p.price > 0).map((p) => [p.ticker, p.shares * p.price]));
-  const res: ShockResponse = { total: model.total, colors, values, valuation: model.valuation, scenarios: SCENARIOS.map((s) => buildLiveScenario(s, inputs, model.sources)) };
+  const values = Object.fromEntries(model.map.positions.map((p) => [p.ticker, p.value]));
+  const res: ShockResponse = { total: model.total, colors, values, valuation: model.valuation, priceBasis: model.priceBasis, scenarios: SCENARIOS.map((s) => buildLiveScenario(s, inputs, model.sources)) };
   return Response.json(res);
 }

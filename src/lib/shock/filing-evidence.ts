@@ -3,7 +3,9 @@
 // Every passage is copied from EDGAR text, so it needs no web search or model and cannot be a hallucinated quote.
 import { memo } from "@/lib/cache";
 import { sentencesOf } from "@/lib/radar/text-diff";
-import { companyFor, displayName, extractSection, filingText, listFilings, type Filing } from "@/lib/sec";
+import { sourceQuote } from "@/lib/radar/verify";
+import { companyFor, displayName, extractSection, filingDocument, listFilings, type Filing } from "@/lib/sec";
+import type { Provenance } from "@/lib/provenance";
 import type { Driver, ResearchEvidence } from "./research-model";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -39,14 +41,20 @@ function latestAnnual(filings: Filing[]) {
   return filings.find((f) => f.form === "10-K") ?? null;
 }
 
-type Passage = { ticker: string; company: string; filing: Filing; text: string; score: number };
+type Passage = { ticker: string; company: string; filing: Filing; text: string; score: number; provenance?: Provenance };
 
 async function passageFor(ticker: string, driver: Driver): Promise<Passage | null> {
   const company = await companyFor(ticker);
   if (!company) return null;
   const filing = latestAnnual(await listFilings(company.cik));
   if (!filing) return null;
-  const section = extractSection(await filingText(filing), filing.form);
+  const document = await filingDocument(filing);
+  const passage = passageFromText(ticker, displayName(company.name), filing, document.text, driver);
+  return passage ? { ...passage, provenance: { ...document.provenance, filing: { ...document.provenance.filing!, section: "Item 1A. Risk Factors" } } } : null;
+}
+
+export function passageFromText(ticker: string, companyName: string, filing: Filing, text: string, driver: Driver): Passage | null {
+  const section = extractSection(text, filing.form);
   if (!section.found) return null;
   let best: Passage | null = null;
   for (const s of sentencesOf(section.text)) {
@@ -55,22 +63,24 @@ async function passageFor(ticker: string, driver: Driver): Promise<Passage | nul
     const named = s.text.match(new RegExp(MECHANISM[driver].source, "gi"))?.length ?? 0;
     const effect = s.text.match(EFFECT)?.length ?? 0;
     const score = named * 3 + effect + (MECHANISM[driver].test(s.heading) ? 2 : 0) + (SPECIFIC[driver]?.test(s.text) ? 3 : 0);
-    if (!best || score > best.score) best = { ticker, company: displayName(company.name), filing, text: s.text, score };
+    const quote = sourceQuote(s.text, section.text);
+    if (quote && (!best || score > best.score)) best = { ticker, company: companyName, filing, text: quote, score };
   }
   return best;
 }
 
 // Up to four passages, from the portfolio's own companies first. Companies without a 10-K (funds, most foreign
 // issuers) are skipped. SEC failures for one company don't stop the others.
-export async function filingEvidence(driver: Driver, tickers: string[]): Promise<ResearchEvidence[]> {
+export async function filingEvidence(driver: Driver, tickers: string[]): Promise<(ResearchEvidence & { provenance?: Provenance })[]> {
   const candidates = [...new Set([...tickers, ...FALLBACK[driver]])].slice(0, MAX_COMPANIES * 3);
   const found: Passage[] = [];
   for (const ticker of candidates) {
     if (found.length >= MAX_COMPANIES) break;
-    const passage = await memo(`shock:filing:${driver}:${ticker}`, DAY, () => passageFor(ticker, driver)).catch(() => null);
+    const passage = await memo(`shock:filing:v2:${driver}:${ticker}`, DAY, () => passageFor(ticker, driver)).catch(() => null);
     if (passage && passage.score >= 5) found.push(passage);
   }
   return found.map((p) => ({
+    provenance: p.provenance,
     text: `${p.company} (${p.ticker}) in its ${p.filing.form} filed ${p.filing.filedAt}: “${p.text}”`,
     sources: [{ title: `${p.company} Form ${p.filing.form}, Item 1A. Risk Factors (filed ${p.filing.filedAt})`, url: p.filing.url }],
     filing: { issuer: p.company, form: "10-K" as const, filedAt: p.filing.filedAt, quote: p.text },

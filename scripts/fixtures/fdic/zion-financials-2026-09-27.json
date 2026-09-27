@@ -1,0 +1,8 @@
+{
+  "provider": "fdic",
+  "endpoint": "https://api.fdic.gov/banks/financials?filters=CERT%3A2270&fields=NAME%2CCERT%2CREPDTE%2CLNRECONS%2CLNREMULT%2CLNRENRES%2CLNLSGR&sort_by=REPDTE&sort_order=DESC&limit=1&format=json",
+  "retrievedAt": "2026-09-27T11:01:47.289Z",
+  "body": "{\"meta\":{\"total\":170,\"parameters\":{\"filters\":\"CERT:2270\",\"fields\":\"NAME,CERT,REPDTE,LNRECONS,LNREMULT,LNRENRES,LNLSGR\",\"limit\":\"1\"},\"index\":{\"name\":\"risview_20260819185831\",\"createTimestamp\":\"2026-08-19T18:58:33Z\"}},\"data\":[{\"data\":{\"REPDTE\":\"20260630\",\"LNREMULT\":3561743,\"LNRENRES\":16899417,\"CERT\":2270,\"LNLSGR\":62557386,\"LNRECONS\":3222840,\"NAME\":\"ZIONS BCORP N A\",\"ID\":\"2270_20260630\"},\"score\":0}],\"totals\":{\"count\":170}}",
+  "schemaVersion": 1,
+  "sha256": "850fe242ac1f0819ec0e0016e45121f1838fc59137e393009a649d719049eae8"
+}

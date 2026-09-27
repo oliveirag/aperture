@@ -1,0 +1,8 @@
+{
+  "provider": "fdic",
+  "endpoint": "https://api.fdic.gov/banks/institutions?filters=CERT%3A2270&fields=CERT%2CNAME%2CSTNAME%2CSTALP%2CADDRESS%2CZIP%2CWEBADDR%2CACTIVE&limit=1&format=json",
+  "retrievedAt": "2026-09-27T11:05:52.214Z",
+  "body": "{\"meta\":{\"total\":1,\"parameters\":{\"filters\":\"CERT:2270\",\"fields\":\"CERT,NAME,STNAME,STALP,ADDRESS,ZIP,WEBADDR,ACTIVE\",\"limit\":\"1\"},\"index\":{\"name\":\"institutions_20260925090006\",\"createTimestamp\":\"2026-09-25T11:54:04Z\"}},\"data\":[{\"data\":{\"ZIP\":\"84133\",\"ACTIVE\":1,\"ADDRESS\":\"1 S Main St\",\"WEBADDR\":\"www.zionsbancorporation.com\",\"STNAME\":\"Utah\",\"CERT\":2270,\"STALP\":\"UT\",\"NAME\":\"Zions Bancorporation, N.A.\",\"ID\":\"2270\"},\"score\":0}],\"totals\":{\"count\":1}}",
+  "schemaVersion": 1,
+  "sha256": "9f8abebb14d5770fbe941b19a20ae73cb55d5dbd01959f7394a983739c5fcba9"
+}

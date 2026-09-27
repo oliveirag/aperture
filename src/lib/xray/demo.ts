@@ -43,5 +43,5 @@ export const DEMO_XRAY: XrayModel = {
   sources: XRAY_SOURCES,
   opaque: [],
   coverage: DEMO_COVERAGE,
-  valuation: { asOf: AS_OF, source: "Dated demo snapshot" },
+  priceBasis: { asOf: AS_OF, source: "Dated demo snapshot" },
 };

@@ -63,7 +63,7 @@ export function evaluate(name: string, facts: Fact[], fit: FitRow[]): Evidence {
     else bear.push({ text: `Operating cash flow was negative (${billions(cash.s.latest)}) in the fiscal year ended ${monthYear(cash.s.end)}.`, refs: [cash.id], risk: "Cash burn" });
   }
   if (debt && cash && cash.s.latest > 0 && debt.s.value > cash.s.latest * 4) {
-    bear.push({ text: `Total debt of ${billions(debt.s.value)} is more than four years of operating cash flow.`, refs: [debt.id, cash.id], risk: "Heavy debt load" });
+    bear.push({ text: `${debt.s.measure ?? "Reported debt"} of ${billions(debt.s.value)} is more than four years of operating cash flow.`, refs: [debt.id, cash.id], risk: "Heavy debt load" });
   }
 
   if (market) {
@@ -128,8 +128,8 @@ export function evaluate(name: string, facts: Fact[], fit: FitRow[]): Evidence {
     },
     {
       text: "The balance sheet can carry the business",
-      for: cash && cash.s.latest > 0 && (!debt || debt.s.value <= cash.s.latest * 4) ? [line(`Operating cash flow covers debt${debt ? ` of ${billions(debt.s.value)}` : ""} comfortably.`, (debt ?? cash).id)] : [],
-      against: debt && cash && cash.s.latest > 0 && debt.s.value > cash.s.latest * 4 ? [line(`Debt of ${billions(debt.s.value)} exceeds four years of operating cash.`, debt.id)] : [],
+      for: debt && cash && cash.s.latest > 0 && debt.s.value <= cash.s.latest * 4 ? [line(`${debt.s.measure ?? "Reported debt"} of ${billions(debt.s.value)} is no more than four years of reported operating cash flow.`, debt.id), line(`Reported operating cash flow was ${billions(cash.s.latest)} last fiscal year.`, cash.id)] : [],
+      against: debt && cash && cash.s.latest > 0 && debt.s.value > cash.s.latest * 4 ? [line(`${debt.s.measure ?? "Reported debt"} of ${billions(debt.s.value)} exceeds four years of operating cash.`, debt.id), line(`Reported operating cash flow was ${billions(cash.s.latest)} last fiscal year.`, cash.id)] : [],
     },
     {
       text: "The position size fits your portfolio",

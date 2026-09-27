@@ -37,12 +37,19 @@ function hitsFor(p: ApertureInput, table: ScenarioTable): Hit[] {
     hits.set(channel, h);
   };
   if (p.kind === "etf" && p.etf) {
+    // ApertureInput preserves the canonical holding classification while
+    // its source descriptor is adapted for the portfolio model.
+    const etf = p.etf;
+    const sourced = !!etf.holdingsSource;
     const named = new Map<string, number>();
-    for (const h of p.etf.holdings) {
+    for (const h of etf.holdings) {
       const rule = table.entities[h.ticker];
       if (!rule) continue;
       add(rule.channel, value * h.weight, rule.ret, h.ticker, `s-${p.ticker.toLowerCase()}-holdings`);
-      named.set(rule.sector, (named.get(rule.sector) ?? 0) + h.weight);
+      // Only a constituent included in a partial sourced total can reduce it.
+      // Legacy aggregate profiles retain their existing scenario-label behavior.
+      const sector = sourced ? h.sector : rule.sector;
+      if (sector) named.set(sector, (named.get(sector) ?? 0) + h.weight);
     }
     for (const s of p.etf.sectors) {
       const rule = table.sectors[s.sector];

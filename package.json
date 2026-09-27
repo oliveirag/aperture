@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:release": "node --import tsx scripts/check-aperture-release.ts && node --import tsx scripts/check-fallbacks.ts",
+    "test:release": "node scripts/check-all.mjs",
     "test:experience": "node --import tsx scripts/check-experience.ts",
     "warm": "node --import tsx scripts/warm.ts"
   },
@@ -33,11 +33,13 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "1.55.1",
     "@tailwindcss/postcss": "^4",
     "@types/d3-force": "^3.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "esbuild": "0.28.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",

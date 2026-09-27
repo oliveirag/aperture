@@ -7,33 +7,43 @@ import { TickerMark } from "@/components/shared/ticker-mark";
 import { formatPct, formatSignedPct } from "@/lib/format";
 import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { useLiveHoldings } from "@/lib/market";
-import type { PerformanceResponse } from "@/lib/performance";
+import type { PerformanceHolding, PerformanceResponse } from "@/lib/performance";
 import { cn } from "@/lib/utils";
 import { DetailCard } from "./card";
 import { PerformanceChart } from "./performance-chart";
 
 type Entry = { key: string; status: "loading" | "ready" | "error"; data: PerformanceResponse | null; error: string | null };
 
-// Keyed by positions (not prices) so live quote ticks don't refetch; the server caches history for a day anyway.
-// A failed load is not retried automatically (the holdings array is rebuilt on every render); "Try again" retries.
-const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: { ticker: string; shares: number; price: number }[], force?: boolean) => void }>()(
+export function performancePositions(holdings: readonly PerformanceHolding[]): PerformanceHolding[] {
+  return holdings.map(({ ticker, shares, price, kind, marketValue, provenance }) => ({ ticker, shares, price, kind, marketValue, provenance }));
+}
+
+// Keyed by the full shared valuation so refresh cannot reuse an old coverage denominator.
+let requestVersion = 0;
+let pendingRequest: AbortController | null = null;
+const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: PerformanceHolding[], force?: boolean) => void }>()(
   (set, get) => ({
     entry: null,
     load: (key, holdings, force = false) => {
-      if (get().entry?.key === key && !force) return;
+      if (get().entry?.key === key && (!force || get().entry?.status === "loading")) return;
+      const version = ++requestVersion;
+      pendingRequest?.abort();
+      const controller = new AbortController();
+      pendingRequest = controller;
       set({ entry: { key, status: "loading", data: null, error: null } });
       fetch("/api/performance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ holdings }),
+        signal: controller.signal,
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
-          if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-          if (get().entry?.key === key) set({ entry: { key, status: "ready", data: data as PerformanceResponse, error: null } });
+          if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : typeof data?.error?.message === "string" ? data.error.message : `HTTP ${res.status}`);
+          if (version === requestVersion && get().entry?.key === key) set({ entry: { key, status: "ready", data: data as PerformanceResponse, error: null } });
         })
         .catch((err: unknown) => {
-          if (get().entry?.key === key) set({ entry: { key, status: "error", data: null, error: err instanceof Error ? err.message : "failed" } });
+          if (version === requestVersion && get().entry?.key === key) set({ entry: { key, status: "error", data: null, error: err instanceof Error ? err.message : "failed" } });
         });
     },
   }),
@@ -42,7 +52,7 @@ const usePerformance = create<{ entry: Entry | null; load: (key: string, holding
 function Empty({ children }: { children: React.ReactNode }) {
   return (
     <DetailCard title="Performance" className="lg:col-span-12">
-      <div className="mt-5 flex min-h-[200px] items-center text-[15px] leading-6 text-text-muted">{children}</div>
+      <div role="status" aria-live="polite" className="mt-5 flex min-h-[200px] items-center text-[15px] leading-6 text-text-muted">{children}</div>
     </DetailCard>
   );
 }
@@ -50,8 +60,8 @@ function Empty({ children }: { children: React.ReactNode }) {
 // Performance for an imported or practice portfolio: weekly closes at today's share counts, ending at today's value.
 export function LivePerformance() {
   const { holdings } = useLiveHoldings();
-  const positions = useMemo(() => holdings.map((h) => ({ ticker: h.ticker, shares: h.shares, price: h.price })), [holdings]);
-  const key = JSON.stringify(positions.map((p) => [p.ticker, p.shares]));
+  const positions = useMemo(() => performancePositions(holdings), [holdings]);
+  const key = useMemo(() => JSON.stringify(positions), [positions]);
   const entry = usePerformance((s) => s.entry);
   const load = usePerformance((s) => s.load);
 
@@ -60,6 +70,7 @@ export function LivePerformance() {
     if (positions.length && !tooMany) load(key, positions);
   }, [key, positions, load, tooMany]);
 
+  if (!positions.length) return <Empty>No positions are available, so there is no price history to chart.</Empty>;
   if (tooMany) return <Empty>{tooManyPositionsMessage(positions.length, "Performance")}</Empty>;
   const mine = entry?.key === key ? entry : null;
   if (!mine || mine.status === "loading") {
@@ -75,27 +86,22 @@ export function LivePerformance() {
   if (mine.status === "error" || !mine.data || mine.data.series.length < 2) {
     return (
       <Empty>
-        {mine.status === "error" ? (
-          <span className="flex flex-wrap items-center gap-3">
-            Price history isn&apos;t available right now ({mine.error}).
-            <button type="button" onClick={() => load(key, positions, true)} className="text-text underline underline-offset-4">
-              Try again
-            </button>
-          </span>
-        ) : (
-          "No price history for these positions yet, so there's no chart to draw."
-        )}
+        <div>
+          <p>{mine.status === "error"
+            ? `Price history isn't available right now (${mine.error}).`
+            : "No price history for these positions yet, so there's no chart to draw."}</p>
+          {mine.status === "error" && <button type="button" className="mt-3 text-accent underline underline-offset-4" onClick={() => load(key, positions, true)}>Retry history</button>}
+        </div>
       </Empty>
     );
   }
 
   const { data } = mine;
-  // The last point follows live quotes as they arrive, so the chart ends at the portfolio's value right now.
-  const included = new Set(data.holdings.map((h) => h.ticker));
-  const now = positions.filter((p) => included.has(p.ticker)).reduce((s, p) => s + p.shares * p.price, 0);
-  const series = [...data.series.slice(0, -1), { ...data.series[data.series.length - 1], value: Math.round(now) }];
+  // Keep each server observation paired with the value and source date used by the calculation.
+  const series = data.series;
   return (
     <PerformanceChart series={series}>
+      <span role="status" className="sr-only">Historical prices loaded.</span>
       <div className="mt-6 flex flex-col gap-4 border-t border-border pt-5">
         <table className="w-full text-[13px]">
           <caption className="sr-only">Returns by holding</caption>
@@ -133,10 +139,10 @@ export function LivePerformance() {
           </tbody>
         </table>
         <p className="text-[12px] leading-5 text-text-subtle">
-          Assumes you held today&apos;s share counts for the whole period. Weekly closes adjusted for splits and dividends (Alpha Vantage);
-          the last point is today&apos;s price.
+          Assumes you held today&apos;s share counts for the whole period; this is not account performance or verified total return.
+          Observation dates and values are shown as returned by the history calculation.
           {data.excluded.length > 0
-            ? ` Not included (no price history): ${data.excluded.join(", ")}, ${formatPct(1 - data.coverage)} of your money.`
+            ? ` Not included (unsupported/value-only/cash or no price history): ${data.excluded.join(", ")}, ${formatPct(1 - data.coverage)} of your money.`
             : ""}
         </p>
       </div>

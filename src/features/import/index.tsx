@@ -53,7 +53,6 @@ export function ImportFlow() {
   const [csvFile, setCsvFile] = useState<CsvFile | null>(null);
   const [manualRows, setManualRows] = useState<ManualRow[]>(() => [blankRow(), blankRow(), blankRow()]);
   const setImported = usePortfolio((s) => s.setImported);
-  const resetToDemo = usePortfolio((s) => s.resetToDemo);
   useHydratePortfolio();
   const objectUrls = useRef<string[]>([]);
   const [staged, setStaged] = useState<File[]>([]);
@@ -100,17 +99,10 @@ export function ImportFlow() {
     });
   }
 
-  // The sample is the demo portfolio; a real read becomes this session's portfolio.
+  // Confirmation never filters out an unresolved position or activates demo prices.
   function confirm() {
-    if (state.image?.kind !== "sample") {
-      setImported(
-        state.holdings
-          .filter(counts)
-          .map((h) => ({ ticker: h.ticker, name: h.name, industry: h.industry, shares: h.shares, price: h.price ?? h.value / h.shares })),
-      );
-    } else {
-      resetToDemo();
-    }
+    if (state.phase !== "extracted" || !state.holdings.length || state.holdings.some(h => !counts(h))) return;
+    setImported(state.holdings.map(h => ({ ticker:h.ticker,name:h.name,industry:h.industry,shares:h.shares,price:h.price??h.value/h.shares })),state.image?.kind==="sample"?"practice":"imported");
     router.push("/xray");
   }
 

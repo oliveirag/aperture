@@ -1,0 +1,11 @@
+{
+  "kind": "synthetic-user-input",
+  "description": "Invented brokerage positions for CSV layout checks only. These are not real account data, provider responses, quotes, or retrieved financial facts. Robinhood activity exports are tested separately because transactions are not positions.",
+  "examples": [
+    ["Fidelity", "Account Number,Symbol,Description,Quantity,Current Value\nSYNTHETIC,AAPL,Apple,2,300\nSYNTHETIC,SPAXX**,Money market,,50"],
+    ["Schwab", "Positions for synthetic account\nSymbol,Description,Quantity,Market Value\nAAPL,Apple,2,300\nCash & Cash Investments,,,50"],
+    ["Vanguard", "Account Number,Investment Name,Symbol,Shares,Total Value\nSYNTHETIC,Apple,AAPL,2,300\nSYNTHETIC,Settlement fund,VMFXX,,50"],
+    ["Robinhood", "Instrument,Name,Quantity,Market Value\nAAPL,Apple,2,300\nUSD,Cash,,50"],
+    ["IBKR", "Open Positions,Header,DataDiscriminator,Asset Category,Currency,Symbol,Quantity,Close Price,Value\nOpen Positions,Data,Summary,Stocks,USD,AAPL,2,150,300\nOpen Positions,Data,Summary,Cash,USD,USD,,,50"]
+  ]
+}

@@ -1,5 +1,8 @@
 import { formatPct } from "@/lib/format";
-import { sectorFromIndustry, type SectorLabel } from "@/lib/sectors";
+import { assertProvenance, type Provenance } from "@/lib/provenance";
+import type { EtfHolding } from "@/lib/nport/contract";
+import { positionValue, portfolioValue, valuationEvidence } from "./valuation";
+import { sectorFromIndustry, sectorFromSic, type SectorLabel } from "@/lib/sectors";
 import type { Flag, LeveledText, SectorSlice, Source } from "@/types/demo";
 import type { Connector, Coverage, MapExposure, MapPosition, Valuation, XExposure, XOverlap, XrayModel, XSource } from "./types";
 
@@ -22,25 +25,26 @@ export type ApertureInput = {
   // A stock (with its Finnhub industry), an ETF with holdings, or an ETF/unknown we can't see into.
   kind: "stock" | "etf" | "opaque" | "cash";
   industry?: string | null;
+  sic?: number | null;
+  marketValue?: number;
+  provenance?: Provenance;
+  sector?: SectorLabel;
+  sectorProvenance?: Provenance;
   // Whether `price` is a live quote or a supplied value (import-time or saved valuation).
   priced?: "quote" | "supplied";
   etf?: {
-    holdings: { ticker: string; name: string; weight: number }[];
+    holdings: EtfHolding[];
     sectors: { sector: SectorLabel; weight: number }[];
     asOf: string;
+    provenance?: Provenance;
+    holdingsSource?: { name: string; url?: string };
     exclusions?: { name: string; weight: number; kind: string }[];
-    // Where the holdings came from: the committed seed file, a live Alpha Vantage call, or the saved-import worker's
-    // reconciled (verified) record. Absent on older records.
-    source?: "seed" | "live" | "verified";
   };
 };
 
-const ETF_SOURCE: Record<NonNullable<NonNullable<ApertureInput["etf"]>["source"]>, string> = {
-  seed: "Alpha Vantage ETF_PROFILE (dated seed file)",
-  live: "Alpha Vantage ETF_PROFILE",
-  verified: "Alpha Vantage ETF_PROFILE (reconciled to net assets)",
-};
-const etfSource = (etf: NonNullable<ApertureInput["etf"]>) => (etf.source ? ETF_SOURCE[etf.source] : "Alpha Vantage ETF_PROFILE");
+// The provider that actually supplied the holdings; never a default attribution.
+const etfSource = (etf: NonNullable<ApertureInput["etf"]>) =>
+  etf.holdingsSource?.name ?? (etf.provenance?.kind === "retrieved" ? etf.provenance.provider : "Holdings source unavailable");
 
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"];
 const word = (n: number) => WORDS[n] ?? String(n);
@@ -149,7 +153,6 @@ function buildMap(positions: MapPosition[], exposures: XExposure[], total: numbe
     : shown;
 
   const named = exposures.slice(0, MAP_COMPANIES);
-  const minConnector = total * 0.0007;
   const links = new Map<string, Connector>();
   const add = (from: string, to: string, value: number, etf: boolean) => {
     const id = `${from}-${to}`;
@@ -171,12 +174,12 @@ function buildMap(positions: MapPosition[], exposures: XExposure[], total: numbe
   const restSources: XSource[] = [];
   for (const p of positions) {
     const rest = p.value - (contributed.get(p.ticker) ?? 0);
-    if (rest <= minConnector) continue;
+    if (rest <= 0) continue;
     restSources.push({ via: p.ticker, value: rest });
     add(leftId(p.ticker), REST, rest, true);
   }
 
-  const connectors = [...links.values()].filter((c) => c.value >= minConnector);
+  const connectors = [...links.values()].filter((c) => c.value > 0);
   const namedValue = named.reduce((s, e) => s + e.value, 0);
   const restValue = total - namedValue;
   const restCompanies = Math.max(0, exposures.length - named.length);
@@ -190,7 +193,7 @@ function buildMap(positions: MapPosition[], exposures: XExposure[], total: numbe
     weight: e.value / total,
     sources: e.sources,
   }));
-  if (restValue > minConnector) {
+  if (restValue > 0) {
     right.push({
       id: REST,
       name: "Everything else",
@@ -220,8 +223,22 @@ export function computeXray(
   names: Map<string, string> = new Map(),
   valuation?: Valuation,
 ): XrayModel {
-  const rows = inputs.filter((p) => p.shares > 0 && p.price > 0);
-  const total = rows.reduce((s, p) => s + p.shares * p.price, 0);
+  for (const input of inputs) {
+    for (const evidence of [input.provenance, input.sectorProvenance, input.etf?.provenance]) if (evidence !== undefined) assertProvenance(evidence);
+  }
+  const total = portfolioValue(inputs);
+  const rows = inputs.filter((p) => positionValue(p) > 0).map(p => {
+    if (!p.etf) return p;
+    const validWeights = (weights: number[]) => weights.every(w => Number.isFinite(w) && w >= 0) && weights.reduce((s, w) => s + w, 0) <= 1 + 1e-10;
+    if (!validWeights([...p.etf.holdings, ...(p.etf.exclusions ?? [])].map(h => h.weight)) || !validWeights(p.etf.sectors.map(s => s.weight))) throw new Error(`Invalid ETF weights for ${p.ticker}; exposure cannot exceed portfolio value.`);
+    const merged = new Map<string, { ticker: string; name: string; weight: number }>();
+    for (const h of p.etf.holdings) {
+      if (h.weight === 0) continue;
+      const previous = merged.get(h.ticker);
+      merged.set(h.ticker, { ...h, weight: (previous?.weight ?? 0) + h.weight });
+    }
+    return { ...p, etf: { ...p.etf, holdings: [...merged.values()] } };
+  });
 
   const exposures = new Map<string, { name: string; sources: Map<string, number> }>();
   const addExposure = (ticker: string, name: string, via: string, value: number) => {
@@ -241,7 +258,7 @@ export function computeXray(
   const coverage: Coverage[] = [];
 
   for (const p of rows) {
-    const value = p.shares * p.price;
+    const value = positionValue(p);
     const color = colorFor(p.ticker, knownColors);
     if (p.kind === "cash") {
       addSector("Other", value);
@@ -265,7 +282,8 @@ export function computeXray(
       if (sectorCovered < 1) addSector("Other", value * (1 - sectorCovered));
       positions.push({ id: p.ticker, ticker: p.ticker, category: `ETF · ${p.etf.holdings.length} holdings`, value, weight: value / total, color });
       const top = p.etf.holdings.slice(0, 5);
-      sources.push({
+      const sourceUrl = p.etf.holdingsSource?.url ?? (p.etf.provenance?.kind === "retrieved" ? p.etf.provenance.endpoint : undefined);
+      if (sourceUrl) sources.push({
         id: `s-${p.ticker.toLowerCase()}-holdings`,
         title: `${p.name} (${p.ticker}) holdings`,
         docType: "ETF holdings",
@@ -273,22 +291,25 @@ export function computeXray(
         date: p.etf.asOf,
         excerpt: `Top holdings: ${top.map((h) => `${h.name} ${formatPct(h.weight)}`).join(", ")}. ${p.etf.holdings.length} holdings.`,
         highlight: top[0] ? `${top[0].name} ${formatPct(top[0].weight)}` : undefined,
-        url: "https://www.alphavantage.co/documentation/#etf-profile",
+        url: sourceUrl,
       });
     } else {
-      addExposure(p.ticker, p.name, "Direct", value);
+      const unavailable = p.kind === "opaque" || p.kind === "etf";
+      // An unsupported security is not a disclosed underlying company.
+      if (!unavailable) addExposure(p.ticker, p.name, "Direct", value);
       coverage.push(
-        p.kind === "opaque"
+        unavailable
           ? { ticker: p.ticker, kind: "opaque", visibleShare: 0, asOf: null, source: "No published holdings found" }
           : { ticker: p.ticker, kind: "stock", visibleShare: 1, asOf: null, source: "Held directly" },
       );
-      if (p.kind === "opaque") {
+      if (unavailable) {
         opaque.push(p.ticker);
         addSector("Other", value);
       } else {
-        addSector(sectorFromIndustry(p.industry), value);
+        const industrySector = sectorFromIndustry(p.industry);
+        addSector(p.sector ?? (industrySector === "Other" ? sectorFromSic(p.sic) : industrySector), value);
       }
-      const category = p.kind === "opaque" ? "Look-through unavailable" : (p.industry ?? "");
+      const category = unavailable ? "Look-through unavailable · value retained" : (p.industry ?? "");
       positions.push({ id: p.ticker, ticker: p.ticker, category, value, weight: value / total, color });
     }
   }
@@ -310,14 +331,14 @@ export function computeXray(
   const kept = sorted.slice(0, MAX_SECTORS - 1);
   const otherValue = total - kept.reduce((s, [, v]) => s + v, 0);
   const sectorSlices: SectorSlice[] = kept.map(([sector, v]) => ({ sector, weight: v / total }));
-  if (otherValue / total > 0.0005) sectorSlices.push({ sector: "Other", weight: otherValue / total });
+  if (otherValue > 0 && total > 0) sectorSlices.push({ sector: "Other", weight: otherValue / total });
 
   // Weighted overlap between every pair of ETFs we can see into.
   const etfs = rows.filter((p) => p.kind === "etf" && p.etf);
   const overlaps: XOverlap[] = [];
   for (let i = 0; i < etfs.length; i++) {
     for (let j = i + 1; j < etfs.length; j++) {
-      const [a, b] = etfs[i].shares * etfs[i].price >= etfs[j].shares * etfs[j].price ? [etfs[i], etfs[j]] : [etfs[j], etfs[i]];
+      const [a, b] = positionValue(etfs[i]) >= positionValue(etfs[j]) ? [etfs[i], etfs[j]] : [etfs[j], etfs[i]];
       const wa = new Map(a.etf!.holdings.map((h) => [h.ticker, h.weight]));
       let overlap = 0;
       let shared = 0;
@@ -332,8 +353,8 @@ export function computeXray(
         b: b.ticker,
         overlap,
         sharedCompanies: shared,
-        aValue: a.shares * a.price,
-        bValue: b.shares * b.price,
+        aValue: positionValue(a),
+        bValue: positionValue(b),
         bCount: b.etf!.holdings.length,
       });
     }
@@ -350,13 +371,19 @@ export function computeXray(
   ];
 
   const topTen = all.slice(0, 10);
-  const etfColumns = [...etfs].sort((a, b) => b.shares * b.price - a.shares * a.price).map((p) => p.ticker);
+  const etfColumns = [...etfs].sort((a, b) => positionValue(b) - positionValue(a)).map((p) => p.ticker);
   const text = copy(total, all, flags, sectorSlices, overlaps, rows.length);
   coverage.sort((a, b) => (a.visibleShare ?? 0) - (b.visibleShare ?? 0));
 
   return {
     mode: "live",
     total,
+    valuation: {
+      currency: "USD", total,
+      positions: rows.map(p => ({ ticker: p.ticker, shares: p.shares, price: p.price, value: positionValue(p), kind: p.kind, provenance: p.provenance })),
+      provenance: rows.length && rows.every(p => p.provenance) ? valuationEvidence(rows.map(p => p.provenance!)) : undefined,
+      status: rows.every(p => p.provenance) && rows.length ? "sourced" : "source-unavailable",
+    },
     positionsCount: rows.length,
     underlyingCompanies: all.length,
     headline: text.headline,
@@ -366,11 +393,17 @@ export function computeXray(
     exposures: all,
     etfColumns,
     sectors: sectorSlices,
+    sectorSources: rows.map(p => {
+      const unavailable = p.kind === "opaque" || (p.kind === "etf" && !p.etf);
+      const evidence = unavailable ? undefined : p.kind === "cash" ? p.provenance : p.etf?.provenance ?? p.sectorProvenance;
+      const method = unavailable ? "Unsupported exposure retained in Other" : p.kind === "cash" ? "Reviewed cash retained in Other" : p.etf ? "Reported ETF sector weights; undisclosed residual retained in Other" : p.sector ? "Source-supplied sector" : sectorFromIndustry(p.industry) !== "Other" ? "Finnhub industry keyword crosswalk (not official GICS)" : p.sic ? "Conservative SEC SIC crosswalk (not official GICS)" : "Sector unavailable; retained in Other";
+      return { ticker:p.ticker, method, provenance: evidence ? {kind:"computed" as const,formula:method,inputs:[evidence]} : undefined,status: evidence ? "sourced" as const : "source-unavailable" as const };
+    }),
     overlaps,
     flags,
     sources,
     opaque,
     coverage,
-    ...(valuation ? { valuation } : {}),
+    ...(valuation ? { priceBasis: valuation } : {}),
   };
 }

@@ -1,6 +1,8 @@
 // Pure: a portfolio value series from weekly closes, assuming today's share counts throughout.
-import type { Weekly } from "@/lib/history";
+import type { HistoryResult, Weekly } from "@/lib/history";
+import type { NumericProvenance, Provenance } from "@/lib/provenance";
 import type { PerformancePoint } from "@/types/demo";
+import { portfolioValue, positionValue } from "@/lib/xray/valuation";
 
 export const RANGES = [
   { id: "1M", weeks: 4 },
@@ -9,7 +11,13 @@ export const RANGES = [
 ] as const;
 export type RangeId = (typeof RANGES)[number]["id"];
 
-export type PerformanceHolding = { ticker: string; shares: number; price: number };
+export type PerformanceHolding = { ticker: string; shares: number; price: number; marketValue?: number; kind?: string; provenance?: Provenance };
+
+// Apply before provider requests as well as in the calculation. Reviewed values
+// never imply a fabricated quantity or a historical price basis.
+export function performanceEligible(h: PerformanceHolding): boolean {
+  return h.kind !== "cash" && h.kind !== "opaque" && h.kind !== "unsupported" && h.ticker !== "USD" && h.marketValue === undefined && h.shares > 0 && h.price > 0;
+}
 export type HoldingReturn = { ticker: string; value: number; returns: Partial<Record<RangeId, number>> };
 export type PerformanceResponse = {
   series: PerformancePoint[];
@@ -18,6 +26,11 @@ export type PerformanceResponse = {
   excluded: string[];
   // Share of today's value the series covers.
   coverage: number;
+  // The HTTP boundary adds sourced metadata; the pure calculator has no provider context.
+  unmodeled?: { ticker: string; marketValue: number; portfolioWeight: number; reason: string }[];
+  historySources?: Record<string, Pick<HistoryResult, "status" | "provenance" | "stale" | "adjustment" | "crossValidation" | "warning">>;
+  provenance?: NumericProvenance;
+  methodology?: string;
 };
 
 // Close on or before a date (weekly series, oldest first).
@@ -36,10 +49,10 @@ function closeAt(w: Weekly, date: string) {
 }
 
 export function buildPerformance(holdings: PerformanceHolding[], histories: Record<string, Weekly | null>, today: string): PerformanceResponse {
-  const included = holdings.filter((h) => (histories[h.ticker]?.length ?? 0) > 1 && h.shares > 0 && h.price > 0);
+  const included = holdings.filter((h) => performanceEligible(h) && (histories[h.ticker]?.length ?? 0) > 1);
   const excluded = holdings.filter((h) => !included.includes(h)).map((h) => h.ticker);
-  const totalNow = holdings.reduce((s, h) => s + h.shares * Math.max(0, h.price), 0);
-  const nowValue = included.reduce((s, h) => s + h.shares * h.price, 0);
+  const totalNow = portfolioValue(holdings);
+  const nowValue = portfolioValue(included);
   if (included.length === 0) return { series: [], holdings: [], excluded, coverage: 0 };
 
   // Weekly dates over the last year, from the longest history, starting once every included position has a price.
@@ -49,7 +62,8 @@ export function buildPerformance(holdings: PerformanceHolding[], histories: Reco
     date,
     value: Math.round(included.reduce((s, h) => s + h.shares * (closeAt(histories[h.ticker]!, date) ?? 0), 0)),
   }));
-  // The last point is today's live value, so the chart ends where the portfolio is now.
+  // Last point is the COVERED subset of the shared valuation, not a replacement
+  // portfolio total. Missing-history and unsupported values remain in coverage's denominator.
   series.push({ date: today, value: Math.round(nowValue) });
 
   const returns = (h: PerformanceHolding) => {
@@ -64,7 +78,7 @@ export function buildPerformance(holdings: PerformanceHolding[], histories: Reco
   };
   return {
     series,
-    holdings: included.map((h) => ({ ticker: h.ticker, value: h.shares * h.price, returns: returns(h) })).sort((a, b) => b.value - a.value),
+    holdings: included.map((h) => ({ ticker: h.ticker, value: positionValue(h), returns: returns(h) })).sort((a, b) => b.value - a.value),
     excluded,
     coverage: totalNow > 0 ? nowValue / totalNow : 0,
   };

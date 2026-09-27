@@ -1,0 +1,8 @@
+{
+  "provider": "openfigi",
+  "endpoint": "https://api.openfigi.com/v3/mapping",
+  "retrievedAt": "2026-09-27T07:45:21.916Z",
+  "body": "[{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"data\":[{\"figi\":\"BBG00HTSRF79\",\"name\":\"VANGUARD R/E II INDX-INS PL\",\"ticker\":\"VRTPX\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG00HTSRF79\",\"securityType\":\"Open-End Fund\",\"marketSector\":\"Equity\",\"shareClassFIGI\":\"BBG00HTSRF88\",\"securityType2\":\"Mutual Fund\",\"securityDescription\":\"VRTPX\"}]}]",
+  "schemaVersion": 1,
+  "sha256": "1a7300b62ea40cb9ca53599a43eb67bbea1e6842d76e140d3fa8420f460e9c05"
+}

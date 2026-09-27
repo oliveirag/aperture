@@ -1,245 +1,265 @@
-// Server-side memo cache: memory first, then an optional persistent store (Upstash Redis / Vercel KV over REST) so
-// serverless cold starts don't refetch. In-flight loads are shared, and failed loads are never cached.
-// Every successful load is also kept as a "last known good" copy in memory and on local disk: when a provider later
-// fails (SEC down, Finnhub 5xx, Gemini out of quota), that copy is served instead of an error, and warmed results
-// survive a server restart. Without a KV store, the disk copy also stands in for it on cold starts.
-import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+// Server-side cache. Storage time is not provider retrieval time: evidence stays in the value.
+import { createHash, randomUUID } from "node:crypto";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import path from "node:path";
-const store = new Map<string, { expires: number; value: unknown }>();
-const inflight = new Map<string, Promise<unknown>>();
-// Keys this instance has loaded; only a key it has never seen is read back from the persistent store.
-const seen = new Set<string>();
-// The last successful value per key, kept after expiry so a failed reload can fall back to it.
-const lastGood = new Map<string, unknown>();
+import { deserializeRecord, serializeRecord, staleValue, type CacheRecord } from "./cache-codec";
+import { localVerification } from "./storage-mode";
 
-const DISK_DIR = process.env.APERTURE_CACHE_DIR ?? path.join(process.cwd(), ".next", "cache", "aperture");
-// On inside the Next server, or wherever APERTURE_CACHE_DIR is set; off in scripts so checks stay hermetic.
-// Stops trying after the first write error (read-only filesystems on serverless hosts).
-let diskOff = !process.env.NEXT_RUNTIME && !process.env.APERTURE_CACHE_DIR;
-const diskPath = (key: string) => path.join(DISK_DIR, `${createHash("sha1").update(key).digest("hex")}.json`);
-
-async function diskGet<T>(key: string): Promise<{ value: T; expires: number } | undefined> {
-  if (diskOff) return undefined;
-  try {
-    const entry = JSON.parse(await readFile(diskPath(key), "utf8")) as { key: string; expires: number; value: T };
-    return entry.key === key ? { value: entry.value, expires: entry.expires } : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function diskSet(key: string, value: unknown, expires: number) {
-  if (diskOff || value === undefined) return;
-  void (async () => {
-    try {
-      await mkdir(DISK_DIR, { recursive: true });
-      await writeFile(diskPath(key), JSON.stringify({ key, expires, value }));
-    } catch (err) {
-      diskOff = true;
-      console.error("[cache] local disk cache unavailable:", err instanceof Error ? err.message : "unknown");
-    }
-  })();
-}
-
-const KV_URL = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
-const KV_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
-const PREFIX = "lt:";
-// Upstash caps a request at 1MB; filing texts and other big values stay in memory only.
+export const CACHE_TTL = { quote: 60_000, profile: 86_400_000, filings: 86_400_000, nport: 86_400_000, fred: 86_400_000, news: 900_000 } as const;
+export type CacheMetadata = {
+  state: "fresh" | "stale";
+  layer: "load" | "memory" | "disk" | "redis" | "supabase";
+  cachedAt: string;
+  expiresAt: string;
+  servedAt: string;
+  reason?: "provider-error" | "provider-empty" | "expired";
+};
+export type CacheResult<T> = { value: T; cache: CacheMetadata };
+export type MemoOptions = {
+  persist?: boolean;
+  // Retention for Redis only, NEVER an extension of the freshness TTL.
+  persistMs?: number;
+  // A caller may reject LKG older than this (measured from original cache time).
+  maxStaleMs?: number;
+};
+type MemoryEntry = { record: CacheRecord; retryAt?: number; reason?: CacheMetadata["reason"] };
+const store = new Map<string, MemoryEntry>();
+const lastGood = new Map<string, CacheRecord>();
+const inflight = new Map<string, Promise<CacheResult<unknown>>>();
+const versions = new Map<string, number>();
+const writes = new Map<string, Promise<void>>();
+let epoch = 0;
+const PREFIX = "lt:v2:";
 const MAX_PERSIST_BYTES = 400_000;
+const MAX_DISK_BYTES = 32 * 1024 * 1024;
 
-let kvWarned = false;
-function kvFailed(err: unknown) {
-  if (kvWarned) return;
-  kvWarned = true;
-  console.error("[cache] persistent store unavailable:", err instanceof Error ? err.message : "unknown");
+export function cacheDirectory() { return process.env.APERTURE_CACHE_DIR || path.join(homedir(), ".cache", "aperture-shared"); }
+// Scripts must opt into a directory; otherwise existing fixture checks cannot pollute the real shared cache.
+const diskEnabled = () => Boolean(process.env.NEXT_RUNTIME || process.env.APERTURE_CACHE_DIR);
+const diskPath = (key: string) => path.join(cacheDirectory(), `${createHash("sha1").update(key).digest("hex")}.json`);
+const warned = new Set<string>();
+function warn(code: string) {
+  if (!warned.has(code)) { warned.add(code); console.error(`[cache] ${code}`); }
 }
-
-// Runs Redis commands over the REST API. Returns null when the store isn't configured or doesn't answer.
-export async function kv(commands: (string | number)[][]): Promise<unknown[] | null> {
-  if (!KV_URL || !KV_TOKEN) return null;
-  try {
-    const res = await fetch(`${KV_URL}/pipeline`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${KV_TOKEN}`, "Content-Type": "application/json" },
-      body: JSON.stringify(commands),
-      signal: AbortSignal.timeout(1500),
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`kv ${res.status}`);
-    return ((await res.json()) as { result: unknown }[]).map((r) => r.result);
-  } catch (err) {
-    kvFailed(err);
-    return null;
-  }
+function queue(key: string, work: () => Promise<void>) {
+  const pending = (writes.get(key) ?? Promise.resolve()).then(work).catch(() => warn("persistence-unavailable"));
+  writes.set(key, pending);
+  void pending.then(() => { if (writes.get(key) === pending) writes.delete(key); });
 }
-
-async function kvGet<T>(key: string): Promise<{ value: T; ttlMs: number } | undefined> {
-  const out = await kv([
-    ["GET", PREFIX + key],
-    ["PTTL", PREFIX + key],
-  ]);
-  const [raw, ttl] = out ?? [];
-  if (typeof raw !== "string" || typeof ttl !== "number" || ttl <= 0) return undefined;
+export async function flushCacheWrites() { while (writes.size) await Promise.all([...writes.values()]); }
+async function readDisk<T>(key: string): Promise<CacheRecord<T> | undefined> {
+  if (!diskEnabled()) return undefined;
   try {
-    return { value: JSON.parse(raw) as T, ttlMs: ttl };
-  } catch {
+    const filename = diskPath(key);
+    if ((await stat(filename)).size > MAX_DISK_BYTES) { warn("disk-entry-too-large"); return undefined; }
+    const raw = await readFile(filename, "utf8");
+    if (Buffer.byteLength(raw) > MAX_DISK_BYTES) return undefined;
+    const record = deserializeRecord<T>(raw, key);
+    if (!record) warn("disk-entry-invalid-or-legacy");
+    return record;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") warn("disk-read-unavailable");
     return undefined;
   }
 }
-
-function kvSet(key: string, value: unknown, ttlMs: number) {
-  const json = JSON.stringify(value);
-  if (json === undefined || json.length > MAX_PERSIST_BYTES) return;
-  void kv([["SET", PREFIX + key, json, "PX", Math.round(ttlMs)]]);
+async function diskGet<T>(key: string) { await writes.get(key); return readDisk<T>(key); }
+async function writeDisk(key: string, json: string) {
+  if (!diskEnabled()) return;
+  if (Buffer.byteLength(json) > MAX_DISK_BYTES) { warn("disk-entry-too-large"); return; }
+  const filename = diskPath(key);
+  const temporary = `${filename}.${process.pid}.${randomUUID()}.tmp`;
+  try {
+    await mkdir(path.dirname(filename), { recursive: true, mode: 0o700 });
+    await writeFile(temporary, json, { flag: "wx", mode: 0o600 });
+    await rename(temporary, filename);
+  } finally { await unlink(temporary).catch(() => undefined); }
 }
 
+export function kvConfigured() {
+  return !localVerification() && Boolean((process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL) && (process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN));
+}
+// All remote commands (including rate-limit writes) pass this guard at invocation time.
+export async function kv(commands: (string | number)[][]): Promise<unknown[] | null> {
+  if (!kvConfigured()) return null;
+  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+  try {
+    const res = await fetch(`${url}/pipeline`, {
+      method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(commands), signal: AbortSignal.timeout(1500), cache: "no-store", redirect: "error",
+    });
+    if (!res.ok) throw new Error("KV HTTP failure");
+    const data: unknown = await res.json();
+    if (!Array.isArray(data) || data.length !== commands.length || data.some(item => !item || typeof item !== "object" || item.error || !("result" in item))) throw new Error("KV command failure");
+    return data.map(item => item.result);
+  } catch { warn("redis-unavailable"); return null; }
+}
+async function kvGet<T>(key: string): Promise<CacheRecord<T> | undefined> {
+  const out = await kv([["GET", PREFIX + key]]);
+  return typeof out?.[0] === "string" ? deserializeRecord<T>(out[0], key) : undefined;
+}
+function persist(record: CacheRecord, opts: MemoOptions, disk = true) {
+  let json: string;
+  try { json = serializeRecord(record); } catch { warn("serialization-unavailable"); return; }
+  queue(record.key, async () => {
+    if (disk) await writeDisk(record.key, json).catch(() => warn("disk-write-unavailable"));
+    const ttl = Math.max(1, Math.round((opts.persistMs ?? record.expires - record.cachedAt) - (Date.now() - record.cachedAt)));
+    if (opts.persist && Buffer.byteLength(json) <= MAX_PERSIST_BYTES) await kv([["SET", PREFIX + record.key, json, "PX", ttl]]);
+  });
+}
+function validateTtl(ttl: number) { if (!Number.isFinite(ttl) || ttl <= 0 || !Number.isFinite(new Date(Date.now() + ttl).getTime())) throw new Error("Cache TTL must be positive and finite"); }
+function makeRecord<T>(key: string, value: T, ttl: number): CacheRecord<T> {
+  const now = Date.now();
+  return { version: 2, key, value, cachedAt: now, expires: now + ttl };
+}
+function result<T>(record: CacheRecord<T>, layer: CacheMetadata["layer"], reason?: CacheMetadata["reason"]): CacheResult<T> {
+  const stale = Boolean(reason) || record.expires <= Date.now();
+  return { value: stale ? staleValue(record.value) : record.value, cache: {
+    state: stale ? "stale" : "fresh", layer, cachedAt: new Date(record.cachedAt).toISOString(),
+    expiresAt: new Date(record.expires).toISOString(), servedAt: new Date().toISOString(),
+    ...(stale ? { reason: reason ?? "expired" } : {}),
+  } };
+}
+function remember(record: CacheRecord) {
+  store.set(record.key, { record });
+  if (record.value !== undefined && record.value !== null) lastGood.set(record.key, record);
+}
+export function inspectCache<T>(key: string): CacheResult<T> | undefined {
+  const entry = store.get(key);
+  return entry ? result(entry.record as CacheRecord<T>, "memory", entry.reason) : undefined;
+}
 export function peek<T>(key: string): T | undefined {
-  const hit = store.get(key);
-  if (!hit) return undefined;
-  if (hit.expires > Date.now()) return hit.value as T;
-  store.delete(key);
-  return undefined;
+  const entry = store.get(key);
+  return entry && (entry.retryAt ?? entry.record.expires) > Date.now() ? result(entry.record as CacheRecord<T>, "memory", entry.reason).value : undefined;
 }
-
 export function put<T>(key: string, value: T, ttlMs: number, opts: { persist?: boolean } = {}) {
-  store.set(key, { expires: Date.now() + ttlMs, value });
-  seen.add(key);
-  lastGood.set(key, value);
-  if (opts.persist) {
-    kvSet(key, value, ttlMs);
-    diskSet(key, value, Date.now() + ttlMs);
-  }
+  validateTtl(ttlMs);
+  versions.set(key, (versions.get(key) ?? 0) + 1);
+  const record = makeRecord(key, value, ttlMs);
+  remember(record);
+  if (opts.persist && value !== undefined && value !== null) persist(record, opts);
 }
-
-// Memory, then (for persisted keys) the persistent store. For values written with put(..., { persist: true }).
 export async function recall<T>(key: string): Promise<T | undefined> {
   const hit = peek<T>(key);
   if (hit !== undefined) return hit;
-  const stored = (await kvGet<T>(key)) ?? (await freshFromDisk<T>(key));
-  if (stored === undefined) return undefined;
-  store.set(key, { expires: Date.now() + stored.ttlMs, value: stored.value });
-  return stored.value;
+  const disk = await diskGet<T>(key);
+  const record = disk && disk.expires > Date.now() ? disk : await kvGet<T>(key);
+  if (!record || record.expires <= Date.now()) return undefined;
+  remember(record);
+  return record.value;
 }
 
-// The disk copy when it hasn't expired, shaped like a KV hit.
-async function freshFromDisk<T>(key: string): Promise<{ value: T; ttlMs: number } | undefined> {
-  const d = await diskGet<T>(key);
-  return d && d.expires > Date.now() ? { value: d.value, ttlMs: d.expires - Date.now() } : undefined;
+// Prefix invalidation erases all known copies; exact-key invalidation deliberately preserves LKG.
+function invalidate(key: string, keepGood: boolean) {
+  versions.set(key, (versions.get(key) ?? 0) + 1);
+  store.delete(key); inflight.delete(key);
+  const good = lastGood.get(key);
+  if (!keepGood) lastGood.delete(key);
+  else if (good) lastGood.set(key, { ...good, expires: 0 });
+  queue(key, async () => {
+    if (diskEnabled()) {
+      if (!keepGood) await unlink(diskPath(key)).catch(() => undefined);
+      else {
+        const record = good ?? await readDisk(key);
+        if (record) await writeDisk(key, serializeRecord({ ...record, expires: 0 }));
+      }
+    }
+    await kv([["DEL", PREFIX + key]]);
+  });
 }
-
-// Invalidates keys starting with `prefix` on this instance and, for keys it knows, in the persistent store too.
 export function forget(prefix: string) {
-  const keys = new Set([...store.keys(), ...seen].filter((k) => k.startsWith(prefix)));
-  for (const key of keys) {
-    store.delete(key);
-    seen.delete(key);
-    diskSet(key, null, 0);
-  }
-  if (keys.size) void kv([["DEL", ...[...keys].map((k) => PREFIX + k)]]);
+  for (const key of new Set([...store.keys(), ...lastGood.keys(), ...inflight.keys(), ...writes.keys(), ...versions.keys()])) if (key.startsWith(prefix)) invalidate(key, false);
 }
+export function forgetKeys(keys: string[]) { for (const key of keys) invalidate(key, true); }
+// Outstanding writes still drain; old in-flight loads may answer their caller but cannot resurrect cache state.
+export function coldStart() { epoch++; store.clear(); inflight.clear(); lastGood.clear(); versions.clear(); }
 
-// Invalidates exact keys here and in the persistent store, whether or not this instance has seen them.
-export function forgetKeys(keys: string[]) {
-  for (const key of keys) {
-    store.delete(key);
-    seen.delete(key);
-    // An expired disk entry is still a fallback if the reload fails, so forgetting only expires it.
-    void diskGet(key).then((d) => d && diskSet(key, d.value, 0));
-  }
-  if (keys.length) void kv([["DEL", ...keys.map((k) => PREFIX + k)]]);
-}
-
-// A fresh serverless instance: empty memory, persistent store untouched. For tests.
-export function coldStart() {
-  store.clear();
-  inflight.clear();
-  seen.clear();
-  lastGood.clear();
-}
-
-export type MemoOptions = {
-  // Also keep the value in the persistent store (JSON-serializable values only), for `persistMs` (default: ttlMs).
-  persist?: boolean;
-  persistMs?: number;
-};
-
-let storeWarned = false;
-
-// Loads through the shared Supabase limiter and cache. If that store is unreachable or its migration is not applied,
-// calls the provider directly (the provider still enforces its own rate limit) instead of failing every request.
-async function sharedLoad<T>(key: string, ttlMs: number, provider: "finnhub" | "alpha", load: () => Promise<T>): Promise<T> {
-  const { cachedProvider, reserve, cooldown, ProviderStoreError } = await import("./imports/provider");
-  const attempt: { done: boolean; value?: T; error?: unknown } = { done: false };
+async function sharedLoad<T>(key: string, ttlMs: number, provider: "finnhub" | "alpha", load: () => Promise<T>): Promise<CacheRecord<T>> {
+  const { cachedProviderRecord, reserve, cooldown, ProviderStoreError } = await import("./imports/provider");
+  let loaded: CacheRecord<T> | undefined;
   try {
-    return await cachedProvider(key, ttlMs, async () => {
+    return await cachedProviderRecord(key, ttlMs, async () => {
       // Reserve both possible Finnhub attempts up front.
       await reserve(provider, provider === "finnhub" && !key.startsWith("finnhub:quote:"));
       if (provider === "finnhub") await reserve(provider, !key.startsWith("finnhub:quote:"));
-      try {
-        const value = await load();
-        Object.assign(attempt, { done: true, value });
-        return value;
-      } catch (error) {
-        Object.assign(attempt, { done: true, error });
+      try { const value = await load(); loaded = makeRecord(key, value, ttlMs); return value; }
+      catch (error) {
         if (error instanceof Error && /429|alphavantage limit/.test(error.message)) await cooldown(provider, provider === "finnhub" ? 60 : 86400);
         throw error;
       }
     });
   } catch (error) {
-    if (!(error instanceof ProviderStoreError)) throw error;
-    if (!storeWarned) {
-      storeWarned = true;
-      console.error("[cache] shared provider store unavailable, calling providers directly:", error.message);
-    }
-    if (!attempt.done) return load();
-    if (attempt.error !== undefined) throw attempt.error;
-    return attempt.value as T;
+    // A successful fetch is usable if only saving failed. Never bypass a failed shared quota reservation.
+    if (loaded && error instanceof ProviderStoreError) return loaded;
+    throw error;
   }
 }
 
-// Returns the cached value, or runs `load` once (concurrent callers share it) and caches what it returns.
-// With `persist`, a key this instance has never loaded is first looked up in the persistent store (a cold start),
-// while an expired key on a warm instance is reloaded, so short in-memory TTLs stay fresh.
-export async function memo<T>(key: string, ttlMs: number, load: () => Promise<T>, opts: MemoOptions = {}): Promise<T> {
-  const hit = peek<T>(key);
-  if (hit !== undefined) return hit;
+export async function memoResult<T>(key: string, ttlMs: number, load: () => Promise<T>, opts: MemoOptions = {}): Promise<CacheResult<T>> {
+  validateTtl(ttlMs);
+  if (opts.persistMs !== undefined) validateTtl(opts.persistMs);
+  if (opts.maxStaleMs !== undefined && (!Number.isFinite(opts.maxStaleMs) || opts.maxStaleMs < 0)) throw new Error("Invalid maximum stale age");
+  const acceptable = (record: CacheRecord) => opts.maxStaleMs === undefined || Date.now() - record.cachedAt <= opts.maxStaleMs;
+  const hit = store.get(key);
+  if (hit && (hit.retryAt ?? hit.record.expires) > Date.now() && (!hit.reason || acceptable(hit.record))) return result(hit.record as CacheRecord<T>, "memory", hit.reason);
   const pending = inflight.get(key);
-  if (pending) return pending as Promise<T>;
-  const p = (async () => {
-    if (opts.persist && !seen.has(key)) {
-      seen.add(key);
-      const stored = (await kvGet<T>(key)) ?? (await freshFromDisk<T>(key));
-      if (stored !== undefined) {
-        store.set(key, { expires: Date.now() + Math.min(ttlMs, stored.ttlMs), value: stored.value });
-        lastGood.set(key, stored.value);
-        return stored.value;
+  if (pending) return pending as Promise<CacheResult<T>>;
+  const version = versions.get(key) ?? 0;
+  const startEpoch = epoch;
+  const current = () => startEpoch === epoch && version === (versions.get(key) ?? 0);
+  const p = (async (): Promise<CacheResult<T>> => {
+    const disk = await diskGet<T>(key);
+    let cached = disk;
+    let layer: CacheMetadata["layer"] = "disk";
+    if ((!cached || cached.expires <= Date.now()) && opts.persist) {
+      const remote = await kvGet<T>(key);
+      if (remote && (!cached || remote.cachedAt > cached.cachedAt)) { cached = remote; layer = "redis"; }
+    }
+    if (cached && cached.expires > Date.now()) {
+      if (current()) remember(cached);
+      return result(cached, layer);
+    }
+    const good = lastGood.get(key) as CacheRecord<T> | undefined;
+    const fallback = !good || (cached && cached.cachedAt > good.cachedAt) ? cached : good;
+    const useFallback = (reason: CacheMetadata["reason"]) => {
+      if (!fallback || fallback.value === null || fallback.value === undefined || !acceptable(fallback)) return undefined;
+      warn("last-known-good-served");
+      if (current()) {
+        lastGood.set(key, fallback);
+        store.set(key, { record: fallback, retryAt: Date.now() + Math.min(ttlMs, 60_000), reason });
       }
-    }
-    // Keep legacy provider modules unchanged while sharing their cache misses
-    // with durable imports.
-    const provider = key.startsWith("finnhub:") ? "finnhub" : key.startsWith("etf:") ? "alpha" : null;
-    let value: T;
+      return result(fallback, good === fallback ? "memory" : layer, reason);
+    };
+    let record: CacheRecord<T>;
+    let loadedLayer: CacheMetadata["layer"] = "load";
     try {
-      value = provider && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY
-        ? await sharedLoad(key, ttlMs, provider, load)
-        : await load();
-    } catch (err) {
-      // Serve the last value that loaded, however old, rather than fail. Only when there has never been one, throw.
-      const fallback = lastGood.has(key) ? { value: lastGood.get(key) as T } : await diskGet<T>(key);
-      if (fallback === undefined || fallback.value === null || fallback.value === undefined) throw err;
-      console.error(`[cache] ${key.slice(0, 60)}: load failed, serving last known good value:`, err instanceof Error ? err.message.slice(0, 100) : "unknown");
-      // Retry the provider after a minute instead of on every request.
-      store.set(key, { expires: Date.now() + Math.min(ttlMs, 60_000), value: fallback.value });
-      return fallback.value;
+      const provider = key.startsWith("finnhub:") ? "finnhub" : key.startsWith("etf:") ? "alpha" : null;
+      if (provider && !localVerification() && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        record = await sharedLoad(key, ttlMs, provider, load); loadedLayer = "supabase";
+      } else record = makeRecord(key, await load(), ttlMs);
+      if (record.value === null || record.value === undefined) {
+        const stale = useFallback("provider-empty");
+        if (stale) return stale;
+      }
+    } catch (error) {
+      const prefix = key.split(":", 1)[0];
+      const provider = ["sec", "finnhub", "fred", "fdic", "stooq", "gdelt", "etf", "nport"].includes(prefix) ? prefix : "unknown-provider";
+      const status = error instanceof Error ? error.message.match(/^(?:sec|finnhub) \/[^\s?]+ ([45]\d{2})$/)?.[1] : undefined;
+      warn(`${provider}:load-failed${status ? `:http-${status}` : ""}`);
+      const stale = useFallback("provider-error");
+      if (stale) return stale;
+      throw error;
     }
-    store.set(key, { expires: Date.now() + ttlMs, value });
-    seen.add(key);
-    lastGood.set(key, value);
-    if (opts.persist) kvSet(key, value, opts.persistMs ?? ttlMs);
-    diskSet(key, value, Date.now() + (opts.persist ? (opts.persistMs ?? ttlMs) : ttlMs));
-    return value;
-  })().finally(() => inflight.delete(key));
+    if (current()) {
+      remember(record);
+      if (record.value !== undefined && record.value !== null) persist(record, opts);
+    }
+    return result(record, loadedLayer);
+  })();
   inflight.set(key, p);
-  return p;
+  try { return await p; } finally { if (inflight.get(key) === p) inflight.delete(key); }
+}
+export async function memo<T>(key: string, ttlMs: number, load: () => Promise<T>, opts: MemoOptions = {}): Promise<T> {
+  return (await memoResult(key, ttlMs, load, opts)).value;
 }

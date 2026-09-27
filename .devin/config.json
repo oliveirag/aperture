@@ -1,0 +1,9 @@
+{
+  "requiredPlugins": [
+    {
+      "source": "github",
+      "repo": "affaan-m/ECC",
+      "sha": "c752aac18616e26bf146f034a86947d8f6fc207e"
+    }
+  ]
+}

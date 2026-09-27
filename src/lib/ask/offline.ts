@@ -16,6 +16,16 @@ type Context = {
   icMemos?: { ticker: string; date: string; memo: { stance: string; summary: Record<string, string>; keyRisks?: string[] } }[];
 };
 
+// A stress test Aperture already calculated, as the Ask store sends it alongside the portfolio.
+type Scenario = {
+  question: string;
+  assumption: string;
+  evidence?: { text: string }[];
+  impacts?: { ticker: string; returnFraction: number; dollar: number; path?: string }[];
+  modeledShare?: number;
+  notModeled?: string[];
+};
+
 const NOTE = "Answered directly from your portfolio data; the AI assistant is unavailable right now.";
 const pct = (w: number) => formatPct(w);
 const isDirect = (v: string) => v.toLowerCase() === "direct";
@@ -62,8 +72,31 @@ function glossaryAnswer(q: string, c: Context) {
   return lines.join("\n\n");
 }
 
+// The chain from assumption to holdings, from the calculated scenario's own numbers.
+function scenarioAnswer(sc: Scenario, c: Context) {
+  const impacts = [...(sc.impacts ?? [])].sort((a, b) => Math.abs(b.dollar) - Math.abs(a.dollar));
+  const dollars = impacts.reduce((sum, i) => sum + i.dollar, 0);
+  const total = c.portfolio?.totalValueUsd;
+  const signed = (n: number) => `${n < 0 ? "−" : "+"}${formatUSD(Math.abs(n))}`;
+  const lines = [sc.assumption];
+  if (impacts.length) {
+    lines.push(`Calculated effect: ${signed(dollars)}${total ? ` (${formatPct(dollars / total)} of your portfolio)` : ""}. Largest moves:`);
+    for (const i of impacts.slice(0, 4)) lines.push(`- ${i.ticker}: ${formatPct(i.returnFraction)} (${signed(i.dollar)})${i.path ? `, via ${i.path}` : ""}`);
+  }
+  if (sc.notModeled?.length) lines.push(`Not modeled: ${sc.notModeled.join(", ")}. Their risk is unknown, not zero.`);
+  if (sc.evidence?.length) lines.push(`Evidence: ${sc.evidence[0].text}`);
+  lines.push("The size and sensitivities are assumptions, not forecasts. Open the scenario graph to change the size.");
+  return lines.join("\n");
+}
+
 export function answerFromData(question: string, context: unknown): string {
-  const c = (context && typeof context === "object" ? context : {}) as Context;
+  const raw = (context && typeof context === "object" ? context : {}) as { portfolio?: unknown; scenario?: Scenario };
+  // Scenario questions arrive as { portfolio: <portfolio context>, scenario }.
+  if (raw.scenario) {
+    const inner = (raw.portfolio && typeof raw.portfolio === "object" ? raw.portfolio : {}) as Context;
+    return `${scenarioAnswer(raw.scenario, inner)}\n\n${NOTE}\n${DISCLAIMER}`;
+  }
+  const c = raw as Context;
   const q = question.trim();
   const total = c.portfolio?.totalValueUsd;
   const top = c.apertureTop10 ?? [];

@@ -76,6 +76,11 @@ process.env.APERTURE_CACHE_DIR = mkdtempSync(path.join(os.tmpdir(), "aperture-ch
   assert.match(answerFromData("How much nvidia do I own?", ctx), /NVIDIA \(NVDA\) is 17\.6% of your money, \$26,111: held directly 13\.3%, through VOO 2\.2%/);
   assert.match(answerFromData("What is an ETF?", ctx), /basket of many companies[\s\S]*In your portfolio: VOO/);
   assert.match(answerFromData("Tell me a joke", ctx), /Without the AI assistant I can answer/);
+  const scenario = answerFromData("What if Iran closes the Strait of Hormuz?", {
+    portfolio: ctx,
+    scenario: { question: "q", assumption: "Assume a 20% increase in oil price.", impacts: [{ ticker: "UPS", returnFraction: -0.03, dollar: -300, path: "Fuel costs" }, { ticker: "XOM", returnFraction: 0.1, dollar: 500 }], notModeled: ["KRE"], evidence: [{ text: "EIA: Hormuz is a chokepoint." }] },
+  });
+  assert.match(scenario, /Calculated effect: \+\$200 \(0\.1% of your portfolio\)[\s\S]*- XOM: 10\.0%[\s\S]*Not modeled: KRE/);
 
   // Cache: after a provider failure, the last value that loaded is served; with no history the error surfaces.
   const key = `check:lkg:${Date.now()}`;

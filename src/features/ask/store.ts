@@ -31,7 +31,8 @@ export const useAsk = create<AskState>()((set, get) => ({
     controller?.abort();
     set({ messages: [], busy: false });
   },
-  ask: async (question, level, context) => {
+  ask: async (question, level, pageContext) => {
+    let context = pageContext;
     if (get().busy || !question.trim()) return;
     const history = get()
       .messages.filter((m) => !m.error && !m.pending)
@@ -43,11 +44,32 @@ export const useAsk = create<AskState>()((set, get) => ({
     }));
     const patch = (fn: (m: AskMessage) => AskMessage) => set((s) => ({ messages: s.messages.map((m) => (m.id === answerId ? fn(m) : m)) }));
     controller = new AbortController();
+    // Scenario questions run the deterministic shock model first, then the model reasons over its output.
+    let fallback = "";
     try {
       if (isScenarioQuestion(question)) {
         const result = await runResearch(question, controller.signal);
-        patch(m => ({ ...m, pending: false, scenario: true, text: `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : result.evidenceMode === "filing" ? "Passages from the companies' own 10-K filings" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.` }));
-        return;
+        const s = result.result.scenario;
+        fallback = `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : result.evidenceMode === "filing" ? "Passages from the companies' own 10-K filings" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.`;
+        context = {
+          portfolio: context,
+          scenario: {
+            question: result.question,
+            assumption: result.assumption,
+            driver: result.plan.driver,
+            basis: result.plan.basis,
+            rationale: result.plan.rationale,
+            severityPct: s.baseSeverity,
+            magnitudeStated: result.plan.magnitudeStated,
+            evidenceMode: result.evidenceMode,
+            evidence: result.evidence,
+            sensitivities: result.sensitivities,
+            impacts: s.impacts.slice(0, 40).map((i) => ({ ticker: i.ticker, returnFraction: i.baseReturn, dollar: i.baseDollar, path: i.pathLabel })),
+            modeledShare: result.result.modeledShare,
+            notModeled: result.result.notModeled,
+          },
+        };
+        patch((m) => ({ ...m, scenario: true }));
       }
       const res = await fetch("/api/ask", {
         method: "POST",
@@ -72,8 +94,8 @@ export const useAsk = create<AskState>()((set, get) => ({
       patch((m) => ({
         ...m,
         pending: false,
-        error: !aborted,
-        text: aborted ? m.text || "Stopped." : err instanceof Error ? err.message : "Ask failed",
+        error: !aborted && !fallback,
+        text: aborted ? m.text || "Stopped." : fallback || (err instanceof Error ? err.message : "Ask failed"),
       }));
     } finally {
       controller = null;

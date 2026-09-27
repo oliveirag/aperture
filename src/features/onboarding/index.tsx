@@ -12,7 +12,6 @@ import { useExperience } from "@/lib/experience/store";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import { LevelOptions } from "./level-options";
-import { StepIndicator } from "./step-indicator";
 
 // Two questions, both for everyone: how much explanation you want, then what to look at. Nothing about goals, wealth or
 // risk tolerance is asked; the level only sets which details start open and can be changed anytime.
@@ -52,7 +51,9 @@ export function Onboarding() {
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={1} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container flex flex-1 flex-col pt-10 pb-24 lg:pt-16">
@@ -74,7 +75,7 @@ export function Onboarding() {
 
         <div className="mt-12 flex flex-col gap-6 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-[14px] text-text-muted">
-            You can switch anytime from the masthead.{" "}
+            You can switch levels anytime from the top of any page.{" "}
             <button type="button" onClick={skip} className="underline underline-offset-4 hover:text-text">
               Skip for now
             </button>{" "}
@@ -127,7 +128,9 @@ function OwnsQuestion({ onBack, onPick }: { onBack: () => void; onPick: (href: s
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={1} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container flex flex-1 flex-col pt-10 pb-24 lg:pt-16">

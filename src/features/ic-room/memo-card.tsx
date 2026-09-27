@@ -276,13 +276,13 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
                 <dd className="text-text">
                   {memo.summarySource
                     ? Object.entries(memo.summarySource)
-                        .map(([l, s]) => `${l}: ${s === "model" ? "written by the chair" : "built from cited claims"}`)
+                        .map(([l, s]) => `${l}: ${s === "model" ? "written by the chair" : s === "rules" ? "computed by fixed rules" : "built from cited claims"}`)
                         .join(" · ")
                     : "Not recorded"}
                 </dd>
               </dl>
             ) : (
-              <p className="text-[13px] text-text-muted">This is the labeled illustrative replay, not a live run, so it has no run record.</p>
+              <p className="text-[13px] text-text-muted">The run record appears once the committee finishes.</p>
             )}
             <p className="text-[12px] text-text-subtle">
               An identical run (same ticker, thesis, amount and positions) on the same day replays this record. Runs are kept for a day.

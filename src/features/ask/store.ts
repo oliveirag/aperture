@@ -85,7 +85,7 @@ export const useAsk = create<AskState>()((set, get) => ({
       if (isScenarioQuestion(question) && !opts.rephraseOf) {
         const result = await runResearch(question, mine.signal);
         const s = result.result.scenario;
-        fallback = `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.`;
+        fallback = `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : result.evidenceMode === "filing" ? "Passages from the companies' own 10-K filings" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.`;
         context = {
           portfolio: context,
           scenario: {

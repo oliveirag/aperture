@@ -41,6 +41,7 @@ export function DemoKeys() {
       if (e.code === "KeyR") {
         e.preventDefault();
         useShock.getState().reset();
+        usePortfolio.getState().resetToDemo();
         useExperience.getState().setLevel("intermediate");
         router.push("/");
       }

@@ -54,7 +54,7 @@ export function XrayDetails({ model }: { model: XrayModel }) {
             <CompareFunds model={model} />
           </DisclosureSection>
         ) : null}
-        {/* Demo: the canon weekly series. Your own portfolio: weekly closes from Alpha Vantage (Finnhub candles are premium). */}
+        {/* Weekly closes from Alpha Vantage (Finnhub candles are premium); the canon series only backs the offline snapshot. */}
         <DisclosureSection id="xray-performance" title="Performance" summary="A year of weekly values at today's share counts (not your actual returns)." fallback={sections.performance} className="lg:col-span-12">
           {model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />}
         </DisclosureSection>

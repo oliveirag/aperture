@@ -1,3 +1,4 @@
+// Hand-written example cards. Test fixtures only (scripts/check-ask.ts, check-canon.ts); the app shows live filings.
 import type { Source } from "../types/demo";
 import { weightOf } from "./portfolio";
 import { EXPOSURES, exposureTotal } from "./xray";

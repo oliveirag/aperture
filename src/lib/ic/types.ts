@@ -12,7 +12,8 @@ export interface IcMemo {
   stance: Stance;
   summary: Record<IcLevel, string>;
   // "template": the model's summary for that level failed a check and was replaced by the cited claims.
-  summarySource?: Record<IcLevel, "model" | "template">;
+  // "rules": the AI committee was unavailable and the memo was computed from the facts by fixed rules.
+  summarySource?: Record<IcLevel, "model" | "template" | "rules">;
   claims?: MemoClaim[];
   bull: MemoPoint[];
   bear: MemoPoint[];

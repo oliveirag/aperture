@@ -18,7 +18,7 @@ export function TryDemoLink({ variant = "primary", className }: { variant?: "pri
         className,
       )}
     >
-      <span className="link-underline pb-1">Try the demo</span>
+      <span className="link-underline pb-1">Get started</span>
       {variant === "primary" ? <CircleArrow /> : null}
     </Link>
   );

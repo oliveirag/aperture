@@ -93,8 +93,11 @@ function useGraphHoldings(): GraphHolding[] {
   const model = useShockData();
   const imported = usePortfolio((s) => s.imported);
   return useMemo(() => {
-    if (model.mode === "demo" || !imported) {
+    if (model.mode === "demo") {
       return HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, kind: h.type, value: h.value, color: h.color }));
+    }
+    if (!imported) {
+      return HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, kind: h.type, value: model.values?.[h.ticker] ?? h.value, color: model.colors[h.ticker] ?? h.color }));
     }
     // Values at the prices the totals use (live quotes, or the saved snapshot's), not the import-time prices.
     return imported.map((h) => ({

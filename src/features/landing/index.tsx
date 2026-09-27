@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/shared/lens-mark";
 import { NAV_ITEMS } from "@/components/shell/nav-items";
 import { SiteFooter } from "@/components/shell/site-footer";
+import { AccountMenu } from "@/features/account/account-menu";
 import { Closing } from "./closing";
 import { Hero } from "./hero";
 import { Pillars } from "./pillars";
@@ -31,9 +32,15 @@ export function Landing() {
               <li className="border-l border-border pl-9">
                 <TryDemoLink variant="nav" />
               </li>
+              <li>
+                <AccountMenu />
+              </li>
             </ul>
           </nav>
-          <TryDemoLink variant="nav" className="lg:hidden" />
+          <div className="flex items-center gap-4 lg:hidden">
+            <TryDemoLink variant="nav" />
+            <AccountMenu />
+          </div>
         </header>
         <main>
           <Hero />

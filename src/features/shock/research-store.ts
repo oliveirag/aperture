@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import { HOLDINGS } from "@/data/portfolio";
+import { useSnapshots } from "@/lib/imports/snapshot-store";
 import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { portfolioKey, type ResearchResult } from "@/lib/shock/research-model";
@@ -14,7 +15,8 @@ export async function runResearch(question: string, signal?: AbortSignal): Promi
   const key = portfolioKey(imported ?? HOLDINGS);
   const response = await fetch("/api/shock/research", {
     method: "POST", headers: { "Content-Type": "application/json" }, signal,
-    body: JSON.stringify({ question, holdings: imported, demo: !imported }),
+    // A saved snapshot keeps its own valuation, like the Shock page; otherwise research uses live quotes.
+    body: JSON.stringify({ question, holdings: imported, demo: !imported, priceMode: useSnapshots.getState().snapshot ? "supplied" : "live" }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error ?? "Scenario research failed");

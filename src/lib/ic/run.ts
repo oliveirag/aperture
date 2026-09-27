@@ -4,9 +4,11 @@ import { createHash } from "node:crypto";
 import { memo, put, recall } from "@/lib/cache";
 import { cleanName, type ApertureInput } from "@/lib/xray/compute";
 import { apertureInputs, modelFor, type PositionInput } from "@/lib/xray/live";
-import { argue, chair, testAssumptions, type Context } from "./committee";
+import { geminiAvailable } from "@/lib/gemini";
+import { argue, chair, testAssumptions, type Context, type Side } from "./committee";
 import { buildFactPack, factSteps, type Fact } from "./facts";
 import { computeFit, exposureNote, FIT_NOTE, withPosition } from "./fit";
+import { CHAIR_ONLY_NOTE, evaluate, rulesMemo, rulesSide } from "./rules";
 import type { IcEvent, RunModels } from "./types";
 
 const HOUR = 60 * 60 * 1000;
@@ -46,7 +48,8 @@ export class RunError extends Error {}
 function toSource(f: Fact) {
   const source: Partial<Fact> = { ...f };
   delete source.content;
-  return source as Omit<Fact, "content">;
+  delete source.signal;
+  return source as Omit<Fact, "content" | "signal">;
 }
 
 // Streams a run. A cached run replays its events at once, so the AMD-style instant replay works for any ticker.
@@ -98,31 +101,38 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
   });
 
   const ctx: Context = { ticker: input.ticker, name, thesis: input.thesis.trim(), amount: input.amount, facts: pack.facts, fit: fit.fit };
-  const assumptions = testAssumptions(ctx).catch((err) => {
-    console.error("[ic] assumptions failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
-    return { assumptions: [], model: undefined };
-  });
-  const bull = argue("bull", ctx);
-  const bear = argue("bear", ctx);
-  // Nothing waits on a rejected promise until its turn comes; keep them from surfacing as unhandled.
-  bull.catch(() => {});
-  bear.catch(() => {});
+  // Rules-based stand-ins, computed from the same facts. Each AI step that fails is replaced by its rules version,
+  // so a run always completes with cited points; the memo says which parts came from rules. The run record names
+  // which model (or "rules") produced each step, since models are raced.
+  const rules = evaluate(name, pack.facts, fit.fit);
+  const ai = geminiAvailable();
+  let usedRules = !ai;
+  const fallback = <T,>(label: string, p: Promise<T>, alt: () => T) =>
+    p.catch((err) => {
+      console.error(`[ic] ${label} failed, using rules:`, err instanceof Error ? err.message.slice(0, 120) : "unknown");
+      usedRules = true;
+      return alt();
+    });
+  const RULES = "rules";
+  const rulesAssumptions = () => ({ assumptions: rules.assumptions, model: RULES });
+  const rulesArgument = (side: "bull" | "bear") => (): Side => ({ ...rulesSide(side, name, rules), model: RULES });
+  const assumptions = ai ? fallback("assumptions", testAssumptions(ctx), rulesAssumptions) : Promise.resolve(rulesAssumptions());
+  const bull: Promise<Side> = ai ? fallback("bull", argue("bull", ctx), rulesArgument("bull")) : Promise.resolve(rulesArgument("bull")());
+  const bear: Promise<Side> = ai ? fallback("bear", argue("bear", ctx), rulesArgument("bear")) : Promise.resolve(rulesArgument("bear")());
 
-  try {
-    const a = await assumptions;
-    emit({ type: "assumptions", assumptions: a.assumptions });
-    const b = await bull;
-    emit({ type: "bull", statement: b.statement, points: b.points });
-    const r = await bear;
-    emit({ type: "bear", statement: r.statement, points: r.points });
-    const { model, ...m } = await chair(ctx, b, r, a.assumptions);
-    // Models are raced, so the run record names which one wrote each step.
-    const models: RunModels = { assumptions: a.model, bull: b.model, bear: r.model, chair: model };
-    emit({ type: "memo", memo: m, runId, models });
-  } catch (err) {
-    console.error("[ic] committee failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
-    throw new RunError("The committee couldn't meet: Gemini is busy right now. Try again in a moment.");
-  }
+  const a = await assumptions;
+  emit({ type: "assumptions", assumptions: a.assumptions });
+  const b = await bull;
+  emit({ type: "bull", statement: b.statement, points: b.points });
+  const r = await bear;
+  emit({ type: "bear", statement: r.statement, points: r.points });
+  const sidesFromRules = usedRules;
+  const { model: chairModel, ...m } =
+    ai && !sidesFromRules
+      ? await fallback("chair", chair(ctx, b, r, a.assumptions), () => ({ ...rulesMemo(name, rules, b, r, a.assumptions, CHAIR_ONLY_NOTE), model: RULES }))
+      : { ...rulesMemo(name, rules, b, r, a.assumptions), model: RULES };
+  const models: RunModels = { assumptions: a.model, bull: b.model, bear: r.model, chair: chairModel };
+  emit({ type: "memo", memo: m, runId, models });
 
   put<AuditRecord>(
     `ic:audit:v2:${runId}`,

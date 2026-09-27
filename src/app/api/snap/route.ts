@@ -1,4 +1,5 @@
-import { generate, geminiConfigured } from "@/lib/gemini";
+import { geminiAvailable, generate } from "@/lib/gemini";
+import { ocrHoldings } from "@/lib/imports/ocr";
 import { dedupeOverlap, MAX_HOLDINGS, normalizeTicker, priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -42,7 +43,8 @@ const SCHEMA = {
 
 
 export type { SnapHolding };
-export type SnapResponse = { holdings: SnapHolding[]; model: string };
+// method: "gemini" when a model read the images, "ocr" when local text recognition did (Gemini out of quota or failing).
+export type SnapResponse = { holdings: SnapHolding[]; model: string; method: "gemini" | "ocr" };
 
 function fail(error: string, status: number) {
   return Response.json({ error }, { status });
@@ -63,12 +65,12 @@ function readImages(images: { mimeType: string; data: string }[]) {
   });
 }
 
-// Reads one to three brokerage screenshots with Gemini, then prices every position with Finnhub.
+// Reads one to three brokerage screenshots with Gemini (local OCR when Gemini is unavailable), then prices every
+// position with Finnhub.
 // Images stay in memory only; they are never written or logged.
 export async function POST(request: Request) {
   const limited = await rateLimit(request, "snap");
   if (limited) return limited;
-  if (!geminiConfigured()) return fail("Screenshot import is not configured", 503);
 
   let form: FormData;
   try {
@@ -86,12 +88,22 @@ export async function POST(request: Request) {
   }
   const many = files.length > 1;
 
-  let read: { model: string; value: RawHolding[] };
-  try {
-    const images = await Promise.all(files.map(async (f) => ({ mimeType: f.type, data: Buffer.from(await f.arrayBuffer()).toString("base64") })));
-    read = await readImages(images);
-  } catch {
-    return fail(`Gemini couldn't read the ${many ? "screenshots" : "screenshot"} right now. Try again in a moment.`, 502);
+  const buffers = await Promise.all(files.map(async (f) => Buffer.from(await f.arrayBuffer())));
+  let read: { model: string; value: RawHolding[]; method: SnapResponse["method"] } | null = null;
+  if (geminiAvailable()) {
+    try {
+      read = { ...(await readImages(files.map((f, i) => ({ mimeType: f.type, data: buffers[i].toString("base64") })))), method: "gemini" };
+    } catch (err) {
+      console.error("[snap] Gemini unavailable, using OCR:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
+    }
+  }
+  if (!read) {
+    try {
+      read = { model: "Tesseract OCR", value: await ocrHoldings(buffers), method: "ocr" };
+    } catch (err) {
+      console.error("[snap] OCR failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
+      return fail(`Couldn't read the ${many ? "screenshots" : "screenshot"} right now. Try CSV or typing the positions.`, 502);
+    }
   }
 
   // One screenshot keeps summing repeated rows (separate lots); overlapping screenshots keep one copy per ticker.
@@ -99,10 +111,10 @@ export async function POST(request: Request) {
   // Never price only the first 50 and silently drop the rest: an understated portfolio is worse than a refusal.
   const distinct = new Set(raw.filter((h) => typeof h?.ticker === "string").map((h) => normalizeTicker(h.ticker))).size;
   if (distinct > MAX_HOLDINGS) {
-    return fail(`We read ${distinct} positions; quick import supports ${MAX_HOLDINGS}. Nothing was imported. Use Saved imports (up to 2,000 rows) or a smaller screenshot.`, 413);
+    return fail(`We read ${distinct} positions; quick import supports ${MAX_HOLDINGS}. Nothing was imported, so your portfolio isn't shown understated.`, 413);
   }
   const holdings = await priceHoldings(raw);
   if (holdings.length === 0) return fail(`No positions found in ${many ? "these screenshots" : "this screenshot"}`, 422);
-  const body: SnapResponse = { holdings, model: read.model };
+  const body: SnapResponse = { holdings, model: read.model, method: read.method };
   return Response.json(body);
 }

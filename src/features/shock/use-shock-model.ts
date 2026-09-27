@@ -7,13 +7,14 @@ import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { SCENARIOS } from "@/data/shock";
 import { useSnapshot, useSnapshots } from "@/lib/imports/snapshot-store";
 import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
-import { useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
+import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import type { NotModeled } from "@/lib/shock/live";
 import type { ScenarioId, ShockScenario } from "@/types/demo";
 import { useResearch } from "./research-store";
 import { portfolioKey } from "@/lib/shock/research-model";
 
-// What the Shock Test draws: the curated scenarios for the demo, or the same scenarios mapped onto your portfolio.
+// What the Shock Test draws: both scenarios mapped onto the active portfolio at live prices (the demo included).
+// The demo's precomputed scenarios are only a fallback when that fails.
 export type ShockModel = {
   mode: "demo" | "live";
   total: number;
@@ -61,10 +62,10 @@ const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHold
           total: data.total,
           positions: holdings.length,
           colors: data.colors,
+          values: data.values,
           scenarios: data.scenarios.map((s) => s.scenario),
           notModeled: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.notModeled])),
           modeledShare: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.modeledShare])),
-          values: data.values,
         };
         if (get().entry?.key === key) set({ entry: { key, status: "ready", model, error: null } });
       })
@@ -90,6 +91,7 @@ export function useShockModel(): ShockModelState {
   const priceMode = useSnapshot() ? "supplied" : "live";
   const snapshotReady = useSnapshots((s) => s.hydrated);
   const tooMany = (imported?.length ?? 0) > MAX_POSITIONS;
+  // The demo portfolio is priced live too; its dated snapshot is only the fallback when pricing fails.
   const entry = useLiveShock((s) => s.entry);
   const load = useLiveShock((s) => s.load);
   const research = useResearch((s) => s.result);
@@ -100,16 +102,19 @@ export function useShockModel(): ShockModelState {
       notModeled: { ...model.notModeled, researched: research.result.notModeled } };
   };
 
+  const holdings = imported ?? DEMO_HOLDINGS;
   useEffect(() => {
-    if (hydrated && snapshotReady && imported && !tooMany) load(imported, priceMode);
-  }, [hydrated, snapshotReady, imported, load, priceMode, tooMany]);
+    if (hydrated && snapshotReady && !tooMany) load(holdings, priceMode);
+  }, [hydrated, snapshotReady, holdings, load, priceMode, tooMany]);
 
-  if (!hydrated || (imported && !snapshotReady)) return { status: "loading" };
-  if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
-  if (tooMany) return { status: "blocked", message: tooManyPositionsMessage(imported.length, "The Shock Test") };
-  const mine = entry?.key === `${priceMode}:${keyOf(imported)}` ? entry : null;
+  if (!hydrated || !snapshotReady) return { status: "loading" };
+  if (tooMany) return { status: "blocked", message: tooManyPositionsMessage(holdings.length, "The Shock Test") };
+  const mine = entry?.key === `${priceMode}:${keyOf(holdings)}` ? entry : null;
   if (mine?.status === "ready" && mine.model) return { status: "ready", model: addResearch(mine.model) };
-  if (mine?.status === "error") return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, priceMode, true) };
+  if (mine?.status === "error") {
+    if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
+    return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, priceMode, true) };
+  }
   return { status: "loading" };
 }
 

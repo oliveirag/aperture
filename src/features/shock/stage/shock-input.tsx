@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowUp, LoaderCircle } from "lucide-react";
 import type { ScenarioId } from "@/types/demo";
+import { knownPlan } from "@/lib/shock/research-model";
 import { matchScenario } from "./match-scenario";
 import { runResearch } from "../research-store";
 
@@ -16,7 +17,9 @@ export function ShockInput({ onRun }: { onRun?: (id: ScenarioId, severity: numbe
   async function submit(value: string) {
     if (!value.trim() || busy) return;
     setError("");
-    const hit = matchScenario(value);
+    // A question naming a research driver ("Taiwan chip supply drops 30%") is researched, even when a prepared
+    // scenario shares a keyword with it ("chip" also belongs to the AI spending pullback).
+    const hit = knownPlan(value) ? null : matchScenario(value);
     if (hit && onRun) { onRun(hit.id, hit.severity); return; }
     const controller = new AbortController();
     request.current = controller;

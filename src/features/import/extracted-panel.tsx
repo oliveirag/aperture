@@ -235,7 +235,7 @@ function Summary({
       {holdings[0]?.source ? (
         <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-text-muted">
           <Sparkles aria-hidden className="size-3.5" />
-          {holdings[0].source === "gemini" ? "Read by Gemini · verify every row" : "Parsed from your entries"} · {matched === holdings.length ? "Finnhub quotes" : "Some quotes unavailable; supplied values are labeled"}
+          {holdings[0].source === "gemini" ? "Read by Gemini · verify every row" : holdings[0].source === "ocr" ? "Read by text recognition · verify every row" : "Parsed from your entries"} · {matched === holdings.length ? "Finnhub quotes" : "Some quotes unavailable; supplied values are labeled"}
         </p>
       ) : null}
       {!holdings[0]?.source && <p className="text-[12px] text-text-muted">Illustrative demo snapshot; no screenshot extraction or live pricing was performed.</p>}

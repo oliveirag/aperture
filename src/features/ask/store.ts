@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import type { Level } from "@/lib/level";
 import { runResearch } from "@/features/shock/research-store";
+import { isScenarioQuestion } from "@/lib/shock/research-model";
 
 export type AskMessage = { id: number; role: "user" | "assistant"; text: string; scenario?: boolean; declined?: boolean; error?: boolean; pending?: boolean };
 
@@ -43,7 +44,7 @@ export const useAsk = create<AskState>()((set, get) => ({
     const patch = (fn: (m: AskMessage) => AskMessage) => set((s) => ({ messages: s.messages.map((m) => (m.id === answerId ? fn(m) : m)) }));
     controller = new AbortController();
     try {
-      if (/\bwhat if\b|\bscenario\b|\bhormuz\b|\btariffs?\b/i.test(question)) {
+      if (isScenarioQuestion(question)) {
         const result = await runResearch(question, controller.signal);
         patch(m => ({ ...m, pending: false, scenario: true, text: `${result.assumption}\n\n${result.evidenceMode === "web" ? "Web sources and their supported claims" : "Reference sources (no live web search)"} are shown with the graph. Open it to inspect the propagation, adjust the magnitude, and see the calculated effects on your holdings.` }));
         return;

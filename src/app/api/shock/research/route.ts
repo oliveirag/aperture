@@ -40,7 +40,7 @@ async function proposePlan(question: string, evidence: ResearchEvidence[]): Prom
     parts: [{ text: `Drivers:\n${drivers}\n\nCited notes:\n${cited}\n\nQuestion: ${question}` }],
     validate: v => v,
   });
-  return planFromProposal(question, value);
+  return planFromProposal(question, value, evidence);
 }
 
 export async function POST(request: Request) {

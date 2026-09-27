@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { utils, write } from "xlsx";
 import { readWorkbook } from "../src/features/import/spreadsheet";
 import { parsePositionsCsv } from "../src/features/import/csv";
-import { DRIVER_IDS, knownPlan, planFromProposal, REFERENCES, researchScenario } from "../src/lib/shock/research-model";
+import { DRIVERS, DRIVER_IDS, isScenarioQuestion, knownPlan, planFromProposal, REFERENCES, researchScenario } from "../src/lib/shock/research-model";
 import { buildLiveScenario } from "../src/lib/shock/live";
 import { buildShockGraph } from "../src/lib/shock/graph";
 import { parseHoldings } from "../src/lib/xray/live";
@@ -10,6 +10,8 @@ import { buildOutlook } from "../src/lib/outlook";
 import { counts } from "../src/features/import/extract";
 import { HOLDINGS, PORTFOLIO_TOTAL } from "../src/data/portfolio";
 import type { ApertureInput } from "../src/lib/xray/compute";
+
+const DRIVERS_DEFAULT_OIL = DRIVERS.oil.defaultSeverity;
 
 async function main() {
   const input: ApertureInput[] = [
@@ -19,7 +21,10 @@ async function main() {
     { ticker: "ZZZZ", name: "Unknown", shares: 10, price: 100, kind: "opaque" },
   ];
   const plan = knownPlan("What if Iran closes the Strait of Hormuz?");
-  assert.equal(plan?.driver, "oil"); assert.equal(plan?.direction, 1); assert.equal(plan?.severity, 20); assert.equal(plan?.basis, "stated");
+  assert.equal(plan?.driver, "oil"); assert.equal(plan?.direction, 1); assert.equal(plan?.severity, 20); assert.equal(plan?.basis, "assumed", "Hormuz is an event, not a stated oil move");
+  assert.equal(knownPlan("oil rises 20%")?.basis, "stated");
+  assert.equal(knownPlan("Taiwan chip supply drops 30%")?.basis, "stated");
+  assert.equal(knownPlan("What if China invades Taiwan?")?.basis, "assumed");
   const { base, table } = researchScenario(plan!, [REFERENCES.oil!]);
   const a = buildLiveScenario(base, input, [], table);
   assert.deepEqual(a, buildLiveScenario(base, input, [], table), "Identical inputs must be deterministic");
@@ -45,6 +50,12 @@ async function main() {
   assert.equal(planFromProposal("q", { driver: "banana", direction: 1, severity: 5, rationale: "x" }), null, "Model cannot invent a driver");
   assert.equal(planFromProposal("q", { driver: "oil", direction: 1, severity: 5000, rationale: "x" })?.magnitudeStated, false, "Out-of-range magnitude falls back to the labeled default");
   assert.equal(planFromProposal("q", { driver: "oil", direction: 1, severity: 5, rationale: "" }), null, "Proposal must carry a rationale");
+  assert.equal(planFromProposal("q", { driver: "oil", direction: 1, severity: 15, rationale: "x" }, [{ text: "Prices rose.", sources: [] }])?.magnitudeStated, false, "Model magnitude absent from sources is not stated");
+  const sourced = planFromProposal("q", { driver: "oil", direction: 1, severity: 15, rationale: "x" }, [{ text: "Brent rose 15% in 2019.", sources: [] }]);
+  assert.equal(sourced?.magnitudeStated, true); assert.equal(sourced?.severity, 15);
+  assert.equal(planFromProposal("q", { driver: "oil", direction: 1, severity: 5, rationale: "x" }, [{ text: "Up 25% on the year.", sources: [] }])?.severity, DRIVERS_DEFAULT_OIL, "5 must not match inside 25%");
+  for (const q of ["Taiwan chip supply drops 30%", "What if Democrats win the election?", "oil rises 20%"]) assert.ok(isScenarioQuestion(q), q);
+  for (const q of ["How do tariffs work?", "What is VOO?"]) assert.ok(!isScenarioQuestion(q), q);
   for (const d of DRIVER_IDS) { // every driver builds a consistent, source-linked table
     const r = researchScenario({ driver: d, direction: 1, severity: 10, basis: "assumed", trigger: "t", magnitudeStated: true, rationale: "r" }, [{ text: "t", sources: [{ title: "t", url: "https://example.com/a" }] }]);
     const out = buildLiveScenario(r.base, input, [], r.table);

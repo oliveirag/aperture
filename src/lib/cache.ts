@@ -11,10 +11,6 @@ const PREFIX = "lt:";
 // Upstash caps a request at 1MB; filing texts and other big values stay in memory only.
 const MAX_PERSIST_BYTES = 400_000;
 
-export function persistentCacheConfigured() {
-  return Boolean(KV_URL && KV_TOKEN);
-}
-
 let kvWarned = false;
 function kvFailed(err: unknown) {
   if (kvWarned) return;

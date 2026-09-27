@@ -1,15 +1,5 @@
 import { cn } from "@/lib/utils";
 
-// Two overlapping lenses: one position, seen through.
-export function LensMark({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 16 16" aria-hidden className={cn("size-4 shrink-0", className)}>
-      <circle cx="6" cy="8" r="4.5" fill="none" stroke="var(--accent)" strokeWidth="1.5" />
-      <circle cx="10" cy="8" r="4.5" fill="none" stroke="var(--accent)" strokeWidth="1.5" opacity="0.55" />
-    </svg>
-  );
-}
-
 // Boxed serif wordmark: a filled block on light surfaces, a hairline frame on black bands.
 export function Wordmark({ className, size = "md" }: { className?: string; size?: "sm" | "md" }) {
   return (

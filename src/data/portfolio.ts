@@ -1,7 +1,6 @@
 import type { Holding } from "../types/demo";
 
 // Canonical demo portfolio. Weights are computed from values, never stored.
-export const PORTFOLIO_NAME = "Demo portfolio";
 
 // Total market value, the sum of HOLDINGS values.
 export const PORTFOLIO_TOTAL = 148420;

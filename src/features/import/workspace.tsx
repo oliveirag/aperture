@@ -107,13 +107,11 @@ export function ImportFlow() {
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
     <header className="flex justify-between"><Link href="/" className="text-2xl">Lookthrough</Link><Link href="/xray">Current X-Ray</Link></header>
-    <h1 className="text-4xl">Import your portfolio</h1>
-    <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
-    <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
-    <p><Link href="/xray" className="underline" onClick={()=>usePortfolio.getState().resetToDemo()}>Explore the sample portfolio</Link></p>
+    <h1 className="text-4xl">Import history</h1>
+    <p className="text-sm text-text-muted">Screenshots are kept privately for up to an hour during review. Reviewed rows stay in your history.</p>
     {error&&<p role="alert" className="border border-red-500 p-3">{error}</p>}
     {!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
-      <p>Sign in to keep your portfolios and audit history private.</p>
+      <p>Sign in to see your saved imports.</p>
       <label className="block">Email address<input aria-label="Email" placeholder="you@example.com" className={`${style} block w-full mt-2`} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
       {!sent?<button className={style} disabled={busy} onClick={()=>act(async()=>{const client=browserClient();if(!client)throw new Error("Supabase is not configured. See docs/IMPORTS.md.");const {error}=await client.auth.signInWithOtp({email});if(error)throw error;setSent(true);})}>Send sign-in code</button>:<>
       <input aria-label="Email code" className={style} value={token} onChange={e=>setToken(e.target.value)}/><button className={style} disabled={busy} onClick={()=>act(async()=>{const {error}=await browserClient()!.auth.verifyOtp({email,token,type:"email"});if(error)throw error;})}>Sign in</button></>}
@@ -123,7 +121,7 @@ export function ImportFlow() {
       <button className={style} disabled={busy} onClick={()=>act(async()=>{generation.current++;const res=await importFetch("/api/imports/logout",{method:"POST"});if(!res.ok)throw new Error("Logout failed; retry.");await browserClient()!.auth.signOut();clearImage();usePortfolio.getState().resetToDemo();setSignedIn(false);})}>Log out</button></div>
       {image&&<div className="max-h-96 overflow-auto border border-border-strong"><Image src={image} alt="Original brokerage screenshot for comparison" width={1200} height={800} unoptimized className="h-auto max-w-full"/></div>}
       {editable?<section className="space-y-4">
-        <h2 className="text-xl">Review every holding</h2><p>Confirm security type and quantity. A supplied market value needs its valuation date. Mark erroneous rows excluded with a reason; their history is preserved.</p>
+        <h2 className="text-xl">Review every holding</h2><p>Confirm type and quantity. A market value needs its date.</p>
         {job?.source==="screenshot"&&!image&&<p role="alert">The temporary screenshot is no longer available. Upload it again to complete the required comparison.</p>}
         <div className="overflow-auto max-h-[600px]"><table className="w-full text-sm"><thead><tr>{["Ticker / name","Type","Shares","Market value (USD)","Value date","Exclude / reason","Status"].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody>
           {rows.map((r,i)=><tr key={i} className="border-t border-border-strong"><td className="p-2"><input aria-label={`Ticker row ${i+1}`} className={`${style} w-28`} value={r.ticker} onChange={e=>edit(i,{ticker:e.target.value.toUpperCase()})}/><input aria-label={`Name row ${i+1}`} className={`${style} w-44`} value={r.name} onChange={e=>edit(i,{name:e.target.value})}/></td>
@@ -135,12 +133,12 @@ export function ImportFlow() {
           <td className="p-2 min-w-48">{issues[i]??job?.results[i]?.error??"Ready for review"}{job?.results[i]?.valuation&&<p>Quote: ${job.results[i].valuation!.price.toFixed(2)} · {job.results[i].valuation!.asOf}</p>}</td></tr>)}
         </tbody></table></div>
         <button className={style} onClick={()=>{setRows(rs=>[...rs,empty()]);setReviewed(false);}}>Add missed holding</button>
-        <label className="block"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> I compared every row with my source and confirmed the security types, quantities, and any supplied valuations.</label>
+        <label className="block"><input type="checkbox" checked={reviewed} onChange={e=>setReviewed(e.target.checked)}/> These rows match my source.</label>
         <button className={style} disabled={busy||!ready||(job?.source==="screenshot"&&!image&&!job.confirmed_at)} onClick={()=>act(confirm)}>Confirm review and price portfolio</button>
       </section>:<section aria-live="polite" className="space-y-3"><h2 className="text-xl">{job.status==="complete"?"Analysis complete":"Processing portfolio"}</h2>
         <p>{job.results.filter(r=>r.state==="ready").length} of {job.rows.length} processed · {job.results.filter(r=>r.state==="blocked"||r.state==="needs_input").length} need attention</p>
         <progress className="w-full" max={job.rows.length} value={job.results.filter(r=>r.state==="ready").length}/>
-        <p>You can leave after confirmation. Processing resumes from saved progress.</p>
+        <p>You can leave; processing resumes where it stopped.</p>
         <ul>{job.rows.map((r,i)=><li key={i}>{r.ticker||r.name}: {job.results[i]?.state??"pending"} {job.results[i]?.error} {job.results[i]?.retryAt&&`— next attempt ${new Date(job.results[i].retryAt!).toLocaleString()}`}</li>)}</ul>
         {job.snapshot_id&&snapshots.find(s=>s.id===job.snapshot_id)&&<button className={style} onClick={()=>open(snapshots.find(s=>s.id===job.snapshot_id)!)}>Open completed X-Ray</button>}
       </section>}

@@ -11,7 +11,3 @@ export function supabase(): SupabaseClient | null {
   client = url && key && typeof window !== "undefined" ? createClient(url, key, { auth: { flowType: "pkce", persistSession: true, detectSessionInUrl: true } }) : null;
   return client;
 }
-
-export function accountsConfigured() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-}

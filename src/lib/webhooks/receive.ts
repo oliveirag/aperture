@@ -1,7 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { handleEvent, parseEvent, validSecret, type ParsedEvent } from "./finnhub";
 
-export type Claim = { state: "claimed"; token: string } | { state: "duplicate" } | { state: "full" };
+export type Claim = { state: "claimed"; token: string } | { state: "duplicate" } | { state: "busy" } | { state: "full" };
+export type DeliveryContext = { signal: AbortSignal; checkpoint: () => void };
 // A production multi-instance deployment must inject an atomic durable store.
 // Token ownership prevents an old completion/release deleting a newer claim.
 export interface DeliveryStore {
@@ -21,7 +22,8 @@ export function createMemoryDeliveryStore(options: { capacity?: number; ttlMs?: 
     async claim(key) {
       const time = now();
       for (const [id, entry] of entries) if (entry.complete && entry.expires <= time) entries.delete(id);
-      if (entries.has(key)) return { state: "duplicate" };
+      const existing = entries.get(key);
+      if (existing) return { state: existing.complete ? "duplicate" : "busy" };
       if (entries.size >= capacity) return { state: "full" };
       const token = randomUUID();
       entries.set(key, { token, expires: Infinity, complete: false });
@@ -86,14 +88,16 @@ function failure(status: number, code: string, message: string): Response {
   return Response.json({ error: { code, message, provider: "finnhub" } }, { status, headers: { "Cache-Control": "no-store", ...(status === 503 ? { "Retry-After": "30" } : {}) } });
 }
 
-// G/integrator should call this from POST instead of request.json()/after().
-// The store is mandatory: no silent deployment-wide claim from process memory.
-// Work completes before 2xx so failures remain retryable. A durable queue can be
-// injected as handle() if provider acknowledgement latency requires it.
+// Work completes before 2xx. Delivery suppression is not exactly-once effects:
+// handlers MUST safely rerun after partial completion and cooperatively check
+// context after awaits / before effects (or fence effects in their own store).
+// The default handler only invalidates caches; it does not start an uncancellable
+// Radar/Gemini refresh. No automatic renewal: 20s work budget < 120s SQL lease.
 export async function receiveFinnhubWebhook(request: Request, options: {
   secret: string | undefined;
   store: DeliveryStore;
-  handle?: (event: ParsedEvent) => Promise<unknown>;
+  handle?: (event: ParsedEvent, context: DeliveryContext) => Promise<unknown>;
+  timeoutMs?: number;
 }): Promise<Response> {
   if (!options.secret) return failure(503, "NOT_CONFIGURED", "Webhook is not configured");
   if (!validSecret(request.headers.get("x-finnhub-secret"), options.secret)) return failure(401, "UNAUTHORIZED", "Unauthorized");
@@ -112,17 +116,44 @@ export async function receiveFinnhubWebhook(request: Request, options: {
     if (error instanceof RequestFailure) return failure(error.status, error.code, error.message);
     return failure(400, "INVALID_EVENT", "Invalid or excessive webhook event");
   }
+  // Start before the claim round trip: a paused response must not grant an old
+  // worker a fresh budget after its database lease has already expired.
+  const timeoutMs = Number.isFinite(options.timeoutMs) ? Math.min(20_000, Math.max(1, options.timeoutMs!)) : 20_000;
+  const deadline = performance.now() + timeoutMs;
   let claim: Claim;
   try { claim = await options.store.claim(key); }
   catch { return failure(503, "STORE_UNAVAILABLE", "Webhook delivery store unavailable"); }
   if (claim.state === "full") return failure(503, "STORE_FULL", "Webhook delivery store at capacity");
+  if (claim.state === "busy") return failure(503, "DELIVERY_BUSY", "Webhook delivery still processing; retry later");
   if (claim.state === "duplicate") return Response.json({ ok: true, duplicate: true }, { headers: { "Cache-Control": "no-store" } });
-  try {
-    await (options.handle ?? handleEvent)(event);
-    await options.store.complete(key, claim.token);
-    return Response.json({ ok: true, duplicate: false, kind: event.kind }, { headers: { "Cache-Control": "no-store" } });
-  } catch {
-    await options.store.release(key, claim.token).catch(() => undefined);
-    return failure(503, "PROCESSING_FAILED", "Webhook processing unavailable; retry later");
-  }
+  const controller = new AbortController();
+  const context: DeliveryContext = {
+    signal: controller.signal,
+    checkpoint() {
+      if (performance.now() >= deadline) controller.abort();
+      controller.signal.throwIfAborted();
+    },
+  };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const expired = new Promise<Response>(resolve => {
+    timer = setTimeout(() => {
+      controller.abort();
+      resolve(failure(503, "PROCESSING_TIMEOUT", "Webhook processing timed out; retry later"));
+    }, Math.max(1, deadline - performance.now()));
+  });
+  const work = (async () => {
+    try {
+      context.checkpoint();
+      await (options.handle ?? ((event, ctx) => handleEvent(event, { context: ctx })))(event, context);
+      context.checkpoint();
+      await options.store.complete(key, claim.token);
+      return Response.json({ ok: true, duplicate: false, kind: event.kind }, { headers: { "Cache-Control": "no-store" } });
+    } catch {
+      // This runs only after the handler settles, NEVER merely because the
+      // response timed out. A crashed process is recovered by the bounded lease.
+      await options.store.release(key, claim.token).catch(() => undefined);
+      return failure(503, "PROCESSING_FAILED", "Webhook processing unavailable; retry later");
+    } finally { clearTimeout(timer); }
+  })();
+  return Promise.race([work, expired]);
 }

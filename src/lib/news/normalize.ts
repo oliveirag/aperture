@@ -68,18 +68,42 @@ export function deduplicateNews(events: readonly NewsEvent[]): NewsEvent[] {
   const result: NewsEvent[] = [];
   const urls = new Map<string, NewsEvent>();
   const ids = new Map<string, NewsEvent>();
+  // Bound fuzzy candidates to compatible issuer/day/critical-token buckets.
+  // Exact URL/id matching remains global, and near() retains the final test.
+  // Dense same-issuer/day headlines can still be quadratic (input capped 10k).
+  const buckets = new Map<string, Set<NewsEvent>>();
+  const order = new Map<NewsEvent, number>();
+  const bucketKeys = (event: NewsEvent, adjacent: boolean) => {
+    if (event.eventType === "filing-8k") return [];
+    const time = Date.parse(event.publishedAt ?? event.observedAt ?? "");
+    if (!Number.isFinite(time)) return [];
+    const day = Math.floor(time / 86400000);
+    const critical = [...words(event.headline)].filter(t => /\d|^(not|no|never|without)$/.test(t)).sort().join("|");
+    const issuers = event.eventType === "company-news" ? event.tickers : ["macro"];
+    return issuers.flatMap(issuer => (adjacent ? [-2, -1, 0, 1, 2] : [0]).map(offset => JSON.stringify([event.eventType, issuer, day + offset, critical])));
+  };
+  const index = (event: NewsEvent) => {
+    for (const key of bucketKeys(event, false)) {
+      const bucket = buckets.get(key) ?? new Set<NewsEvent>();
+      bucket.add(event); buckets.set(key, bucket);
+    }
+  };
+  const candidates = (event: NewsEvent) => [...new Set(bucketKeys(event, true).flatMap(key => [...(buckets.get(key) ?? [])]))].sort((a, b) => order.get(a)! - order.get(b)!);
   const sorted = [...events].sort((a, b) => (b.publishedAt ?? b.observedAt ?? "").localeCompare(a.publishedAt ?? a.observedAt ?? ""));
   for (const event of sorted) {
     const url = safeArticleUrl(event.url);
     if (!url) continue;
-    const prior = urls.get(url) ?? ids.get(event.id) ?? result.find(item => near(item, event));
+    const prior = urls.get(url) ?? ids.get(event.id) ?? candidates(event).find(item => near(item, event));
     if (prior) {
       prior.tickers = [...new Set([...prior.tickers, ...event.tickers])].sort();
+      index(prior); // newly merged ticker aliases must be searchable too
       urls.set(url, prior);
       ids.set(event.id, prior);
     } else {
       const item = { ...event, url, tickers: [...event.tickers] };
+      order.set(item, result.length);
       result.push(item);
+      index(item);
       urls.set(url, item);
       ids.set(event.id, item);
     }

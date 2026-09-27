@@ -85,12 +85,37 @@ async function main() {
   assert.equal(deduplicateNews([first, { ...near, tickers: ["OTHER"] }]).length, 2, "near-headline matching must not merge unrelated issuers");
   assert.equal(deduplicateNews([first, { ...near, publishedAt: "2020-01-01T00:00:00Z" }]).length, 2, "recurring headlines on distant dates remain distinct");
   assert.equal(deduplicateNews([first, { ...near, headline: first.headline + " 123" }]).length, 2, "numeric revisions remain distinct");
+  assert.equal(deduplicateNews([first, { ...duplicate, tickers: ["OTHER"] }, { ...near, tickers: ["OTHER"] }]).length, 1, "URL-merged ticker aliases enter fuzzy candidate buckets");
+  const at = Date.parse(first.publishedAt!);
+  assert.equal(deduplicateNews([first, { ...near, publishedAt: new Date(at + 47 * 3600000).toISOString() }]).length, 1, "adjacent UTC day buckets retain 48-hour fuzzy matches");
+  assert.equal(deduplicateNews([first, { ...near, publishedAt: new Date(at + 49 * 3600000).toISOString() }]).length, 2, "bucket candidates still enforce exact time window");
   const combined = await heldTickerFeed(["AAPL"], [
     { name: "finnhub", load: async () => ({ items: news, provenance: sourceEvidence("finnhub", fn) }) },
     { name: "gdelt", load: async () => { throw new Error("DO NOT LEAK PRIVATE ERROR"); } },
   ]);
   assert.equal(combined.items.length, news.length);
   assert.deepEqual(combined.issues, [{ source: "gdelt", status: "unavailable", message: "News source unavailable; no substitute generated" }]);
+  // A slow source must not prevent an independent source from starting.
+  let releaseSlow!: () => void;
+  const slow = new Promise<void>(resolve => { releaseSlow = resolve; });
+  let independentStarted = false;
+  const independent = heldTickerFeed(["AAPL"], [
+    { name: "slow", load: async () => { await slow; return { items: news, provenance: sourceEvidence("finnhub", fn) }; } },
+    { name: "independent", load: async () => { independentStarted = true; return { items: [], provenance: sourceEvidence("finnhub", fn) }; } },
+  ]);
+  await new Promise(resolve => setImmediate(resolve));
+  const startedBeforeRelease = independentStarted;
+  releaseSlow();
+  await independent;
+  assert.ok(startedBeforeRelease, "independent source starts before slow source completes");
+  let active = 0, maximum = 0;
+  await heldTickerFeed(["AAPL"], Array.from({ length: 12 }, (_, index) => ({ name: `bounded-${index}`, load: async () => {
+    maximum = Math.max(maximum, ++active);
+    await new Promise(resolve => setImmediate(resolve));
+    active--;
+    return { items: [], provenance: sourceEvidence("finnhub", fn) };
+  } })));
+  assert.ok(maximum > 1 && maximum <= 4, "source concurrency is independent and bounded at four");
   await assert.rejects(getFinnhubNews("../../secret"), /Invalid/);
   await assert.rejects(getSecCompanyEvents("../../secret"), /Invalid/);
   try {

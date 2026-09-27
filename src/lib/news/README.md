@@ -13,8 +13,10 @@ research events, not investment advice or predicted prices.
 - `getFinnhubNews`, `getSecCurrentEvents`, `getSecCompanyEvents`, `getMacroEvents`
   fetch only fixed trusted HTTPS endpoints, deny redirects, bound responses to
   2 MiB, and use timeouts. SEC requires configured contact User-Agent. This adapter
-  serializes requests with 1.2-second gaps and shares Finnhub's exported token
-  bucket. Live CLI checks also hold the shared cross-process provider lock.
+  serializes each provider independently with 1.2-second gaps (at most 100 queued
+  requests per provider) and shares Finnhub's exported token bucket. Feed assembly
+  uses at most four source workers. Live CLI checks still hold the shared
+  cross-process provider lock; this does not add a separate downstream quota.
 - These fetchers intentionally do not cache. Existing `getCompanyNews` returns
   opaque cached `NewsItem[]` with no retrieval/stale evidence. A/integrator should
   expose an original-provenance envelope and call `adaptCompanyNews(items, ticker,
@@ -32,21 +34,42 @@ research events, not investment advice or predicted prices.
   modifications were made to IC or Radar/UI. This deterministic editorial filter
   is heuristic, not a guarantee of factual accuracy. Original publisher/source
   links remain the evidence, including Finnhub's public article redirect links.
-- `receiveFinnhubWebhook(request, {secret, store, handle?})` is ready for G/the
-  integrator to wire into `/api/webhooks/finnhub/route.ts` instead of its existing
-  unbounded `request.json()` / `after()` sequence. It authenticates before reading,
-  bounds bytes/time/depth/items, hashes canonical full delivery content, claims
-  atomically, and responds retryable 503 on work/store failure without error leaks.
-- `DeliveryStore` MUST be backed by a deployment-wide atomic durable service for
-  multiple instances. `createMemoryDeliveryStore` is bounded and tested but only
-  process-local: not persistent across restarts or shared across instances.
-  There is intentionally no silently selected production default. Production route
-  wiring and a durable store are outstanding integration work. Cache invalidation
-  and filing refresh are retry-safe, not transactionally exactly-once effects.
-  Supply a durable queue as `handle` if fast acknowledgements are required.
-- No real webhook registration/delivery, database operations, Alpha Vantage calls,
-  or edits to A/B/G/H-owned files were made by these checks. Independent TypeScript
-  and security reviews are reserved for the integrator (six-worker limit).
+- `/api/webhooks/finnhub/route.ts` now calls `receiveFinnhubWebhook` with the actual
+  durable SQL store, not `request.json()` / `after()`. Authentication precedes the
+  bounded body read. Only completed receipts ACK retries; active claims return
+  503, as do store/work failures. Error responses never expose credentials.
+- `supabase/migrations/20260927000200_webhook_deliveries.sql` provides the atomic
+  `webhook_delivery` RPC: 120-second leases, UUID token fencing, 24-hour completed
+  retention, 100k capacity, and an indexed opportunistic sweep of up to 1000 expired
+  rows per claim (also the requested expired key). Capacity/claims serialize under
+  a short advisory transaction lock with a one-second lock timeout. Only service
+  role can execute; no client role can read/write receipts. The migration has been
+  tested ONLY in local PGlite and MUST NOT be remotely applied without separate
+  authorization. Before authorized deployment, the route fails closed with 503.
+- The default work budget is 20 seconds measured monotonically from before claim
+  acquisition, safely below the SQL lease. Timeout aborts cooperative work but
+  never explicitly releases a claim until its handler settles. Paused reads check
+  the deadline before any further invalidation; stale completion/release cannot
+  change a replacement token. Injected handlers must likewise cooperate or fence
+  their effects externally, and MUST safely rerun after partial completion.
+- Filing events invalidate the SEC filing-list cache; Radar recomputes the new pair
+  on its next read. They no longer launch an uncancellable eager Radar/Gemini job.
+  Shared `forgetKeys` persistence is still best-effort/asynchronous; durable receipts
+  do not make shared cache writes transactional or guarantee deployment-wide cache
+  coherence. G/integrator owns any stronger invalidation/flush semantics.
+- `createMemoryDeliveryStore` is an explicitly injected test/local helper only:
+  bounded, but process-local, non-durable and without expired-inflight recovery.
+  The route never selects memory, even in local-verification mode. Both isolation
+  flags refuse remote store access. No generalized exactly-once guarantee is made.
+- Webhooks and news share the same normalized ticker domain (digits, class shares,
+  up to ten characters). Holdings normalize class-share aliases. Explicit no-account
+  mode is empty; partial configuration, HTTP/transport or malformed responses fail
+  processing rather than pretending nobody holds the event's ticker.
+- No real webhook registration/delivery, remote database operations, Alpha Vantage
+  calls, or edits to A/B/G/H shared modules were made. Only the additionally
+  authorized webhook route/migration changed outside the original E ownership.
+  Independent TypeScript/security re-review remains for the integrator; no nested
+  reviewers were launched.
 
 ## Recorded evidence (2026-09-27 UTC)
 
@@ -80,7 +103,9 @@ Locked live checks returned:
   `2026-09-27T07:16:51.821Z`); complete locked live suite again reported HTTP 429 at
   `2026-09-27T07:19:23.301Z` and exited 1. No fake GDELT fixture was substituted.
   The implemented DOC parser remains unverified against a captured successful
-  response. Retry capture later when the provider allows it; do not call this a pass.
+  response. The parent's fresh retry after long backoff still failed at transport;
+  this follow-up made no new live calls or retry attempts. No successful GDELT
+  fixture exists; the complete gate remains blocked, not passed.
 
 ## Verification
 
@@ -103,6 +128,21 @@ Locked live checks returned:
   and TTL. `--live` is intentionally the same local safety suite; **not** external
   webhook delivery. Envelope tests wrap actual recorded Finnhub company-news items;
   they are not claimed to be captured real webhook deliveries.
+- Follow-up RED: digit/ten-character tickers were dropped; the durable store module
+  was missing; a slow feed blocked independent sources; a delayed claim response
+  incorrectly reset the work budget and returned 200. All now pass regression tests.
+- `node --import tsx scripts/check-webhook-store.ts` executes the exact migration in
+  local PGlite and routes actual Request objects through `POST` using an intercepted
+  SQL RPC transport (never a remote connection). Covers competing claim adapters,
+  busy retries, expired leases, stale-token complete/release, 100k capacity, bounded
+  retention sweep, anonymous/authenticated privilege denial, route body limits,
+  unavailable storage, isolation, and timeout without prematurely releasing work.
+  PGlite serializes queries: this is actual SQL testing, not a multi-host load test.
+- `check-webhook.ts` also covers partial-completion replay, held symbols with digits
+  and class shares, configured holdings failures, aborted reads and delayed claims.
+  `check-news.ts` adds four-worker/source independence and dedup bucket boundary/
+  alias regressions. Dense same-issuer/day fuzzy matching remains worst-case
+  quadratic under the existing 10k input cap; unrelated buckets are no longer scanned.
 - Final `npx --no-install next typegen`, `npx --no-install tsc --noEmit`,
   `npm run lint` and `npm run test:release` all exited **0** in this worktree.
   No production build or independent nested review was run. See the handoff for

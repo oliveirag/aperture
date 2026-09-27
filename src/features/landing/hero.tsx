@@ -1,6 +1,5 @@
 import { MaskLine, Reveal } from "@/components/shared/reveal";
 import { ApertureIllustration } from "./aperture-illustration";
-import { TryDemoLink } from "./try-demo-link";
 
 // Black opening band: a two-line serif title with the second line stepped in, the promise on the right,
 // then one wide media panel carrying the product's single idea.
@@ -33,7 +32,6 @@ export function Hero() {
               Aperture shows what&apos;s inside, what could hit it, what changed in the filings, and what to check
               before you add more.
             </p>
-            <TryDemoLink className="mt-10" />
           </div>
         </div>
       </Reveal>

@@ -10,7 +10,6 @@ import { MaskLine, Reveal } from "@/components/shared/reveal";
 import { useLevel, type Level } from "@/lib/level";
 import { cn } from "@/lib/utils";
 import { LevelOptions } from "./level-options";
-import { StepIndicator } from "./step-indicator";
 
 export function Onboarding() {
   const router = useRouter();
@@ -35,7 +34,9 @@ export function Onboarding() {
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={1} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container flex flex-1 flex-col pt-10 pb-24 lg:pt-16">
@@ -56,7 +57,7 @@ export function Onboarding() {
         </Reveal>
 
         <div className="mt-12 flex flex-col gap-6 border-t border-border pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[14px] text-text-muted">You can switch levels anytime from the masthead.</p>
+          <p className="text-[14px] text-text-muted">You can switch levels anytime from the top of any page.</p>
           <button
             type="button"
             onClick={next}
@@ -98,7 +99,9 @@ function OwnsQuestion({ onBack, onPick }: { onBack: () => void; onPick: (href: s
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
-        <StepIndicator current={1} />
+        <Link href="/xray" className="text-[15px] font-light text-text-muted transition-colors duration-150 hover:text-text">
+          Skip to X-Ray
+        </Link>
       </header>
 
       <section className="bx-container flex flex-1 flex-col pt-10 pb-24 lg:pt-16">

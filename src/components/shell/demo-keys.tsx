@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useShock } from "@/features/shock/store";
 import { useLevel, type Level } from "@/lib/level";
+import { usePortfolio } from "@/lib/portfolio-store";
 
 const ROUTES: Record<string, string> = { Digit1: "/xray", Digit2: "/shock", Digit3: "/radar", Digit4: "/ic" };
 const LEVELS: Level[] = ["beginner", "intermediate", "advanced"];
@@ -38,6 +39,7 @@ export function DemoKeys() {
       if (e.code === "KeyR") {
         e.preventDefault();
         useShock.getState().reset();
+        usePortfolio.getState().resetToDemo();
         useLevel.getState().setLevel("intermediate");
         router.push("/");
       }

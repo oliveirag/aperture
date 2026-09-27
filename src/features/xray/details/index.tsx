@@ -2,6 +2,7 @@
 
 import { useLevel } from "@/lib/level";
 import type { XrayModel } from "@/lib/xray/types";
+import { HistoricalRange } from "./historical-range";
 import { Holdings } from "./holdings";
 import { LearnCard } from "./learn-card";
 import { OverlapVenn } from "./overlap-venn";
@@ -26,6 +27,7 @@ export function XrayDetails({ model }: { model: XrayModel }) {
         <OverlapVenn model={model} />
         {/* Demo: the canon weekly series. Your own portfolio: weekly closes from Alpha Vantage (Finnhub candles are premium). */}
         {level === "advanced" && (model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />)}
+        {level === "advanced" && <HistoricalRange />}
         {level === "beginner" ? <LearnCard /> : null}
       </div>
     </section>

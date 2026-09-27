@@ -179,7 +179,7 @@ export function ImportFlow() {
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>
-          <Link href="/import/saved" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>
+          <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>
         </p>
       </section>
 

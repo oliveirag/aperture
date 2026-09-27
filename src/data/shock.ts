@@ -176,8 +176,6 @@ const AI_CAPEX: ShockScenario = {
 // Both demo scenarios, CRE first (the Blackstone story).
 export const SCENARIOS: ShockScenario[] = [CRE, AI_CAPEX];
 
-export const DEFAULT_SCENARIO_ID: ScenarioId = "cre";
-
 export function getScenario(id: ScenarioId): ShockScenario {
   const s = SCENARIOS.find((x) => x.id === id);
   if (!s) throw new Error(`Unknown scenario ${id}`);

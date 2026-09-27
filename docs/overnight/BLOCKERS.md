@@ -14,11 +14,11 @@ Decisive error: `Access denied ... is matched by an ignore file ... The agent is
 
 `request_scope` for read access to `node_modules/next/dist/docs` returned `Scope granted`, but each subsequent read still failed with the same ignore-policy denial. The user was notified. Needed action: enable agent read access to this installed documentation directory through the IDE's supported access controls. Do not bypass this denial using shell reads, symlinks or copied files. No application code has been changed while this prerequisite is blocked.
 
-## Open: full lint includes protected local audit material
+## Resolved: full lint included protected local audit material
 
-`npm run lint` exits 1 with three `@typescript-eslint/no-require-imports` errors at columns 10, 29 and 48 of line 1 in `docs/audit-2026-09-27/extract-inventory.cjs`.
+Iteration 2: the user explicitly approved resolving the access/lint blockers. Reproduced the three `@typescript-eslint/no-require-imports` errors in `docs/audit-2026-09-27/extract-inventory.cjs`, then added only `docs/audit-2026-09-27/**` to the existing ESLint global ignores. The protected file was not edited or committed. No application lint rule was disabled or weakened.
 
-The mission explicitly prohibits editing, committing or deleting this local audit directory. Git exclusion does not exclude files from ESLint. No lint rules or ignore configuration were weakened. Needed decision: authorize a precise tooling scope change for this local-only artifact, or have its owner resolve the audit script. The exact full lint gate remains failed until then; scoped lint is not a substitute.
+`npm run lint && git diff --check` passed (exit 0), with zero lint warnings. Code and TypeScript reviewers approved the precise scope. The audit extractor is intentionally outside the application lint boundary under the user's approval.
 
 ## Open: remote Supabase mutations must remain disabled
 
@@ -36,7 +36,9 @@ The project already loads pinned ECC v2.2.1 through `.devin/config.json`. Adding
 
 ## Permissions to allow
 
-- Read access to installed Next.js guides as above. No background tool permission failures yet: no background workstream agents launched.
+- User approval for guide access was received in iteration 2, but a fresh read remained denied by the Desktop ignore policy.
+- Official supported UI: Devin Settings → Devin Local → Configuration → Gitignore access, toggle on. Source: https://docs.devin.ai/desktop/advanced (fetched this iteration). This is a broader ignored-file access toggle; it is controlled by the user in Desktop, not by a chat approval. No global access settings changed by the agent.
+- No background workstream agents launched; only read-only checkpoint/config reviews have run.
 
 ## Not blockers, but important limits
 

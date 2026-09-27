@@ -18,3 +18,13 @@
 - Fresh read-only ECC code and security reviewers found no critical/high issues in the checkpoint/config scope. The code review's request to surface the stale git-exclude assumption was applied to BLOCKERS.md.
 - Security reviewer made an unsupported assertion about the legitimacy of the pre-existing Next.js AGENTS block; rejected with rationale in STATE.md. Installed generator provenance was not verified, and no access control was bypassed.
 - These are setup reviews only, not workstream completion or the required adversarial 50-figure audit.
+
+## 2026-09-27T06:45:29Z — iteration 2, approved lint scope correction
+
+- User explicitly approved resolving the prior access/lint blockers. Re-read the complete mission and saved state, then inspected history and worktrees; checkout began clean.
+- Retried required Next.js route-handler guide: still denied by Desktop's ignored-file policy.
+- Verified official Desktop documentation: Devin Settings → Devin Local → Configuration → Gitignore access enables the needed access. Asked the user to toggle it. Chat approval alone does not alter the IDE enforcement; no global setting changed.
+- Reproduced `npm run lint` exit 1 (same three require-imports errors), added only `docs/audit-2026-09-27/**` to `eslint.config.mjs`, then `npm run lint && git diff --check` passed, exit 0, zero warnings.
+- Read-only code/TypeScript reviewers approved the boundary; no application rules changed. No references to the audit extractor/directory found in src, scripts or package.json.
+- No application implementation, provider calls, database changes, servers, feature worktrees, pushes or PRs this iteration. Remaining Wave 0/application work is still pending; DONE.md remains absent.
+- Next: retry guide reads once Desktop Gitignore access is enabled, then complete Wave 0.

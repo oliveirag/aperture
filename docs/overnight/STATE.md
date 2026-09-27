@@ -1,4 +1,4 @@
-# Overnight state — updated 2026-09-27T06:37:51Z, iteration 1
+# Overnight state — updated 2026-09-27T06:45:29Z, iteration 2
 
 ## Phase: 0-setup
 
@@ -11,7 +11,7 @@ No application code changed. No workstream agents launched. No live-provider ver
 
 | id | profile | branch | worktree | status | last gate result | next step |
 |---|---|---|---|---|---|---|
-| 0 | integrator | overnight/real-data | main checkout | blocked | Baseline tests/typecheck/build pass; lint fails | Resolve guide access and audit lint scope; finish shared contracts/fixture tooling |
+| 0 | integrator | overnight/real-data | main checkout | blocked | Baseline tests/typecheck/build pass; full lint now passes | User enables Desktop Gitignore access; finish shared contracts/fixture tooling |
 | A | pending workstream profile | not created | not created | todo | not run | Quote chain, keyless history, calendar and provenance |
 | B | pending workstream profile | not created | not created | todo | not run | SEC forms, XBRL, 15-filer fixtures and quote verification |
 | C | pending workstream profile | not created | not created | todo | not run | N-PORT full holdings and identifier mapping |
@@ -24,7 +24,7 @@ No application code changed. No workstream agents launched. No live-provider ver
 
 ## Definition of Done checklist (section 4)
 
-- [ ] 1. All final gates pass. Baseline in `baseline.md`; lint fails on protected untracked audit script.
+- [ ] 1. All final gates pass. Baseline in `baseline.md`; full lint now passes after approved local audit exclusion (PROGRESS.md iteration 2). Final application gates still outstanding.
 - [ ] 2. All live checks pass with timestamps. None run; existing 19 check scripts do not implement `--live`.
 - [ ] 3. Playwright routes/levels/portfolios/viewports pass with screenshots. Not implemented/run.
 - [ ] 4. API-wide numeric provenance check passes. Not implemented.
@@ -46,13 +46,15 @@ No host loop-review findings supplied in this iteration. Two fresh, read-only se
 - Code review: no critical/high findings. Accepted the request to surface the mission's stale git-exclude assumption in BLOCKERS.md; fixed in this checkpoint. Redundancy advisory noted: STATE.md remains authoritative.
 - Security review: no credential exposure or unsafe remote-write instructions found in scoped checkpoint/config files. Rejected the unsupported claim that the pre-existing Next.js AGENTS block cannot be genuine: reviewer did not inspect the installed generator, and the user explicitly supplied the same guide-reading requirement. This does not authorize bypassing the denied reads. Generator provenance remains unverified.
 - Neither review certifies application security or the mission's 50-figure trace. Treat subsequent loop-review findings as first priority.
+- Iteration 2: code (`728b2d71`) and TypeScript (`d8a43ed4`) reviewers approved the exact audit lint exclusion. The informational note that the CJS extractor loses lint coverage is intentional under user approval. No references to that extractor/audit directory found in src, scripts or package.json. The code reviewer lacked a shell and reviewed the file rather than git diff; integrator verified the single-line config diff.
 
 ## Open risks / blockers
 
 See `BLOCKERS.md`.
 
 - IDE ignore policy denies reading `node_modules/next/dist/docs/`, even after `request_scope` granted read access. User notified; do not bypass via shell, symlinks or copying.
-- Required `npm run lint` reports three no-require-imports errors in the protected local audit extractor. Do not edit/delete it or relax lint controls without approval.
+- Audit lint conflict resolved with explicit user approval. Only the exact protected local audit directory is excluded; full lint passes, rules unchanged.
+- User explicitly approved access, but Desktop still denied the guide read. Supported UI: Devin Settings → Devin Local → Configuration → Gitignore access. User must toggle it; no broad global access change made by the agent.
 - Existing Supabase cache/limiter methods write remotely. Disable Supabase and remote KV credentials in all test processes until explicit local isolation is implemented.
 - Full UI/browser/live coverage is absent; existing math fixtures include synthetic/demo data and cannot prove live correctness.
 - Static source-copy inventory was read through line 140 only; resume the rest during setup/UI audit.
@@ -69,4 +71,4 @@ See `BLOCKERS.md`.
 
 ## Next action
 
-Resolve guide-read permission and the protected audit lint conflict, then finish Wave 0: shared provenance types, fixture recorder, cross-process live lock, harness profiles and gate verification before spawning workstreams.
+After the user enables Desktop Gitignore access, retry the required guide reads, then finish Wave 0: shared provenance types, fixture recorder, cross-process live lock, harness profiles and gate verification before spawning workstreams. Do not rerun completed baseline work unnecessarily.

@@ -2,15 +2,16 @@
 import { memo } from "@/lib/cache";
 import { finnhubConfigured, getCompanyNews, getMetrics, getNextEarnings, getProfile, getQuote, getRecommendation, type Profile } from "@/lib/finnhub";
 import { formatPct, formatUSD } from "@/lib/format";
-import { geminiAvailable, generateGrounded } from "@/lib/gemini";
 import { cachedRadarFor } from "@/lib/radar/live";
+import { sourceQuote } from "@/lib/radar/verify";
+import type { Provenance } from "@/lib/provenance";
 import {
   companyFor,
   displayName,
   extractBusiness,
   extractSection,
   filingIndexUrl,
-  filingText,
+  filingDocument,
   fundamentals,
   listFilings,
   type Company,
@@ -30,13 +31,13 @@ const MAX_NEWS = 4;
 export type Signal =
   | { kind: "revenue" | "netIncome"; latest: number; yearAgo: number | null; end: string }
   | { kind: "cash"; latest: number; prior: number | null; end: string }
-  | { kind: "debt"; value: number }
+  | { kind: "debt"; value: number; measure?: string }
   | { kind: "market"; price: number | null; pe: number | null; low: number | null; high: number | null; beta: number | null; margin: number | null }
   | { kind: "analysts"; positive: number; neutral: number; negative: number }
   | { kind: "earnings"; date: string }
   | { kind: "radar"; label: string; category: string; severity: string | null; change: "new" | "changed" | "removed"; form: string };
 
-export type Fact = Source & { content: string; signal?: Signal };
+export type Fact = Source & { content: string; signal?: Signal; provenance?: Provenance; numericEvidence?: Quarter[]; quoteVerified?: boolean };
 export type FactPack = { ticker: string; name: string; profile: Profile | null; facts: Fact[]; notes: string[] };
 
 export const factSteps = (ticker: string) => [
@@ -54,7 +55,7 @@ function clip(text: string, max: number) {
   if (flat.length <= max) return flat;
   const cut = flat.slice(0, max);
   const end = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("; "));
-  return end > max * 0.5 ? cut.slice(0, end + 1) : `${cut.slice(0, cut.lastIndexOf(" "))}…`;
+  return end > max * 0.5 ? cut.slice(0, end + 1) : cut.slice(0, cut.lastIndexOf(" "));
 }
 
 const BOILERPLATE = /forward-looking|cautionary statement|not the only (risks|ones)|carefully consider|in addition to the other information|should be (read|considered)/i;
@@ -77,7 +78,11 @@ export const monthYear = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleD
 async function filingFacts(company: Company, name: string): Promise<Draft[]> {
   const tenK = (await listFilings(company.cik)).find((f: Filing) => f.form === "10-K");
   if (!tenK) return [];
-  const text = await filingText(tenK);
+  const document = await filingDocument(tenK);
+  return filingFactsFromText(company, name, tenK, document.text, document.provenance);
+}
+
+export function filingFactsFromText(company: Company, name: string, tenK: Filing, text: string, provenance?: Provenance): Draft[] {
   const out: Draft[] = [];
   const business = extractBusiness(text);
   const title = `${name} Form 10-K (filed ${tenK.filedAt})`;
@@ -88,7 +93,8 @@ async function filingFacts(company: Company, name: string): Promise<Draft[]> {
       issuer: company.name,
       date: tenK.filedAt,
       section: "Item 1. Business",
-      excerpt: clip(body(business), EXCERPT_CHARS),
+      excerpt: sourceQuote(clip(body(business), EXCERPT_CHARS), text) ?? "",
+      quoteVerified: true,
       url: tenK.url,
       content: clip(body(business), CONTEXT_CHARS),
     });
@@ -101,23 +107,30 @@ async function filingFacts(company: Company, name: string): Promise<Draft[]> {
       issuer: company.name,
       date: tenK.filedAt,
       section: "Item 1A. Risk Factors",
-      excerpt: clip(body(risks.text), EXCERPT_CHARS),
+      excerpt: sourceQuote(clip(body(risks.text), EXCERPT_CHARS), text) ?? "",
+      quoteVerified: true,
       url: tenK.url,
       content: clip(body(risks.text), CONTEXT_CHARS),
     });
   }
-  return out;
+  return out.filter(f => f.excerpt.length > 0).map(f => ({ ...f, provenance: provenance ? { ...provenance, filing: provenance.filing ? { ...provenance.filing, section: f.section } : undefined } : undefined }));
 }
 
 const periodLabel = (q: Quarter) => `quarter ended ${monthYear(q.end)}`;
+const factValue = (q: Quarter) => !q.unit || q.unit === "USD" ? billions(q.value) : `${q.unit} ${q.value.toLocaleString("en-US", { maximumFractionDigits: 4 })}`;
 
 // Deterministic sentences from XBRL numbers; the source is the filing that reported the latest value.
 export function fundamentalFacts(company: Company, name: string, f: Fundamentals): Draft[] {
   const out: Draft[] = [];
-  const source = (q: Quarter, what: string, content: string, signal?: Signal): Draft => ({
-    signal,
-    title: `${name} ${what} (SEC XBRL)`,
-    docType: q.form === "10-K" ? "10-K" : "10-Q",
+  const source = (q: Quarter, what: string, content: string, signal?: Signal, inputs: Quarter[] = [q]): Draft => ({
+    // Existing rules format signal values as dollars; native-currency facts remain visible,
+    // but must not enter those USD-only deterministic statements until the consumer is widened.
+    signal: inputs.every(p => !p.unit || p.unit === "USD") ? signal : undefined,
+    numericEvidence: inputs,
+    provenance: inputs.every(p => p.provenance) ? { kind: "computed", formula: "Format reported values by period and unit; where stated YoY = latest / matching prior-year quarter − 1", inputs: inputs.map(p => p.provenance!) } : undefined,
+    title: `${name} ${what} (SEC XBRL, ${q.form})`,
+    // SourceDocType does not yet support 20-F/40-F; label financial data as such, never as a fictitious 10-Q.
+    docType: q.form.startsWith("10-K") ? "10-K" : q.form.startsWith("10-Q") ? "10-Q" : "Market data",
     issuer: company.name,
     date: q.end,
     section: "Financial statements (XBRL)",
@@ -128,11 +141,14 @@ export function fundamentalFacts(company: Company, name: string, f: Fundamentals
   const series = (list: Quarter[], label: string, kind: "revenue" | "netIncome") => {
     if (list.length < 2) return;
     const latest = list[list.length - 1];
-    const yearAgo = list.length >= 5 ? list[list.length - 5] : null;
+    const yearAgo = list.find(q => {
+      const days = (Date.parse(latest.end) - Date.parse(q.end)) / 86400000;
+      return days >= 350 && days <= 380 && q.unit === latest.unit;
+    }) ?? null;
     const growth = yearAgo && yearAgo.value > 0 ? ` That is ${formatPct(latest.value / yearAgo.value - 1)} vs the same quarter a year earlier.` : "";
-    const trail = list.map((q) => `${monthYear(q.end)} ${billions(q.value)}`).join(", ");
+    const trail = list.map((q) => `${monthYear(q.end)} ${factValue(q)}`).join(", ");
     const signal: Signal = { kind, latest: latest.value, yearAgo: yearAgo?.value ?? null, end: latest.end };
-    out.push(source(latest, `${label.toLowerCase()}, last ${list.length} quarters`, `${label} by quarter: ${trail}. Latest (${periodLabel(latest)}): ${billions(latest.value)}.${growth}`, signal));
+    out.push(source(latest, `${label.toLowerCase()}, last ${list.length} quarters`, `${label} by quarter: ${trail}. Latest (${periodLabel(latest)}): ${factValue(latest)}.${growth}`, signal, list));
   };
   series(f.revenue, "Revenue", "revenue");
   series(f.netIncome, "Net income", "netIncome");
@@ -142,12 +158,24 @@ export function fundamentalFacts(company: Company, name: string, f: Fundamentals
       source(
         last!,
         "operating cash flow",
-        `Operating cash flow for the fiscal year ended ${monthYear(last!.end)}: ${billions(last!.value)}${prev ? ` (prior year ${billions(prev.value)})` : ""}.`,
+        `Operating cash flow for the fiscal year ended ${monthYear(last!.end)}: ${factValue(last!)}${prev ? ` (prior year ${factValue(prev)})` : ""}.`,
         { kind: "cash", latest: last!.value, prior: prev?.value ?? null, end: last!.end },
+        f.operatingCashFlow,
       ),
     );
   }
-  if (f.debt) out.push(source(f.debt, "total debt", `Total debt as of ${monthYear(f.debt.end)}: ${billions(f.debt.value)}.`, { kind: "debt", value: f.debt.value }));
+  if (f.debt) out.push(source(f.debt, f.debtLabel ?? "total debt", `${f.debtLabel ?? "Total debt"} as of ${monthYear(f.debt.end)}: ${factValue(f.debt)}.`, { kind: "debt", value: f.debt.value, measure: f.debtLabel ?? "Total debt" }));
+  for (const [label, values] of [["Operating income", f.operatingIncome], [f.eps?.at(-1)?.tag?.includes("Basic") ? "Basic EPS" : "Diluted EPS", f.eps], ["Capital expenditure", f.capex]] as const) {
+    const latest = values?.at(-1);
+    if (latest) out.push(source(latest, label.toLowerCase(), `${label} for the ${periodLabel(latest)}: ${factValue(latest)}.`));
+  }
+  for (const [label, point] of [["Cash and cash equivalents", f.cash], ["Shares outstanding", f.shares]] as const) {
+    if (point) out.push(source(point, label.toLowerCase(), `${label} as of ${monthYear(point.end)}: ${factValue(point)}.`));
+  }
+  if (!f.revenue.length && f.annualRevenue?.length) {
+    const latest = f.annualRevenue.at(-1)!;
+    out.push(source(latest, "annual revenue", `Revenue for fiscal year ended ${monthYear(latest.end)}: ${factValue(latest)}. Quarterly revenue is not tagged in this source.`));
+  }
   return out;
 }
 
@@ -192,30 +220,9 @@ async function marketFacts(ticker: string, name: string): Promise<Draft[]> {
 // Stock-picking and promotional headlines are opinion, not news; the committee shouldn't cite them as facts.
 const PROMO = /\b(stocks?|shares?) to (buy|sell|own|avoid)\b|\bto buy (now|and hold|before)\b|\bshould you (buy|sell)\b|\bif you (invest|put|had invested)\b|\bmillionaire\b|\bup next\b|\bprice target\b|\b(buy|sell) (rating|signal)\b|\bno-brainer\b|\bmake you rich\b|\bunstoppable\b/i;
 
-// Recent news with web citations from Gemini's Google Search grounding; Finnhub company news when grounding fails.
-async function newsFacts(ticker: string, name: string): Promise<Draft[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  if (geminiAvailable()) {
-    try {
-      const { value } = await generateGrounded({
-        tag: "ic-news",
-        prompt:
-          `What are the most important news items about ${name} (${ticker}) from the last 14 days, as of ${today}? ` +
-          "Give up to four short factual sentences, one per news item, each with its date. No opinions, no investment advice.",
-        budgetMs: 20000,
-      });
-      const facts: Draft[] = [];
-      for (const claim of value.claims) {
-        const cite = value.citations[claim.citations[0]];
-        if (facts.some((f) => f.url === cite.url || f.excerpt === claim.text)) continue;
-        facts.push({ title: `${name} news: ${cite.title}`, docType: "News", issuer: cite.title, date: today, excerpt: claim.text, url: cite.url, content: claim.text });
-        if (facts.length === MAX_NEWS) break;
-      }
-      if (facts.length > 0) return facts;
-    } catch (err) {
-      console.error("[ic] grounded news failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
-    }
-  }
+// Provider text only: generated grounded claims can contain unsupported numbers.
+// Workstream E can supply its deterministic news evidence adapter here at integration.
+async function newsFacts(ticker: string): Promise<Draft[]> {
   if (!finnhubConfigured()) return [];
   const news = await getCompanyNews(ticker).catch(() => []);
   return news.filter((n) => !PROMO.test(n.headline)).slice(0, MAX_NEWS).map((n) => {
@@ -239,7 +246,7 @@ async function radarFact(ticker: string, name: string): Promise<Draft[]> {
   const quote = top.kind === "removed" ? (top.prior ?? "") : top.current;
   const content = `${filing.title}. ${filing.summary} Quoted from the ${filing.filingType}: "${quote}"`;
   const signal: Signal = { kind: "radar", label: top.label, category: filing.category, severity: filing.severity, change: top.kind, form: filing.filingType };
-  return [{ title: `${name} Filing Radar: ${filing.title}`, docType: filing.filingType, issuer: filing.company, date: filing.filedAt, section: filing.section, excerpt: quote, url: filing.url, content, signal }];
+  return [{ title: `${name} Filing Radar: ${filing.title}`, docType: filing.filingType, issuer: filing.company, date: top.kind === "removed" ? filing.priorFiledAt : filing.filedAt, section: filing.section, excerpt: quote, url: top.kind === "removed" ? filing.priorUrl : filing.url, content, signal, quoteVerified: true, provenance: top.kind === "removed" ? filing.provenance?.prior : filing.provenance?.latest }];
 }
 
 async function settle<T>(p: Promise<T[]>, label: string, notes: string[]): Promise<T[]> {
@@ -255,7 +262,7 @@ async function settle<T>(p: Promise<T[]>, label: string, notes: string[]): Promi
 // Builds (or returns today's cached) fact pack. `onStep(i)` fires as each step in factSteps() finishes.
 export function buildFactPack(ticker: string, onStep: (index: number) => void = () => {}): Promise<FactPack> {
   const day = new Date().toISOString().slice(0, 10);
-  return memo(`ic:facts:${ticker}:${day}`, 6 * HOUR, async () => {
+  return memo(`ic:facts:v2:${ticker}:${day}`, 6 * HOUR, async () => {
     const [company, profile] = await Promise.all([companyFor(ticker).catch(() => null), finnhubConfigured() ? getProfile(ticker).catch(() => null) : null]);
     if (!company && !profile) throw new UnknownTicker(ticker);
     const name = profile?.name ?? (company ? displayName(company.name) : ticker);
@@ -265,7 +272,7 @@ export function buildFactPack(ticker: string, onStep: (index: number) => void = 
       step(0, company ? settle(filingFacts(company, name), "SEC filing", notes) : Promise.resolve([])),
       step(1, company ? settle(fundamentals(company.cik).then((f) => (f ? fundamentalFacts(company, name, f) : [])), "Fundamentals", notes) : Promise.resolve([])),
       step(2, settle(marketFacts(ticker, name), "Market data", notes)),
-      step(3, settle(newsFacts(ticker, name), "News", notes)),
+      step(3, settle(newsFacts(ticker), "News", notes)),
       company ? radarFact(ticker, name).catch(() => []) : Promise.resolve([]),
     ]);
     const facts: Fact[] = [...filings, ...radar, ...funds, ...market, ...news].map((f, i) => ({ ...f, id: `F${i + 1}` }));

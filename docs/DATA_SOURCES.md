@@ -11,7 +11,9 @@ Aperture is an educational research tool, not investment advice. Provider observ
 - **Assumption:** a named source and rationale. Assumptions are not provider estimates.
 - **Stale:** a cached-real fallback retains its original retrieval/as-of dates. Cache storage time and serve time are separate and must not replace provider retrieval time.
 
-Numeric evidence maps use RFC 6901 JSON pointers. `src/lib/api-provenance.ts` audits exact numeric leaves, including nested maps, and rejects missing/orphan evidence, error responses counted as success, nonfinite values and numeric data hidden in source metadata. This audit infrastructure does not by itself establish that every route or rendered figure is wired correctly; the overnight acceptance checklist tracks that separately.
+Numeric evidence maps use RFC 6901 JSON pointers. New APIs should use `numericProvenance`, with paths relative to its containing object. Compatibility forms are a direct `provenance` pointer map and the typed `{data, provenance}` envelope (paths relative to `data`). `kind` is reserved for a single provenance record; named source registries such as `latest`/`prior` are metadata only and never cover numeric fields. Mixed registry/pointer keys fail closed. A payload with an unrelated `data` field should use the unambiguous `numericProvenance` form.
+
+`src/lib/api-provenance.ts` audits exact numeric leaves, including nested maps, and rejects missing/orphan evidence, error responses counted as success, nonfinite values and numeric data hidden in source metadata. This audit infrastructure does not by itself establish that every route or rendered figure is wired correctly; the overnight acceptance checklist tracks that separately.
 
 ## Provider inventory
 

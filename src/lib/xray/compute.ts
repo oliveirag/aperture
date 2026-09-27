@@ -1,5 +1,6 @@
 import { formatPct } from "@/lib/format";
 import { assertProvenance, type Provenance } from "@/lib/provenance";
+import type { EtfHolding } from "@/lib/nport/contract";
 import { positionValue, portfolioValue, valuationEvidence } from "./valuation";
 import { sectorFromIndustry, sectorFromSic, type SectorLabel } from "@/lib/sectors";
 import type { Flag, LeveledText, SectorSlice, Source } from "@/types/demo";
@@ -30,7 +31,7 @@ export type ApertureInput = {
   sector?: SectorLabel;
   sectorProvenance?: Provenance;
   etf?: {
-    holdings: { ticker: string; name: string; weight: number }[];
+    holdings: EtfHolding[];
     sectors: { sector: SectorLabel; weight: number }[];
     asOf: string;
     provenance?: Provenance;

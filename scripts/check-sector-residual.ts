@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import seed from "../src/data/etf-seed.json";
 import { validateSeed } from "../src/lib/nport/contract";
+import { etfInput } from "../src/lib/imports/quotes";
 import { buildShockGraph, isSeededEtf } from "../src/lib/shock/graph";
 import { buildLiveScenario } from "../src/lib/shock/live";
 import { DRIVER_IDS, knownPlan, REFERENCES, researchScenario } from "../src/lib/shock/research-model";
 import type { ScenarioTable } from "../src/lib/shock/sensitivities";
 
 const profiles = validateSeed(seed).profiles;
+const inputFor = (profile: Parameters<typeof etfInput>[0]) => {
+  const input = etfInput(profile);
+  assert.ok(input, "Real reconciled profile must pass the production portfolio adapter");
+  return input;
+};
 const near = (actual: number, expected: number, label: string) => assert.ok(Math.abs(actual - expected) < 1e-10, `${label}: ${actual} != ${expected}`);
 const oil = researchScenario(knownPlan("oil rises 20%")!, [REFERENCES.oil!]);
 const voo = profiles.VOO;
@@ -25,7 +31,7 @@ for (const driver of DRIVER_IDS) {
   const { base, table } = researchScenario({ driver, direction: 1, severity: 10, basis: "assumed", trigger: "regression", magnitudeStated: false, rationale: "Regression assumption, not provider data" }, [{ text: "Test-only scenario assumption; not retrieved evidence", sources: [{ title: "Regression assumption", url: "https://example.com/regression-assumption" }] }]);
   for (const [ticker, profile] of Object.entries(profiles)) {
     const graph = graphFor(ticker, table, base);
-    const live = buildLiveScenario(base, [{ ticker, name: ticker, kind: "etf", shares: 1, price: 1000, etf: profile }], [], table);
+    const live = buildLiveScenario(base, [{ ticker, name: ticker, kind: "etf", shares: 1, price: 1000, etf: inputFor(profile) }], [], table);
     // Independent constituent-level oracle: a named rule takes priority, otherwise
     // only a genuinely classified constituent can receive a sector assumption.
     let expectedReturn = 0;
@@ -62,10 +68,10 @@ for (const driver of DRIVER_IDS) {
 // A scenario's own sector label is NOT the membership of a sourced aggregate.
 const mismatched: ScenarioTable = { ...oil.table, entities: { ...oil.table.entities, MCD: { channel: oil.table.sectors[sector.sector].channel, ret: -0.1, sector: "Technology", sourceId: "regression-assumption", kind: "Explicit test assumption" } } };
 assert.equal(graphFor("VOO", mismatched).nodes.some(n => n.id === "sector:VOO:Consumer Discretionary"), false, "Named MCD must be subtracted by its sourced classification, even when rule label differs");
-const mismatchedLive = buildLiveScenario(oil.base, [{ ticker: "VOO", name: "VOO", kind: "etf", shares: 1, price: 1000, etf: voo }], [], mismatched);
+const mismatchedLive = buildLiveScenario(oil.base, [{ ticker: "VOO", name: "VOO", kind: "etf", shares: 1, price: 1000, etf: inputFor(voo) }], [], mismatched);
 const expectedMismatch = voo.holdings.reduce((sum, h) => sum + h.weight * (mismatched.entities[h.ticker]?.ret ?? (h.sector ? mismatched.sectors[h.sector]?.ret : undefined) ?? 0), 0);
 near(mismatchedLive.scenario.impacts[0].baseDollar, 1000 * expectedMismatch, "live uses sourced membership even when scenario label differs");
-const absent = buildLiveScenario(oil.base, [{ ticker: "VOO", name: "VOO", kind: "etf", shares: 1, price: 1000, etf: voo }], [], { channels: [], entities: {}, sectors: {} });
+const absent = buildLiveScenario(oil.base, [{ ticker: "VOO", name: "VOO", kind: "etf", shares: 1, price: 1000, etf: inputFor(voo) }], [], { channels: [], entities: {}, sectors: {} });
 assert.deepEqual(absent.scenario.impacts, []);
 assert.deepEqual(absent.notModeled, [{ ticker: "VOO", weight: 1 }]);
 assert.equal(absent.modeledShare, 0);

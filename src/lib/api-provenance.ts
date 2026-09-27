@@ -45,8 +45,16 @@ export function auditApiProvenance(payload: unknown): { numericFields: number; e
           assertProvenance(value.provenance);
           assertMetadata(value.provenance);
           if (typeof value.value === "number") add(`${pointer}/value`, value.provenance);
-        } else if (Object.hasOwn(value, "data")) addMap(`${pointer}/data`, value.provenance);
-        else throw new Error(`Invalid source provenance at ${pointer}`);
+        } else {
+          if (!object(value.provenance)) throw new Error(`Invalid provenance container at ${pointer}`);
+          const keys = Object.keys(value.provenance);
+          const pointers = keys.filter(key => key === "" || key.startsWith("/"));
+          if (pointers.length === keys.length) addMap(Object.hasOwn(value, "data") ? `${pointer}/data` : pointer, value.provenance);
+          else {
+            if (pointers.length) throw new Error(`Mixed provenance map and source registry at ${pointer}`);
+            for (const source of Object.values(value.provenance)) { assertProvenance(source); assertMetadata(source); }
+          }
+        }
       }
     }
     for (const [key, child] of Object.entries(value)) {

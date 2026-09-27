@@ -6,8 +6,17 @@ const input: Provenance = { kind: "retrieved", provider: "user-import", retrieve
 const computed: Provenance = { kind: "computed", formula: "shares × price", inputs: [input] };
 const payload = { total: 100, rows: [{ price: 10, shares: 10, numericProvenance: { "/price": input, "/shares": input } }], numericProvenance: { "/total": computed } };
 assert.equal(auditApiProvenance(payload).numericFields, 3);
+assert.equal(auditApiProvenance({ total: 100, provenance: { "/total": computed } }).numericFields, 1);
 assert.equal(auditApiProvenance({ data: { value: 1 }, provenance: { "/value": input } }).numericFields, 1);
 assert.equal(auditApiProvenance({ value: 10, provenance: input }).numericFields, 1);
+assert.equal(auditApiProvenance({ count: 1, provenance: { latest: input, prior: input }, numericProvenance: { "/count": computed } }).numericFields, 1);
+assert.throws(() => auditApiProvenance({ count: 1, provenance: { latest: input, prior: input } }), /missing.*count/i);
+assert.throws(() => auditApiProvenance({ provenance: { latest: { ...input, hiddenNumber: 1 } } }), /metadata/i);
+assert.throws(() => auditApiProvenance({ provenance: { latest: input, "/count": input } }), /mixed/i);
+assert.throws(() => auditApiProvenance({ total: 1, provenance: { total: input } }), /missing.*total/i);
+assert.throws(() => auditApiProvenance({ provenance: { kind: input, prior: input } }), /kind/i);
+assert.throws(() => auditApiProvenance({ data: {}, total: 1, provenance: { "/total": input } }), /missing.*total/i);
+assert.equal(auditApiProvenance({ data: {}, total: 1, numericProvenance: { "/total": input } }).numericFields, 1);
 const reordered = Object.fromEntries(Object.entries(input).reverse());
 assert.equal(auditApiProvenance({ value: 10, provenance: input, numericProvenance: { "/value": reordered } }).numericFields, 1);
 assert.throws(() => auditApiProvenance({ value: 10, provenance: input, numericProvenance: { "/value": { ...input, source: "Different reviewed input" } } }), /conflicting/i);

@@ -3,7 +3,6 @@
 import { formatPct } from "@/lib/format";
 import { sectorFromIndustry } from "@/lib/sectors";
 import type { ApertureInput } from "@/lib/xray/compute";
-import type { EtfProfile } from "@/lib/nport/contract";
 import type { ShockEdge, ShockImpact, ShockNode, ShockScenario, Source } from "@/types/demo";
 import { TABLES, type ScenarioTable } from "./sensitivities";
 
@@ -38,10 +37,10 @@ function hitsFor(p: ApertureInput, table: ScenarioTable): Hit[] {
     hits.set(channel, h);
   };
   if (p.kind === "etf" && p.etf) {
-    // ApertureInput's legacy shape is narrower; retain canonical optional
-    // classification/source fields carried by the actual ETF profile.
-    const etf: Pick<EtfProfile, "holdings" | "sectors" | "schemaVersion" | "holdingsSource"> = p.etf;
-    const sourced = etf.schemaVersion === 2 || !!etf.holdingsSource;
+    // ApertureInput preserves the canonical holding classification while
+    // its source descriptor is adapted for the portfolio model.
+    const etf = p.etf;
+    const sourced = !!etf.holdingsSource;
     const named = new Map<string, number>();
     for (const h of etf.holdings) {
       const rule = table.entities[h.ticker];

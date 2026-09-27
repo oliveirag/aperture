@@ -1,6 +1,6 @@
 # Overnight state — iteration 3, Wave 0 integration
 
-## Phase: 0-setup
+## Phase: 1-data-wave
 
 Mission: `/Users/zakariakhan/aperture-overnight-mission.md`, fully re-read this iteration.
 Branch: `overnight/real-data`, based on `origin/main` at `06d5e3c`.
@@ -12,13 +12,13 @@ No host loop-review findings supplied; independent foundation reviews handled be
 | id | profile | branch | worktree | status | last gate result | next step |
 |---|---|---|---|---|---|---|
 | 0 | integrator | overnight/real-data | main checkout | merged | Release, all 21 checks, typegen, tsc, zero-warning lint and webpack build pass after fixes | Commit base, create six worktrees and dispatch |
-| A | aperture-ws-a-market-data | not created | not created | todo | not run | Quote chain, keyless history, sessions/provenance |
-| B | aperture-ws-b-sec | not created | not created | todo | not run | SEC forms, XBRL, 15-filer set and quotes |
-| C | aperture-ws-c-etf | not created | not created | todo | not run | N-PORT and real issuer holdings, reconciliation |
+| A | general + A profile | ws/a | ../lookthru-wt/a | running | npm ci pass | agent 90e88182: prices/history |
+| B | general + B profile | ws/b | ../lookthru-wt/b | running | npm ci pass | agent 29d46639: filings/XBRL |
+| C | general + C profile | ws/c | ../lookthru-wt/c | running | npm ci pass | agent 61a402df: ETF holdings |
 | D | aperture-ws-d-scenarios | not created | not created | todo | not run | Factor model after real A/B/C fixtures |
-| E | aperture-ws-e-news | not created | not created | todo | not run | News feeds and idempotent webhooks |
-| F | aperture-ws-f-imports | not created | not created | todo | not run | Imports, consistent valuations and invariants |
-| G | aperture-ws-g-cache | not created | not created | todo | not run | Stale cache evidence, serialization and local isolation |
+| E | general + E profile | ws/e | ../lookthru-wt/e | running | npm ci pass | agent 9e717766: news/webhooks |
+| F | general + F profile | ws/f | ../lookthru-wt/f | running | npm ci pass | agent 9f410ec4: imports/math |
+| G | general + G profile | ws/g | ../lookthru-wt/g | running | npm ci pass | agent 95b41ccc: cache/isolation |
 | H | aperture-ws-h-ui-qa | not created | not created | todo | not run | Provenance UI, copy and Playwright matrix |
 | I | aperture-adversarial-verifier | not created | not created | todo | not run | Independent 50-figure trace |
 
@@ -65,11 +65,17 @@ No host loop-review findings supplied; independent foundation reviews handled be
 See BLOCKERS.md. No current permission blocker.
 
 - Remote Supabase/Redis must stay disabled in ALL local live/test/server processes. Explicit blank environment variables override `.env.local`; never print/copy secret values.
-- Zero Alpha Vantage budget spent this run; reserve its 25/day for needs keyless providers cannot cover.
+- Provider budget: A used two Alpha probes (one stored POST-not-allowed response); integrator used two successful GET history calls (XOM/SPY) after confirmed Stooq connection timeouts. At least four probes accounted. No more Alpha calls without explicit remaining-budget allocation.
+- Main recorded seven FRED series (WTI, broad USD, DGS10, investment-grade spread, import-price IR, DTB3, CRE BOGZ1FL075035503Q) and real XOM/SPY weekly-adjusted Alpha fixtures with 1403 observations each. These are for D; preserve source units (IR monthly, CRE quarterly—not weekly independent observations).
+- Stooq SPY/XOM captures failed; diagnostic GET reports UND_ERR_CONNECT_TIMEOUT. This is an open live-history blocker, not a passing check. AAPL Alpha worker fixture currently contains a POST-not-allowed error; never treat as history. Cannot message running agents via resume (tool rejected); forward GET/budget correction when A reports.
 - File ownership adjustments: E creates new news adapter instead of editing A's finnhub.ts; G owns imports/provider.ts, F all other import logic; route validation edits coordinate through integrator.
 - Copy inventory read through line 370; remaining strings belong to H's full audit. Product docs/check scripts and both prior audit screenshots already read.
-- `lookthru-wt` parent created; no worktrees or servers launched yet.
+- Six worktrees created from 4d21d34, each npm ci passed (811 packages, zero vulnerabilities). No dev servers launched.
+- Custom profile spawning failed although doctor discovers them; all six launched successfully with subagent_general plus explicit profile/skill files. Do not restart session/duplicate agents. No nested reviewers allowed while six workers active; integrator reviews as slots free.
+- Worktrees deliberately have no .env.local symlink. Live commands use absolute --env-file to main repo and explicit blank remote store/Gemini vars. This prevents accidental Next startup loading remote write credentials.
+- Integrator found IC run route still returned 503 without Gemini despite rules fallback implementation. RED59c1cce; removed gate and rejected nonobject bodies. Check GREEN.
+- Ask regression RED30251a1: null request crash, malformed context crashes and unmodeled objects rendered as [object Object]. Fixed request/context validation and ticker+weight text; checks GREEN. New API provenance audit contract also GREEN (exact leaf evidence, nested maps, SourcedValue/envelope support, rejects error responses/hidden metadata numbers). All integrator code awaits independent review when a worker slot frees.
 
 ## Next action
 
-Finish final Wave 0 gates and commit shared base. Create A/B/C/E/F/G worktrees from that commit, install dependencies, then launch six workstream agents in parallel. While they work, integrate only reviewed/gated branches and advance independent verification infrastructure. Do not stop for routine questions.
+Six agents are running. Continue independent API provenance/no-Gemini verification in main checkout, review IC route fix when a slot frees, then integrate workstream reports only after TS/security reviews and full gates per merge. Do not modify worker-owned files. Begin D when real A/B/C fixture contracts are available; H follows first merges. Do not stop for routine questions.

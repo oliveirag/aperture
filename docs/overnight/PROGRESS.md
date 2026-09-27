@@ -40,3 +40,19 @@
 - Added nine custom profiles, shared aperture-workstream skill and operational README. Reused installed pinned ECC rather than duplicate vendoring. Devin doctor reports healthy with 77 profiles; only existing five ignored color-metadata warnings.
 - Final gate command: `npm run test:release && for script in scripts/check-*.ts; do node --import tsx "$script" || exit $?; done && npx --no-install next typegen && npx --no-install tsc --noEmit && npm run lint && npm run build -- --webpack` — exit 0. All 21 scripts pass. Lint has zero warnings. Webpack compiled in 4.0s, TypeScript finished in 2.0s, generated 37 pages. Remote Supabase/KV and Gemini/market credentials blank for fixture/build checks. No remote persistence writes.
 - This verifies the shared foundation, NOT API-wide provenance or the full product. DoD remains unchecked, DONE.md absent. Next: commit base and launch A/B/C/E/F/G in isolated worktrees.
+
+### Data wave launched
+
+- Committed shared base as 4d21d34. Created ws/a, ws/b, ws/c, ws/e, ws/f, ws/g in ../lookthru-wt/{id}. Six independent npm ci runs passed, each 811 packages and zero vulnerabilities.
+- Direct spawning of newly discovered custom profiles returned 'Subagent failed to start'. Non-blocking adaptation: launched all six using subagent_general with explicit profile+shared-skill instructions. Agent IDs are in STATE.md. No nested agents while all six slots occupied.
+- Each worker owns disjoint paths; E uses a new news adapter rather than editing A's Finnhub module; G owns imports/provider.ts while F owns other imports. Provider tests share the lock, remote DB/KV variables are explicitly blank, and only A may spend up to two Alpha Vantage calls.
+- No env symlinks: absolute Node env-file loading plus explicit blank overrides avoids accidentally enabling remote database writes in worktree dev servers. Main .env.local untouched.
+- Integrator regression test exposed IC run route returning HTTP503 when Gemini keys are absent, before the existing rules fallback could run. RED commit59c1cce. Removed that obsolete gate and added nonobject JSON validation; new check passes. Independent review pending a free worker slot.
+
+### Independent integration work and scenario inputs
+
+- Ask regression RED30251a1 reproduced null JSON crash. Expanded case reproduced malformed apertureTop10 crashing .find. Added bounded context-shape/finite-number validation and fixed unmodeled scenario objects rendering as [object Object] instead of ticker and portfolio weight. New checks and existing release/typecheck/lint pass; review pending a free worker slot.
+- Added API provenance audit contract (first run failed on missing module; implemented and now passes): exact numeric leaves, nested maps, sourced-value/envelope support, no hidden numeric metadata, orphan/missing/conflicting evidence rejected, error responses cannot count as success. This is infrastructure, not a claim all current APIs comply.
+- Recorded FRED WTI/DTWEXBGS/DGS10/BAMLC0A0CM/IR at 2026-09-27T07:19:25–30Z; DTB3/BOGZ1FL075035503Q at 07:20:46–48Z. Raw captures include metadata and SHA-256 under scripts/fixtures/fred. WTI last observation 2026-09-22=96.41; DGS10 2026-09-24=5.18. Units/frequencies must be validated before modeling.
+- Stooq SPY/XOM requests failed; a second diagnostic returned UND_ERR_CONNECT_TIMEOUT. No synthetic replacement. After this keyless-source failure, two Alpha GET calls captured XOM and SPY adjusted weekly histories: 1403 observations each, last date2026-09-25, adjusted closes160.5900 and771.3500, retrieved07:23:13–14Z.
+- Noticed A's earlier Alpha fixture contains Method POST not allowed. Attempt to steer running agent via resume was rejected (cannot resume while running); correction and budget note retained in STATE.md for A's report. Four Alpha probes accounted overall so far.

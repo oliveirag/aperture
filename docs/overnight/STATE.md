@@ -1,74 +1,75 @@
-# Overnight state — updated 2026-09-27T06:45:29Z, iteration 2
+# Overnight state — iteration 3, Wave 0 integration
 
 ## Phase: 0-setup
 
-Mission: `/Users/zakariakhan/aperture-overnight-mission.md` (read completely, 342 lines).
-Branch: `overnight/real-data`, created from fetched `origin/main` at `06d5e3c`.
-Setup is INCOMPLETE. Do not interpret this file's existence as completion of Wave 0.
-No application code changed. No workstream agents launched. No live-provider verification performed.
+Mission: `/Users/zakariakhan/aperture-overnight-mission.md`, fully re-read this iteration.
+Branch: `overnight/real-data`, based on `origin/main` at `06d5e3c`.
+Do not restart completed setup. Next.js installed guide access and the approved local audit lint exclusion are RESOLVED.
+No host loop-review findings supplied; independent foundation reviews handled below.
 
 ## Workstreams
 
 | id | profile | branch | worktree | status | last gate result | next step |
 |---|---|---|---|---|---|---|
-| 0 | integrator | overnight/real-data | main checkout | blocked | Baseline tests/typecheck/build pass; full lint now passes | User enables Desktop Gitignore access; finish shared contracts/fixture tooling |
-| A | pending workstream profile | not created | not created | todo | not run | Quote chain, keyless history, calendar and provenance |
-| B | pending workstream profile | not created | not created | todo | not run | SEC forms, XBRL, 15-filer fixtures and quote verification |
-| C | pending workstream profile | not created | not created | todo | not run | N-PORT full holdings and identifier mapping |
-| D | pending workstream profile | not created | not created | todo | not run | Measured factor model after A/B/C fixtures |
-| E | pending workstream profile | not created | not created | todo | not run | News normalization, GDELT/SEC feeds, webhook idempotency |
-| F | pending workstream profile | not created | not created | todo | not run | Import coverage, valuation and X-Ray invariants |
-| G | pending workstream profile | not created | not created | todo | not run | Cache freshness, API hardening, local database checks |
-| H | pending workstream profile | not created | not created | todo | not run | UI provenance and full Playwright matrix |
-| I | fresh verifier | not created | not created | todo | not run | Independent 50-figure trace and full-diff reviews |
+| 0 | integrator | overnight/real-data | main checkout | merged | Release, all 21 checks, typegen, tsc, zero-warning lint and webpack build pass after fixes | Commit base, create six worktrees and dispatch |
+| A | aperture-ws-a-market-data | not created | not created | todo | not run | Quote chain, keyless history, sessions/provenance |
+| B | aperture-ws-b-sec | not created | not created | todo | not run | SEC forms, XBRL, 15-filer set and quotes |
+| C | aperture-ws-c-etf | not created | not created | todo | not run | N-PORT and real issuer holdings, reconciliation |
+| D | aperture-ws-d-scenarios | not created | not created | todo | not run | Factor model after real A/B/C fixtures |
+| E | aperture-ws-e-news | not created | not created | todo | not run | News feeds and idempotent webhooks |
+| F | aperture-ws-f-imports | not created | not created | todo | not run | Imports, consistent valuations and invariants |
+| G | aperture-ws-g-cache | not created | not created | todo | not run | Stale cache evidence, serialization and local isolation |
+| H | aperture-ws-h-ui-qa | not created | not created | todo | not run | Provenance UI, copy and Playwright matrix |
+| I | aperture-adversarial-verifier | not created | not created | todo | not run | Independent 50-figure trace |
 
 ## Definition of Done checklist (section 4)
 
-- [ ] 1. All final gates pass. Baseline in `baseline.md`; full lint now passes after approved local audit exclusion (PROGRESS.md iteration 2). Final application gates still outstanding.
-- [ ] 2. All live checks pass with timestamps. None run; existing 19 check scripts do not implement `--live`.
-- [ ] 3. Playwright routes/levels/portfolios/viewports pass with screenshots. Not implemented/run.
-- [ ] 4. API-wide numeric provenance check passes. Not implemented.
-- [ ] 5. All filing quotes verified against fetched sources. Not implemented.
+- [ ] 1. All final gates pass on completed product. Baseline evidence: baseline.md; Wave 0 evidence: PROGRESS.md. Product implementation not complete.
+- [ ] 2. All real-provider live checks pass with timestamps. Only foundational Apple SEC capture performed.
+- [ ] 3. Playwright all routes × levels × 5 portfolios × 3 viewports, screenshots. Not implemented/run.
+- [ ] 4. check-provenance.ts across every numeric API response. Shared validator exists, API integration/check not complete.
+- [ ] 5. check-quotes.ts verifies every rendered filing quotation. Pending B.
 - [ ] 6. Independent 50-figure trace clean. Not run.
-- [ ] 7. Every feature works with Gemini disabled. Baseline fallback tests pass, not a complete UI verification.
-- [ ] 8. Forced Finnhub failure shows labeled real fallback prices. Not verified.
-- [ ] 9. Measured Shock estimates, Explain drawers and historical backtests. Not implemented.
-- [ ] 10. Imported portfolio demo-constant exclusion test. Not implemented.
-- [ ] 11. Provider/verification/demo documentation and optional env configuration complete. Not done.
-- [ ] 12. Harness hygiene complete. Existing pinned ECC plugin reused; workstream profiles not created. No extra worktrees or servers started.
-- [ ] 13. DONE.md contains all evidence. Intentionally absent: criteria unmet.
-- [ ] 14. Branches pushed and one PR opened. Neither performed.
+- [ ] 7. All features with Gemini disabled. Existing fallback checks pass; complete browser proof absent.
+- [ ] 8. Forced Finnhub failure uses labeled real fallback. Not verified.
+- [ ] 9. Measured Shock, Explain drawers and real backtests. Pending D/H.
+- [ ] 10. No imported view leaks demo constants, automated proof. Pending F/H.
+- [ ] 11. Provider/demo/verification docs and optional env configuration. Pending implementation.
+- [ ] 12. Harness hygiene. New profiles/skill and README ready; pinned ECC reused rather than duplicate vendoring. Workstream cleanup/final review still pending.
+- [ ] 13. DONE.md contains all completion evidence. Intentionally absent.
+- [ ] 14. Push branches and open one PR to main. Not performed; never merge or push main.
 
 ## Review dispositions
 
-No host loop-review findings supplied in this iteration. Two fresh, read-only setup reviewers completed (code: `8a305f48`, security: `38633bc2`).
+- Iteration 1 setup review and iteration 2 lint-scope review recorded in PROGRESS.md. No application lint rules weakened. Protected local audit contents unchanged.
+- Earlier reviewer assertion that Next.js cannot generate the AGENTS block is disproven by installed `node_modules/next/dist/server/lib/generate-agent-files.js:53-62`, now read successfully.
+- Foundation initial reviews: code `33de05f6`, TS `8cbb6486`, security `5eca893d`. Fixed URL allowlist/fragment mismatch, optional filing field validation, strict clock bounds, provider-host binding on fixture save/load, cleanup failure aggregation, orphan numeric evidence, and missing capture preflight/cross-process tests.
+- Re-reviews: TS `69850a0f`, security `d1ada811`. Fixed explicit lock-handle type, 8KiB metadata text bounds, friendly malformed-URL failure, lock-owner timeout diagnostics, and removed shell access from adversarial verifier.
+- Reject automatic stale-lock stealing: age alone is unsafe and deleting another worker's lock violates ownership. Fail closed, report PID/acquisition time, request specific orphan recovery approval. Documented in harness README and BLOCKERS.md.
+- Reject swallowing cleanup errors after a successful operation: lost lock integrity must fail the check. AggregateError preserves original operation error when present; regression covers this.
+- Arbitrary save/load fixture paths are trusted developer tooling (needed for temporary test roots), not exposed to application input. Network capture validates a fixed provider path and safe filename.
+- Generic provenance validation checks shape only; provider adapters must bind trusted hosts and prove values independently. Known-key fixture leak detection is not a complete generic secret scanner; review before commit.
 
-- Code review: no critical/high findings. Accepted the request to surface the mission's stale git-exclude assumption in BLOCKERS.md; fixed in this checkpoint. Redundancy advisory noted: STATE.md remains authoritative.
-- Security review: no credential exposure or unsafe remote-write instructions found in scoped checkpoint/config files. Rejected the unsupported claim that the pre-existing Next.js AGENTS block cannot be genuine: reviewer did not inspect the installed generator, and the user explicitly supplied the same guide-reading requirement. This does not authorize bypassing the denied reads. Generator provenance remains unverified.
-- Neither review certifies application security or the mission's 50-figure trace. Treat subsequent loop-review findings as first priority.
-- Iteration 2: code (`728b2d71`) and TypeScript (`d8a43ed4`) reviewers approved the exact audit lint exclusion. The informational note that the CJS extractor loses lint coverage is intentional under user approval. No references to that extractor/audit directory found in src, scripts or package.json. The code reviewer lacked a shell and reviewed the file rather than git diff; integrator verified the single-line config diff.
+## Shared contracts / harness
+
+- `src/lib/provenance.ts`: discriminated retrieved/computed/assumption types, filing references, RFC6901 numeric evidence map, runtime validation, URL redaction. User-import uses a named reviewed source rather than fabricated HTTPS URL.
+- `scripts/lib/fixtures.ts`: write-once raw text fixtures with SHA-256 + source/time, fixed capture hosts, bounded fetch/response size, secret-key rejection, global live file lock. Capture takes its own lock (do not nest); complete live checks call withLiveLock separately.
+- `scripts/fixtures/sec-edgar/aapl-submissions-2026-09-27.json`: real capture at 2026-09-27T07:01:58.677Z, name Apple Inc., latest form 4 filed 2026-09-24; digest dabb28a7c4af8fac408a72345ec959c1a08255a6c5c1af99c4f22b2beacfc77f. Golden helper test loads/verifies this capture.
+- `416b1ef` is RED checkpoint: missing provenance/fixture modules. Review regression additions also reproduced failing before fixes. GREEN checks: check-provenance-contract.ts and check-fixture-tools.ts.
+- `.devin/agents/`: nine mission profiles. `.devin/skills/aperture-workstream/SKILL.md`: shared safety/ownership/test contract. `.devin/README.md`: operational use.
+- `devin doctor --json`: healthy, 77 profiles. Existing pinned ECC v2.2.1 supplies standard skills/reviewers. No duplicate ECC installation or hooks. max-nesting 2 allows one reviewer child using Devin's absolute-depth semantics; orchestrator may run reviews to enforce six-worker cap.
+- Existing APERTURE_CACHE_DIR support works; live workers set `/Users/zakariakhan/.cache/aperture-shared`. G owns changing default and atomic/typed cache persistence. Fixture tests never use the shared real cache.
 
 ## Open risks / blockers
 
-See `BLOCKERS.md`.
+See BLOCKERS.md. No current permission blocker.
 
-- IDE ignore policy denies reading `node_modules/next/dist/docs/`, even after `request_scope` granted read access. User notified; do not bypass via shell, symlinks or copying.
-- Audit lint conflict resolved with explicit user approval. Only the exact protected local audit directory is excluded; full lint passes, rules unchanged.
-- User explicitly approved access, but Desktop still denied the guide read. Supported UI: Devin Settings → Devin Local → Configuration → Gitignore access. User must toggle it; no broad global access change made by the agent.
-- Existing Supabase cache/limiter methods write remotely. Disable Supabase and remote KV credentials in all test processes until explicit local isolation is implemented.
-- Full UI/browser/live coverage is absent; existing math fixtures include synthetic/demo data and cannot prove live correctness.
-- Static source-copy inventory was read through line 140 only; resume the rest during setup/UI audit.
-
-## Harness decisions and evidence
-
-- ECC already installed at project scope, pinned to `c752aac18616e26bf146f034a86947d8f6fc207e`, cached as v2.2.1. Avoid stacking a second clone/vendored install over it. Literal vendoring requirement remains unresolved, not checked off.
-- `devin doctor --json` returned `ok: true`, 68 loaded profiles, with five ignored `color` metadata warnings only.
-- Invoked canonical `continuous-agent-loop` instead of deprecated `autonomous-loops`; also read Devin CLI, loop-design-check, safety-guard, tdd-workflow, security-review and verification-loop skills.
-- AgentShield executable absent. Bounded manual security review of the pinned plugin config, AGENTS.md and checkpoint files completed; dispositions above. Review new workstream profiles when created.
-- CLI docs confirm `/loop` is host-managed and reviews with a fresh read-only subagent. No tool here invokes `/compact` or proves whether this message was parsed as an active host loop. Do not claim a scheduler was started.
-- Existing local AGENTS.md plugin addition and `.devin/config.json` preserved. Protected `.claude/launch.json`, `.mcp.json` and `docs/audit-2026-09-27/` preserved and added to `.git/info/exclude` (they were not excluded at session start despite mission assumption).
-- npm ci: 811 packages installed, zero audit vulnerabilities. Release suite, all 19 scripts, type generation, TypeScript and webpack build passed. See `baseline.md`.
+- Remote Supabase/Redis must stay disabled in ALL local live/test/server processes. Explicit blank environment variables override `.env.local`; never print/copy secret values.
+- Zero Alpha Vantage budget spent this run; reserve its 25/day for needs keyless providers cannot cover.
+- File ownership adjustments: E creates new news adapter instead of editing A's finnhub.ts; G owns imports/provider.ts, F all other import logic; route validation edits coordinate through integrator.
+- Copy inventory read through line 370; remaining strings belong to H's full audit. Product docs/check scripts and both prior audit screenshots already read.
+- `lookthru-wt` parent created; no worktrees or servers launched yet.
 
 ## Next action
 
-After the user enables Desktop Gitignore access, retry the required guide reads, then finish Wave 0: shared provenance types, fixture recorder, cross-process live lock, harness profiles and gate verification before spawning workstreams. Do not rerun completed baseline work unnecessarily.
+Finish final Wave 0 gates and commit shared base. Create A/B/C/E/F/G worktrees from that commit, install dependencies, then launch six workstream agents in parallel. While they work, integrate only reviewed/gated branches and advance independent verification infrastructure. Do not stop for routine questions.

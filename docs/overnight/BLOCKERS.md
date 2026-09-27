@@ -1,6 +1,6 @@
 # Overnight blockers
 
-## Open: installed Next.js guides are unreadable to the agent
+## Resolved: installed Next.js guide access
 
 Observed in iteration 1 on 2026-09-27.
 
@@ -12,7 +12,7 @@ The repository requires reading the version-specific Next.js guides before writi
 
 Decisive error: `Access denied ... is matched by an ignore file ... The agent is not allowed to read or modify ignored files.`
 
-`request_scope` for read access to `node_modules/next/dist/docs` returned `Scope granted`, but each subsequent read still failed with the same ignore-policy denial. The user was notified. Needed action: enable agent read access to this installed documentation directory through the IDE's supported access controls. Do not bypass this denial using shell reads, symlinks or copied files. No application code has been changed while this prerequisite is blocked.
+Earlier `request_scope` did not override Desktop's ignore policy. In iteration 3 the read tool successfully read the installed route-handler and fetch guides, relevant cache guidance, and the actual `generate-agent-files.js` source confirming the managed AGENTS block. Access is resolved; do not restart this investigation.
 
 ## Resolved: full lint included protected local audit material
 
@@ -30,20 +30,20 @@ Team action after the mission: review and apply any pending import/provider-cach
 
 ## Open: harness specification versus installed plugin
 
-The project already loads pinned ECC v2.2.1 through `.devin/config.json`. Adding the same agents and skills again under `.claude/` would duplicate the installed surface. Reuse the loaded plugin and put genuinely new project configuration in `.devin/`. Workstream-specific profiles and the shared provenance/fixture contracts are not yet created. Literal vendoring completion is not claimed.
+The project already loads pinned ECC v2.2.1 through `.devin/config.json`. Reusing the pinned plugin avoids duplicate agent/skill discovery. Nine new workstream/verifier profiles, a shared mission skill, and `.devin/README.md` are now present; `devin doctor --json` recognizes 77 profiles. Common rules are referenced rather than duplicated verbatim in each profile. Literal `.claude/skills` vendoring in the original mission is not claimed; the operational harness uses the previously approved existing plugin.
 
 `agentshield` is not installed. Use a bounded manual review of the new project harness; do not install an unreviewed CLI or hooks overnight.
 
 ## Permissions to allow
 
-- User approval for guide access was received in iteration 2, but a fresh read remained denied by the Desktop ignore policy.
-- Official supported UI: Devin Settings → Devin Local → Configuration → Gitignore access, toggle on. Source: https://docs.devin.ai/desktop/advanced (fetched this iteration). This is a broader ignored-file access toggle; it is controlled by the user in Desktop, not by a chat approval. No global access settings changed by the agent.
-- No background workstream agents launched; only read-only checkpoint/config reviews have run.
+- Guide access is resolved. Future background denials must be reported once with the exact denied command, then handled in the foreground if permitted. Do not repeatedly retry denied operations.
+- Live lock deliberately fails closed after a crash. Timeout reports validated owner PID/acquisition time; never auto-delete based only on lock age. Operator recovery requires checking that no worker owns it and explicit permission to remove that specific orphan.
 
 ## Not blockers, but important limits
 
 - The mission incorrectly assumed the three protected local paths were already in `.git/info/exclude`. They were not. This session added only those exclusions locally; their contents remain unchanged and uncommitted.
 
 - The mission's 19 existing `scripts/check-*.ts` files are deterministic checks, not real-provider fixture/live dual-mode checks. Passing them with an ignored `--live` argument would not be evidence.
-- All feature waves, recorded real fixtures, the Playwright matrix and independent source traces remain outstanding.
+- Feature waves, the Playwright matrix and independent source traces remain outstanding. One real Apple submissions fixture is captured; that alone does not establish any feature's live completeness.
+- Shared provenance validation checks shape, not source authenticity or correct numeric calculations. Each provider adapter must bind trusted hosts and preserve raw-source evidence; final independent traces remain mandatory.
 - The mission's full completion criteria remain unmet; never create DONE.md on the basis of this baseline.

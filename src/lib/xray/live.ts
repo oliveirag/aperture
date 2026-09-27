@@ -8,7 +8,8 @@ import type { XrayModel } from "@/lib/xray/types";
 
 const KNOWN_COLORS = new Map(HOLDINGS.map((h) => [h.ticker, h.color]));
 
-// `price` is the import-time fallback when there's no live quote.
+// A supplied price is the portfolio's frozen valuation, shared across views.
+// Refresh explicitly replaces it; rendering another tab must not reprice shares.
 export type PositionInput = { shares: number; price: number | null; name: string | null };
 
 export const MAX_POSITIONS = 50;
@@ -22,9 +23,12 @@ export function parseHoldings(raw: unknown): Map<string, PositionInput> {
     const ticker = normalizeTicker(h.ticker);
     if (!TICKER.test(ticker)) continue;
     const prev = merged.get(ticker);
+    const price = typeof h.price === "number" && Number.isFinite(h.price) && h.price > 0 ? h.price : null;
+    const shares = (prev?.shares ?? 0) + h.shares;
+    if (!Number.isFinite(shares)) throw new Error("Portfolio quantity exceeds the supported numeric range.");
     merged.set(ticker, {
-      shares: (prev?.shares ?? 0) + h.shares,
-      price: typeof h.price === "number" && Number.isFinite(h.price) && h.price > 0 ? h.price : (prev?.price ?? null),
+      shares,
+      price: prev ? (price !== null && prev.price !== null ? (prev.shares * prev.price + h.shares * price) / shares : null) : price,
       name: typeof h.name === "string" ? h.name : (prev?.name ?? null),
     });
   }
@@ -36,8 +40,8 @@ export async function apertureInputs(merged: Map<string, PositionInput>): Promis
   const tickers = [...merged.keys()];
   const live = finnhubConfigured();
   const [quotes, profiles] = await Promise.all([
-    Promise.allSettled(tickers.map((t) => (live ? getQuote(t) : Promise.resolve(null)))),
-    Promise.allSettled(tickers.map((t) => (live && !isSeededEtf(t) ? getProfile(t) : Promise.resolve(null)))),
+    Promise.allSettled(tickers.map((t) => (live && t !== "USD" && merged.get(t)!.price === null ? getQuote(t) : Promise.resolve(null)))),
+    Promise.allSettled(tickers.map((t) => (live && t !== "USD" && !isSeededEtf(t) ? getProfile(t) : Promise.resolve(null)))),
   ]);
 
   // A Finnhub company profile means a stock; no profile, try it as an ETF.
@@ -46,11 +50,13 @@ export async function apertureInputs(merged: Map<string, PositionInput>): Promis
       const h = merged.get(ticker)!;
       const quote = quotes[i].status === "fulfilled" ? quotes[i].value : null;
       const profile = profiles[i].status === "fulfilled" ? profiles[i].value : null;
-      const price = quote?.price ?? h.price ?? 0;
+      if (ticker === "USD") return { ticker, name: "USD cash", shares: h.shares, price: 1, kind: "cash" as const };
+      const price = h.price ?? quote?.price;
+      if (!price || !Number.isFinite(price)) throw new Error(`Price unavailable for ${ticker}; portfolio valuation is incomplete. Review a dated value before analysis.`);
       const name = profile?.name ?? h.name ?? ticker;
       if (profile) return { ticker, name, shares: h.shares, price, kind: "stock" as const, industry: profile.industry || null };
-      const etf = await getEtfProfile(ticker);
-      if (etf) return { ticker, name, shares: h.shares, price, kind: "etf" as const, etf };
+      const etf: ApertureInput["etf"] | null = await getEtfProfile(ticker);
+      if (etf?.provenance) return { ticker, name, shares: h.shares, price, kind: "etf" as const, etf };
       return { ticker, name, shares: h.shares, price, kind: "opaque" as const };
     }),
   );

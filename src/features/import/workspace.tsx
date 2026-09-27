@@ -1,6 +1,6 @@
 "use client";
 import { accountsEnabled } from "@/lib/supabase";
-import { activateSnapshot } from "@/lib/imports/snapshot-store";
+import { activateSnapshot, snapshotActivationProblem } from "@/lib/imports/snapshot-store";
 import { importFetch } from "@/lib/imports/client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -58,7 +58,7 @@ export function ImportFlow() {
   useEffect(()=>{
     if(job?.status!=="complete" || !job.snapshot_id || activated.current===job.snapshot_id)return;
     const snapshot=snapshots.find(s=>s.id===job.snapshot_id);
-    if(snapshot){activateSnapshot(snapshot);activated.current=snapshot.id;}
+    if(snapshot&&!snapshotActivationProblem(snapshot)){activateSnapshot(snapshot);activated.current=snapshot.id;}
   },[job,snapshots]);
   const imageJob=job?.source==="screenshot"&&!job.confirmed_at?job.id:null;
   useEffect(()=>{
@@ -101,9 +101,11 @@ export function ImportFlow() {
     setJob(data.job);clearImage();setOriginal(null);await reload();
   }
   function open(snapshot:Snapshot){
-    activateSnapshot(snapshot);
-    router.push("/xray");
+    try { activateSnapshot(snapshot); router.push("/xray"); }
+    catch(e){setError(e instanceof Error?e.message:"Snapshot valuation is unavailable.");}
   }
+  const completedSnapshot=snapshots.find(s=>s.id===job?.snapshot_id);
+  const displayError=error||(completedSnapshot?snapshotActivationProblem(completedSnapshot):null);
   const editable=!job || job.status==="review" || job.status==="needs_input";
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
@@ -112,7 +114,7 @@ export function ImportFlow() {
     <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
     <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
     <p><Link href="/xray" className="underline" onClick={()=>usePortfolio.getState().resetToDemo()}>Explore the sample portfolio</Link></p>
-    {error&&<p role="alert" className="border border-red-500 p-3">{error}</p>}
+    {displayError&&<p role="alert" className="border border-red-500 p-3">{displayError}</p>}
     {!accountsEnabled()?<p className="max-w-lg">Saved imports are turned off on this deployment. Use <Link href="/import" className="underline">Import</Link> for a session portfolio; nothing is stored.</p>:!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
       <p>Sign in to see your saved imports.</p>
       <label className="block">Email address<input aria-label="Email" placeholder="you@example.com" className={`${style} block w-full mt-2`} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
@@ -128,7 +130,7 @@ export function ImportFlow() {
         {job?.source==="screenshot"&&!image&&<p role="alert">The temporary screenshot is no longer available. Upload it again to complete the required comparison.</p>}
         <div className="overflow-auto max-h-[600px]"><table className="w-full text-sm"><thead><tr>{["Ticker / name","Type","Shares","Market value (USD)","Value date","Exclude / reason","Status"].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody>
           {rows.map((r,i)=><tr key={i} className="border-t border-border-strong"><td className="p-2"><input aria-label={`Ticker row ${i+1}`} className={`${style} w-28`} value={r.ticker} onChange={e=>edit(i,{ticker:e.target.value.toUpperCase()})}/><input aria-label={`Name row ${i+1}`} className={`${style} w-44`} value={r.name} onChange={e=>edit(i,{name:e.target.value})}/></td>
-          <td><select aria-label={`Type row ${i+1}`} className={style} value={r.kind} onChange={e=>edit(i,{kind:e.target.value as ImportRow["kind"]})}><option value="unknown">Confirm type</option><option value="stock">US stock</option><option value="etf">US ETF</option><option value="cash">USD cash</option></select></td>
+          <td><select aria-label={`Type row ${i+1}`} className={style} value={r.kind} onChange={e=>edit(i,{kind:e.target.value as ImportRow["kind"]})}><option value="unknown">Confirm type</option><option value="stock">US stock</option><option value="etf">US ETF</option><option value="cash">USD cash</option><option value="unsupported">Unsupported (retain value)</option></select></td>
           <td><input aria-label={`Shares row ${i+1}`} className={`${style} w-28`} type="number" step="any" value={r.shares??""} onChange={e=>edit(i,{shares:e.target.value===""?null:Number(e.target.value)})}/></td>
           <td><input aria-label={`Market value row ${i+1}`} className={`${style} w-32`} type="number" step="any" value={r.marketValue??""} onChange={e=>edit(i,{marketValue:e.target.value===""?null:Number(e.target.value)})}/></td>
           <td><input aria-label={`Valuation date row ${i+1}`} className={style} type="date" value={r.valuationDate} onChange={e=>edit(i,{valuationDate:e.target.value})}/></td>

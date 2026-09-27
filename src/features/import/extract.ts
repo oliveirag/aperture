@@ -2,7 +2,8 @@ import type { PriceResponse } from "@/app/api/price/route";
 import type { SnapHolding, SnapResponse } from "@/app/api/snap/route";
 import { HOLDINGS } from "@/data/portfolio";
 
-// `source`: "gemini" when Gemini read a screenshot, "typed" for CSV or manual rows; the sample leaves it unset.
+// `source`: "gemini" or "ocr" for a screenshot read by Gemini or by local text recognition, "typed" for CSV or
+// manual rows; the sample leaves it unset.
 // `status` mirrors /api/snap: only "matched" and "unpriced" rows count toward the total.
 export type ExtractedHolding = {
   ticker: string;
@@ -12,7 +13,7 @@ export type ExtractedHolding = {
   price: number | null;
   value: number;
   status: SnapHolding["status"];
-  source?: "gemini" | "typed";
+  source?: "gemini" | "ocr" | "typed";
 };
 
 export type ExtractResult = { ok: true; holdings: ExtractedHolding[]; model?: string } | { ok: false; error: string };
@@ -30,7 +31,7 @@ async function readSample(): Promise<ExtractResult> {
   return { ok: true, holdings: HOLDINGS.map(h => ({ ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price: h.price, value: h.value, status: "matched" })) };
 }
 
-// Posts the images (one to three) to /api/snap: Gemini reads them in one request, Finnhub prices the positions.
+// Posts the images (one to three) to /api/snap: Gemini (or local OCR) reads them, Finnhub prices the positions.
 async function readLive(files: File[]): Promise<ExtractResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LIVE_TIMEOUT_MS);
@@ -42,7 +43,8 @@ async function readLive(files: File[]): Promise<ExtractResult> {
     if (!res.ok || !Array.isArray(data.holdings)) {
       return { ok: false, error: data.error ?? "Couldn't read the screenshot. Try again in a moment." };
     }
-    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source: "gemini" as const })) };
+    const source = data.method === "ocr" ? ("ocr" as const) : ("gemini" as const);
+    return { ok: true, model: data.model, holdings: data.holdings.map((h) => ({ ...h, source })) };
   } catch {
     return {
       ok: false,

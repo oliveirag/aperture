@@ -128,10 +128,11 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
   const name = displayName(company.name);
   const { latest, prior } = pair;
   const id = `${ticker}:${latest.accession}:${prior.accession}`;
-  const cachedModel = await recall<RadarFiling>(`radar:${id}`);
-  if (cachedModel) {
+  // A Gemini comparison beats a text one; without Gemini, a cached text comparison needs no filing download.
+  const cached = (await recall<RadarFiling>(`radar:${id}`)) ?? (geminiAvailable() ? undefined : await recall<RadarFiling>(`radar-text:${id}`));
+  if (cached) {
     track(ticker);
-    return { status: "ok", filing: cachedModel };
+    return { status: "ok", filing: cached };
   }
   // SEC errors propagate: without both filings there is nothing honest to show.
   const texts = await readPair(name, latest, prior, onProgress);

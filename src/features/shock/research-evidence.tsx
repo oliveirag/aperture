@@ -14,7 +14,7 @@ export function ResearchEvidence() {
   return <section aria-label="Scenario evidence and assumptions" className="space-y-4 border border-border bg-surface-1 p-5 text-[14px] leading-6">
     <h2 className="text-[18px] text-text">Evidence and assumptions</h2>
     <p className="text-text-muted">{result.question}</p>
-    <p><strong>How we read it:</strong> {result.plan.basis === "stated" ? "You named the driver and direction, so we modeled exactly that." : "You described an event, not a market driver. Sources suggested the link below, so it is labeled an assumption you can change."}{result.plan.rationale ? <span className="text-text-muted"> Basis: {result.plan.rationale}</span> : null}{!result.plan.magnitudeStated ? <span className="text-text-muted"> The size is a default; use the severity control.</span> : null}</p>
+    <p><strong>How we read it:</strong> {result.plan.basis === "stated" ? "You named the driver and direction, so we modeled exactly that." : "You described an event, not a market driver. Reading it as the driver below is an assumption, not a finding."}{result.plan.rationale ? <span className="text-text-muted"> Basis: {result.plan.rationale}.</span> : null}{!result.plan.magnitudeStated ? <span className="text-text-muted"> The size is a default; use the severity control.</span> : null}</p>
     <p className="text-text-muted">{result.evidenceMode === "web" ? `Web research retrieved ${new Date(result.researchedAt).toLocaleString()}. Summaries below link to their supporting sources.` : "Reference sources only. Live web search is unavailable right now; these references explain the mechanism and do not establish current events."}</p>
     {result.evidence.map((claim, i) => <div key={i}>
       <p>{claim.text}</p>

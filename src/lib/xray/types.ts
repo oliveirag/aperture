@@ -1,4 +1,5 @@
 import type { Flag, LeveledText, SectorSlice, Source } from "@/types/demo";
+import type { Provenance } from "@/lib/provenance";
 
 // "Direct", or the ticker of the ETF the money flows through.
 export type Via = string;
@@ -29,6 +30,11 @@ export type XOverlap = { a: string; b: string; overlap: number; sharedCompanies:
 export interface XrayModel {
   mode: "demo" | "live";
   total: number;
+  // Shared immutable valuation for header, X-Ray, Shock and IC consumers.
+  valuation?: {
+    currency: "USD"; total: number; status: "sourced" | "source-unavailable"; provenance?: Provenance;
+    positions: { ticker: string; shares: number; price: number; value: number; kind: "stock" | "etf" | "opaque" | "cash"; provenance?: Provenance }[];
+  };
   positionsCount: number;
   underlyingCompanies: number;
   headline: LeveledText;
@@ -38,6 +44,7 @@ export interface XrayModel {
   // ETF columns in the advanced True Top 10 (at most three).
   etfColumns: string[];
   sectors: SectorSlice[];
+  sectorSources?: { ticker: string; method: string; provenance?: Provenance; status: "sourced" | "source-unavailable" }[];
   overlaps: XOverlap[];
   flags: Flag[];
   sources: Source[];

@@ -46,7 +46,11 @@ process.env.APERTURE_CACHE_DIR = mkdtempSync(path.join(os.tmpdir(), "aperture-ch
   const phone = parseRows("Symbol Market value\nvVOO $42,000.00\n75 shares +0.38%\nNVDA $19,800.00\n110 shares +1.84%");
   assert.deepEqual(phone.map((r) => [r.ticker, r.shares, r.marketValue]), [["VOO", 75, 42000], ["NVDA", 110, 19800]]);
   const table = parseRows("Symbol Qty Price Market Value\nAAPL Apple Inc 50 $284.00 $14,200.00 +0.27%\nUSD Cash $1,203.44\nBRK.B 10 $480.00 $4,800.00");
-  assert.deepEqual(table.map((r) => [r.ticker, r.shares, r.marketValue]), [["AAPL", 50, 14200], ["BRK.B", 10, 4800]]);
+  assert.deepEqual(table.map((r) => [r.ticker, r.shares, r.marketValue]), [["AAPL", 50, null], ["USD", null, 1203.44], ["BRK.B", 10, null]]);
+  assert.ok(table.every(r => r.reviewState === "required"), "Every OCR row requires review, including cash");
+  assert.equal(table[1].rowType, "cash", "Cash is retained, never discarded from the denominator");
+  assert.ok(table[0].rawText.includes("$14,200.00") && table[2].rawText.includes("$4,800.00"), "Ambiguous source values remain visible for review rather than guessing max(price, value)");
+  assert.ok(table[0].reviewWarnings.some(w => /Ambiguous/.test(w)));
 
   // Rules committee: every point cites a fact that exists, and the memo says it came from rules.
   const facts = [

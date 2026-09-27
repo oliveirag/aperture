@@ -22,7 +22,7 @@ export type AuditRecord = { runId: string; createdAt: string; input: { ticker: s
 
 export function runIdFor(input: RunInput) {
   const day = new Date().toISOString().slice(0, 10);
-  const holdings = [...input.holdings].sort(([a], [b]) => a.localeCompare(b)).map(([t, h]) => [t, h.shares]);
+  const holdings = [...input.holdings].sort(([a], [b]) => a.localeCompare(b)).map(([t, h]) => [t, h.shares, h.price, h.marketValue, h.kind, h.name, h.industry, h.provenance]);
   return createHash("sha256").update(JSON.stringify([input.ticker, input.thesis.trim(), input.amount, day, holdings])).digest("hex").slice(0, 16);
 }
 
@@ -35,7 +35,7 @@ async function portfolioFit(input: RunInput, name: string) {
   // Classify the candidate the same way as a held position (stock, ETF with holdings, or opaque).
   const [probe] = await apertureInputs(new Map([[input.ticker, { shares: 1, price: null, name }]]));
   const priced = probe.price > 0;
-  const candidate: ApertureInput = { ...probe, price: priced ? probe.price : input.amount, shares: priced ? input.amount / probe.price : 1 };
+  const candidate: ApertureInput = { ...probe, price: priced ? probe.price : 0, shares: priced ? input.amount / probe.price : 0, marketValue: priced ? undefined : input.amount };
   const after = withPosition(before, candidate);
   const [beforeModel, afterModel] = await Promise.all([modelFor(before), modelFor(after)]);
   if (!afterModel) throw new Error("no prices for the fit");

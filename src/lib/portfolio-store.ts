@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import { HOLDINGS } from "@/data/portfolio";
 import type { Holding } from "@/types/demo";
+import type { ApertureInput } from "@/lib/xray/compute";
+import { positionValue } from "@/lib/xray/valuation";
 
 const DEFAULT_COLOR = "#8FA3BF";
 
@@ -14,7 +16,13 @@ export interface ImportedHolding {
   industry: string | null;
   shares: number;
   price: number;
+  kind?: ApertureInput["kind"];
+  marketValue?: number;
+  provenance?: ApertureInput["provenance"];
 }
+
+// Additive fields preserve compatibility with legacy demo display holdings.
+export type PortfolioHolding = Holding & Pick<ImportedHolding, "kind" | "marketValue" | "provenance">;
 
 // The demo portfolio in the same shape, so it goes through the same live pricing and look-through as an import.
 // The snapshot prices are only a fallback for positions Finnhub can't quote.
@@ -63,16 +71,19 @@ export const usePortfolio = create<PortfolioState>()(
 const DEMO_COLOR = new Map(HOLDINGS.map((h) => [h.ticker, h.color]));
 
 // The active portfolio as display holdings, largest first.
-export function portfolioHoldings(imported: ImportedHolding[] | null): Holding[] {
+export function portfolioHoldings(imported: ImportedHolding[] | null): PortfolioHolding[] {
   if (!imported) return HOLDINGS;
   return imported
     .map((h) => ({
       ticker: h.ticker,
       name: h.name,
-      type: "stock" as const,
+      type: h.kind === "etf" ? "etf" as const : "stock" as const,
+      kind: h.kind,
       shares: h.shares,
       price: h.price,
-      value: h.shares * h.price,
+      marketValue: h.marketValue,
+      provenance: h.provenance,
+      value: positionValue(h),
       category: h.industry ?? "",
       color: DEMO_COLOR.get(h.ticker) ?? DEFAULT_COLOR,
     }))

@@ -1,8 +1,8 @@
 "use client";
 import { accountsEnabled } from "@/lib/supabase";
-import { activateSnapshot } from "@/lib/imports/snapshot-store";
+import { activateSnapshot, snapshotActivationProblem, useSnapshots } from "@/lib/imports/snapshot-store";
 import { importFetch } from "@/lib/imports/client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -13,7 +13,7 @@ import { usePortfolio } from "@/lib/portfolio-store";
 import { SnapshotHistory } from "./snapshot-history";
 
 const style="rounded border border-border-strong bg-surface-1 px-3 py-2 text-text disabled:opacity-50";
-const empty=():ImportRow=>({ticker:"",name:"",kind:"unknown",shares:null,marketValue:null,valuationDate:""});
+const empty=():ImportRow=>({ticker:"",name:"",kind:"unknown",shares:null,marketValue:null,currency:"USD",valuationDate:""});
 async function send(body:unknown) {
   const res=await importFetch("/api/imports",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   const data=await res.json(); if(!res.ok) throw new Error(data.error); return data;
@@ -30,36 +30,47 @@ export function ImportFlow() {
   const [error,setError]=useState(""); const [busy,setBusy]=useState(false); const [reviewed,setReviewed]=useState(false);
   const [original,setOriginal]=useState<ImportRow[]|null>(null);
   const generation=useRef(0);
-  const activated=useRef<string|null>(null);
-  function clearImage(){if(imageRef.current) URL.revokeObjectURL(imageRef.current);imageRef.current=null;setImage(null);}
-  async function reload() {
+  const account=useRef<string|null|undefined>(undefined);
+  const [accountId,setAccountId]=useState<string|null>(null);
+  const clearImage=useCallback(()=>{if(imageRef.current) URL.revokeObjectURL(imageRef.current);imageRef.current=null;setImage(null);},[]);
+  const reload=useCallback(async()=>{
     const run=generation.current;
     const response=await importFetch("/api/imports",{cache:"no-store"});
     if(run!==generation.current)return;
-    if(response.status===401){setSignedIn(false);return;}
+    if(response.status===401){generation.current++;setSignedIn(false);setBusy(false);setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);setJobs([]);setSnapshots([]);setEvents([]);clearImage();usePortfolio.setState({imported:null,stashed:null,kind:"imported"});useSnapshots.setState({snapshot:null});return;}
     const data=await response.json(); if(run!==generation.current)return; if(!response.ok) throw new Error(data.error);
     setJobs(data.jobs);setSnapshots(current=>[...new Map<string,Snapshot>([...current,...data.snapshots].map((s:Snapshot)=>[s.id,s])).values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)));setEvents(data.events);
     if(data.snapshots.length<30)setMoreHistory(false);
     setJob(current=>current?data.jobs.find((j:ImportJob)=>j.id===current.id)??current:current);
-  }
+  },[clearImage]);
   useEffect(()=>{
     const client=browserClient();
     if(!client)return;
-    const {data}=client.auth.onAuthStateChange((_event,session)=>{setSignedIn(Boolean(session));setLoaded(true);if(!session){generation.current++;setJob(null);setRows([empty()]);setJobs([]);setSnapshots([]);setEvents([]);usePortfolio.getState().resetToDemo();if(imageRef.current)URL.revokeObjectURL(imageRef.current);imageRef.current=null;setImage(null);}});
-    client.auth.getUser().then(({data})=>{setSignedIn(Boolean(data.user));setLoaded(true);});
-    return()=>{data.subscription.unsubscribe();if(imageRef.current) URL.revokeObjectURL(imageRef.current);};
+    const updateAccount=(id:string|null)=>{
+      if(account.current!==id){
+        generation.current++;
+        const previous=account.current;account.current=id;setAccountId(id);
+        setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);setBusy(false);setError("");setJobs([]);setSnapshots([]);setEvents([]);setMoreHistory(true);
+        if(previous!==undefined || !id){usePortfolio.setState({imported:null,stashed:null,kind:"imported"});useSnapshots.setState({snapshot:null});}
+        if(imageRef.current)URL.revokeObjectURL(imageRef.current);imageRef.current=null;setImage(null);
+      }
+      setSignedIn(Boolean(id));setLoaded(true);
+    };
+    const {data}=client.auth.onAuthStateChange((_event,session)=>updateAccount(session?.user.id??null));
+    const run=generation.current;
+    client.auth.getUser().then(({data})=>{if(run===generation.current)updateAccount(data.user?.id??null);});
+    // Invalidate the latest operation on unmount, not the generation at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return()=>{generation.current++;data.subscription.unsubscribe();if(imageRef.current) URL.revokeObjectURL(imageRef.current);};
   },[]);
   useEffect(()=>{
     if(!signedIn)return;
     let cancelled=false;
-    const load=()=>{if(!cancelled)void reload().catch(e=>setError(e.message));};
+    const load=()=>{const run=generation.current;if(!cancelled)void reload().catch(e=>{if(!cancelled&&run===generation.current)setError(e.message);});};
     load();const timer=setInterval(load,5000);return()=>{cancelled=true;clearInterval(timer);};
-  },[signedIn]);
-  useEffect(()=>{
-    if(job?.status!=="complete" || !job.snapshot_id || activated.current===job.snapshot_id)return;
-    const snapshot=snapshots.find(s=>s.id===job.snapshot_id);
-    if(snapshot){activateSnapshot(snapshot);activated.current=snapshot.id;}
-  },[job,snapshots]);
+  },[signedIn,accountId,reload]);
+  // Selecting history is inspection only. Only the explicit Open action below
+  // changes the globally active portfolio, even when a selected job completes.
   const imageJob=job?.source==="screenshot"&&!job.confirmed_at?job.id:null;
   useEffect(()=>{
     if(!imageJob)return;
@@ -72,7 +83,12 @@ export function ImportFlow() {
     }).catch(e=>{if(!controller.signal.aborted)setError(e.message);});
     return()=>controller.abort();
   },[imageJob]);
-  async function act(fn:()=>Promise<void>){setBusy(true);setError("");try{await fn();}catch(e){setError(e instanceof Error?e.message:"Request failed");}finally{setBusy(false);}}
+  async function act(fn:()=>Promise<void>){
+    setBusy(true);setError("");let run=generation.current;
+    try{const pending=fn();run=generation.current;await pending;}
+    catch(e){if(run===generation.current)setError(e instanceof Error?e.message:"Request failed");}
+    finally{if(run===generation.current)setBusy(false);}
+  }
   function edit(index:number,patch:Partial<ImportRow>){setReviewed(false);setRows(rs=>rs.map((r,i)=>i===index?{...r,...patch}:r));}
   async function upload(file:File) {
     const run=++generation.current;
@@ -80,10 +96,12 @@ export function ImportFlow() {
     if(file.size>4*1024*1024)throw new Error("Choose a file under 4 MB.");
     if(/\.(csv|txt)$/i.test(file.name)) {
       const parsed=parseReviewCsv(await file.text());
+      if(run!==generation.current)return;
       if(parsed.error)throw new Error(parsed.error);
       // Skipped rows are retained as unresolved review rows, never silently discarded.
       const all=readRows([...parsed.rows,...parsed.skipped.map(s=>({ticker:"",name:`Line ${s.line}: ${s.text} (${s.reason})`}))]);
       const data=await send({action:"create",id:crypto.randomUUID(),rows:all,source:"rows"});
+      if(run!==generation.current)return;
       setJob(data.job);setRows(all);setOriginal(all);await reload();return;
     }
     if(!file.type.startsWith("image/"))throw new Error("Choose an image or CSV file.");
@@ -95,15 +113,36 @@ export function ImportFlow() {
     setJob(data.job);setRows(data.job.rows);setOriginal(data.job.original);await reload();
   }
   async function confirm(){
+    const run=++generation.current;
     let current=job;
-    if(!current) {const data=await send({action:"create",id:crypto.randomUUID(),rows:original??rows,source:"rows"});current=data.job;setJob(current);}
+    if(!current) {const data=await send({action:"create",id:crypto.randomUUID(),rows:original??rows,source:"rows"});if(run!==generation.current)return;current=data.job;setJob(current);}
     const data=await send({action:"confirm",id:current!.id,revision:current!.revision,rows});
+    if(run!==generation.current)return;
     setJob(data.job);clearImage();setOriginal(null);await reload();
   }
-  function open(snapshot:Snapshot){
-    activateSnapshot(snapshot);
-    router.push("/xray");
+  async function refresh(snapshot:Snapshot){
+    const run=++generation.current;
+    const draft=await send({action:"create",id:crypto.randomUUID(),rows:snapshot.rows,source:"rows"});
+    if(run!==generation.current)return;
+    const data=await send({action:"confirm",id:draft.job.id,revision:draft.job.revision,rows:snapshot.rows});
+    if(run!==generation.current)return;
+    clearImage();setJob(data.job);setRows(data.job.rows);setOriginal(null);setReviewed(false);await reload();
   }
+  async function logout(){
+    const run=++generation.current;
+    setSignedIn(false);setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);setJobs([]);setSnapshots([]);setEvents([]);clearImage();
+    usePortfolio.setState({imported:null,stashed:null,kind:"imported"});useSnapshots.setState({snapshot:null});
+    const res=await importFetch("/api/imports/logout",{method:"POST"});
+    if(run!==generation.current)return;
+    if(!res.ok){setSignedIn(Boolean(account.current));throw new Error("Logout failed; retry.");}
+    await browserClient()!.auth.signOut();
+  }
+  function open(snapshot:Snapshot){
+    try { activateSnapshot(snapshot); router.push("/xray"); }
+    catch(e){setError(e instanceof Error?e.message:"Snapshot valuation is unavailable.");}
+  }
+  const completedSnapshot=snapshots.find(s=>s.id===job?.snapshot_id);
+  const displayError=error||(completedSnapshot?snapshotActivationProblem(completedSnapshot):null);
   const editable=!job || job.status==="review" || job.status==="needs_input";
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
@@ -112,7 +151,7 @@ export function ImportFlow() {
     <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
     <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
     <p><Link href="/xray" className="underline" onClick={()=>usePortfolio.getState().resetToDemo()}>Explore the sample portfolio</Link></p>
-    {error&&<p role="alert" className="border border-red-500 p-3">{error}</p>}
+    {displayError&&<p role="alert" className="border border-red-500 p-3">{displayError}</p>}
     {!accountsEnabled()?<p className="max-w-lg">Saved imports are turned off on this deployment. Use <Link href="/import" className="underline">Import</Link> for a session portfolio; nothing is stored.</p>:!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
       <p>Sign in to see your saved imports.</p>
       <label className="block">Email address<input aria-label="Email" placeholder="you@example.com" className={`${style} block w-full mt-2`} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
@@ -120,17 +159,17 @@ export function ImportFlow() {
       <input aria-label="Email code" className={style} value={token} onChange={e=>setToken(e.target.value)}/><button className={style} disabled={busy} onClick={()=>act(async()=>{const {error}=await browserClient()!.auth.verifyOtp({email,token,type:"email"});if(error)throw error;})}>Sign in</button></>}
     </section>:<>
       <div className="flex flex-wrap gap-3"><input aria-label="Upload screenshot or CSV" type="file" accept="image/*,.csv,.txt" disabled={busy} onChange={e=>{const f=e.target.files?.[0];e.target.value="";if(f)void act(()=>upload(f));}}/>
-      <button className={style} disabled={busy} onClick={()=>{clearImage();setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);}}>New manual import</button>
-      <button className={style} disabled={busy} onClick={()=>act(async()=>{generation.current++;const res=await importFetch("/api/imports/logout",{method:"POST"});if(!res.ok)throw new Error("Logout failed; retry.");await browserClient()!.auth.signOut();clearImage();usePortfolio.getState().resetToDemo();setSignedIn(false);})}>Log out</button></div>
+      <button className={style} disabled={busy} onClick={()=>{generation.current++;clearImage();setJob(null);setRows([empty()]);setOriginal(null);setReviewed(false);}}>New manual import</button>
+      <button className={style} disabled={busy} onClick={()=>act(logout)}>Log out</button></div>
       {image&&<div className="max-h-96 overflow-auto border border-border-strong"><Image src={image} alt="Original brokerage screenshot for comparison" width={1200} height={800} unoptimized className="h-auto max-w-full"/></div>}
       {editable?<section className="space-y-4">
-        <h2 className="text-xl">Review every holding</h2><p>Confirm type and quantity. A market value needs its date.</p>
+        <h2 className="text-xl">Review every holding</h2><p>Confirm type, quantity, and currency. A market value needs its date. Exports without a currency marker require explicit confirmation. Only USD valuations are supported; changing the currency label does not convert an amount.</p>
         {job?.source==="screenshot"&&!image&&<p role="alert">The temporary screenshot is no longer available. Upload it again to complete the required comparison.</p>}
         <div className="overflow-auto max-h-[600px]"><table className="w-full text-sm"><thead><tr>{["Ticker / name","Type","Shares","Market value (USD)","Value date","Exclude / reason","Status"].map(h=><th key={h} className="p-2 text-left">{h}</th>)}</tr></thead><tbody>
           {rows.map((r,i)=><tr key={i} className="border-t border-border-strong"><td className="p-2"><input aria-label={`Ticker row ${i+1}`} className={`${style} w-28`} value={r.ticker} onChange={e=>edit(i,{ticker:e.target.value.toUpperCase()})}/><input aria-label={`Name row ${i+1}`} className={`${style} w-44`} value={r.name} onChange={e=>edit(i,{name:e.target.value})}/></td>
-          <td><select aria-label={`Type row ${i+1}`} className={style} value={r.kind} onChange={e=>edit(i,{kind:e.target.value as ImportRow["kind"]})}><option value="unknown">Confirm type</option><option value="stock">US stock</option><option value="etf">US ETF</option><option value="cash">USD cash</option></select></td>
+          <td><select aria-label={`Type row ${i+1}`} className={style} value={r.kind} onChange={e=>edit(i,{kind:e.target.value as ImportRow["kind"]})}><option value="unknown">Confirm type</option><option value="stock">US stock</option><option value="etf">US ETF</option><option value="cash">USD cash</option><option value="unsupported">Unsupported (retain value)</option></select></td>
           <td><input aria-label={`Shares row ${i+1}`} className={`${style} w-28`} type="number" step="any" value={r.shares??""} onChange={e=>edit(i,{shares:e.target.value===""?null:Number(e.target.value)})}/></td>
-          <td><input aria-label={`Market value row ${i+1}`} className={`${style} w-32`} type="number" step="any" value={r.marketValue??""} onChange={e=>edit(i,{marketValue:e.target.value===""?null:Number(e.target.value)})}/></td>
+          <td><input aria-label={`Market value row ${i+1}`} className={`${style} w-32`} type="number" step="any" value={r.marketValue??""} onChange={e=>edit(i,{marketValue:e.target.value===""?null:Number(e.target.value)})}/><label>Currency<input aria-label={`Currency row ${i+1}`} className={`${style} w-28`} value={r.currency??"UNKNOWN"} onChange={e=>edit(i,{currency:e.target.value.trim().toUpperCase()})}/></label></td>
           <td><input aria-label={`Valuation date row ${i+1}`} className={style} type="date" value={r.valuationDate} onChange={e=>edit(i,{valuationDate:e.target.value})}/></td>
           <td><input aria-label={`Exclude row ${i+1}`} type="checkbox" checked={r.excluded??false} onChange={e=>edit(i,{excluded:e.target.checked})}/>{r.excluded&&<input aria-label={`Exclusion reason row ${i+1}`} className={style} value={r.exclusionReason??""} onChange={e=>edit(i,{exclusionReason:e.target.value})}/>}</td>
           <td className="p-2 min-w-48">{issues[i]??job?.results[i]?.error??"Ready for review"}{job?.results[i]?.valuation&&<p>Quote: ${job.results[i].valuation!.price.toFixed(2)} · {job.results[i].valuation!.asOf}</p>}</td></tr>)}
@@ -145,9 +184,9 @@ export function ImportFlow() {
         <ul>{job.rows.map((r,i)=><li key={i}>{r.ticker||r.name}: {job.results[i]?.state??"pending"} {job.results[i]?.error} {job.results[i]?.retryAt&&`— next attempt ${new Date(job.results[i].retryAt!).toLocaleString()}`}</li>)}</ul>
         {job.snapshot_id&&snapshots.find(s=>s.id===job.snapshot_id)&&<button className={style} onClick={()=>open(snapshots.find(s=>s.id===job.snapshot_id)!)}>Open completed X-Ray</button>}
       </section>}
-      <section className="space-y-2"><h2 className="text-xl">Saved imports</h2>{jobs.map(j=><button key={j.id} className={`${style} block w-full text-left`} onClick={()=>{clearImage();setJob(j);setRows(j.rows);setOriginal(j.original);setReviewed(false);}}>{new Date(j.created_at).toLocaleString()} — {j.rows.length} rows — {j.status}</button>)}</section>
-      <SnapshotHistory snapshots={snapshots} busy={busy} onOpen={open} onRefresh={snapshot=>void act(async()=>{const draft=await send({action:"create",id:crypto.randomUUID(),rows:snapshot.rows,source:"rows"});const data=await send({action:"confirm",id:draft.job.id,revision:draft.job.revision,rows:snapshot.rows});clearImage();setJob(data.job);setRows(data.job.rows);setReviewed(false);await reload();})}/>
-      {moreHistory&&snapshots.length>=30&&<button className={style} disabled={busy} onClick={()=>act(async()=>{const res=await importFetch(`/api/imports?historyOffset=${snapshots.length}`,{cache:"no-store"});const data=await res.json();if(!res.ok)throw new Error(data.error);setSnapshots(current=>[...new Map<string,Snapshot>([...current,...data.snapshots].map((s:Snapshot)=>[s.id,s])).values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)));setMoreHistory(data.snapshots.length===30);})}>Load older snapshots</button>}
+      <section className="space-y-2"><h2 className="text-xl">Saved imports</h2>{jobs.map(j=><button key={j.id} className={`${style} block w-full text-left`} onClick={()=>{generation.current++;setBusy(false);clearImage();setJob(j);setRows(j.rows);setOriginal(j.original);setReviewed(false);}}>{new Date(j.created_at).toLocaleString()} — {j.rows.length} rows — {j.status}</button>)}</section>
+      <SnapshotHistory snapshots={snapshots} busy={busy} onOpen={open} onRefresh={snapshot=>void act(()=>refresh(snapshot))}/>
+      {moreHistory&&snapshots.length>=30&&<button className={style} disabled={busy} onClick={()=>act(async()=>{const run=generation.current;const res=await importFetch(`/api/imports?historyOffset=${snapshots.length}`,{cache:"no-store"});const data=await res.json();if(run!==generation.current)return;if(!res.ok)throw new Error(data.error);setSnapshots(current=>[...new Map<string,Snapshot>([...current,...data.snapshots].map((s:Snapshot)=>[s.id,s])).values()].sort((a,b)=>b.created_at.localeCompare(a.created_at)));setMoreHistory(data.snapshots.length===30);})}>Load older snapshots</button>}
       {job&&<details><summary>Source CSV records and hashes</summary><p>Original extraction SHA-256: <code>{job.original_hash}</code></p><pre className="overflow-auto text-xs">{job.original_csv}</pre>{job.reviewed_csv&&<><p>Reviewed CSV SHA-256: <code>{job.reviewed_hash}</code></p><p>Portfolio identity SHA-256: <code>{job.holdings_hash}</code></p><pre className="overflow-auto text-xs">{job.reviewed_csv}</pre></>}</details>}
       <section>
       <details><summary>Chronological audit records</summary>{[...events].reverse().map(e=><details key={e.id}><summary>{new Date(e.created_at).toLocaleString()} · {e.event}</summary><pre className="whitespace-pre-wrap text-xs">{JSON.stringify(e.detail,null,2)}</pre></details>)}</details></section>

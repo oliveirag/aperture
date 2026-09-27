@@ -1,104 +1,74 @@
-// Server-only ETF look-through data: the committed seed first, then Alpha Vantage live (reads ALPHA_VANTAGE_API_KEY).
+// Server-only, offline-first ETF evidence. Seed is generated from recorded SEC/issuer
+// files; no automatic Alpha Vantage quota spending or unverified top-holdings fallback.
 import seed from "@/data/etf-seed.json";
-import { memo } from "@/lib/cache";
 import { sectorFromGics, type SectorLabel } from "@/lib/sectors";
-
-export interface EtfHolding {
-  ticker: string;
-  name: string;
-  // Fraction of the fund, 0..1.
-  weight: number;
-}
-
-export interface EtfProfile {
-  ticker: string;
-  holdings: EtfHolding[];
-  sectors: { sector: SectorLabel; weight: number }[];
-  asOf: string;
-  source: "seed" | "live";
-}
-
-const BASE = "https://www.alphavantage.co/query";
-const TIMEOUT_MS = 8000;
-const TTL_MS = 24 * 60 * 60 * 1000;
-const TICKER = /^[A-Z][A-Z.]{0,5}$/;
-
-
-// Seeded funds have look-through data but never a Finnhub company profile, so callers can skip that lookup.
-export function isSeededEtf(ticker: string) {
-  return Boolean(SEED[normalizeTicker(ticker)]);
-}
-
-export function normalizeTicker(t: string) {
-  return t.trim().toUpperCase().replace(/[/-]/g, ".");
-}
-
-// "NVIDIA CORP" -> "Nvidia Corp". Keeps short all-caps tokens like "ETF" or "S&P".
-function prettyName(s: string) {
-  return s
-    .toLowerCase()
-    .split(/\s+/)
-    .map((w) => (w.length <= 3 && /[&.]/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)))
-    .join(" ");
-}
+import type { Provenance } from "@/lib/provenance";
+import { TARGET_FUNDS, normalizeSymbol } from "./nport";
+import { purportsSourced, validateSeed, validateSourcedProfile, type EtfHolding, type EtfProfile, type SourcedEtfProfile } from "./nport/contract";
+export type { EtfHolding, EtfProfile, SourcedEtfProfile } from "./nport/contract";
 
 type RawProfile = {
   last_updated?: string;
   sectors?: { sector: string; weight: string }[];
   holdings?: { symbol: string; description: string; weight: string }[];
 };
+const SEED = validateSeed(seed);
+export const normalizeTicker = normalizeSymbol;
+export function isSeededEtf(ticker: string) {
+  const t = normalizeTicker(ticker);
+  // Includes known-but-unavailable funds so callers do not mistake them for equities.
+  return TARGET_FUNDS.includes(t) || Object.hasOwn(SEED.profiles, t);
+}
 
-// Turns an ETF_PROFILE response into an EtfProfile, or null if it holds no usable positions (stocks, errors).
-export function parseProfile(ticker: string, raw: RawProfile, source: EtfProfile["source"]): EtfProfile | null {
+// Retains the legacy Alpha response parser API for explicit callers/tests. The runtime
+// never retrieves it: partial legacy results are not represented as verified full data.
+export function parseProfile(ticker: string, raw: unknown, source: EtfProfile["source"]): EtfProfile | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  if (purportsSourced(raw as Record<string, unknown>)) {
+    try { return { ...validateSourcedProfile(normalizeTicker(ticker), raw), source }; }
+    catch { return null; } // Explicit rejection; never reinterpret malformed evidence as legacy.
+  }
+  const legacy = raw as RawProfile;
+  if (!Array.isArray(legacy.holdings) || !legacy.holdings.every(h => h && typeof h.symbol === "string" && typeof h.description === "string" && typeof h.weight === "string") || (legacy.sectors !== undefined && (!Array.isArray(legacy.sectors) || !legacy.sectors.every(s => s && typeof s.sector === "string" && typeof s.weight === "string"))) || (legacy.last_updated !== undefined && typeof legacy.last_updated !== "string")) return null;
   const merged = new Map<string, EtfHolding>();
-  for (const h of raw.holdings ?? []) {
+  for (const h of legacy.holdings ?? []) {
     const t = normalizeTicker(h.symbol ?? "");
     const weight = Number(h.weight);
-    if (!TICKER.test(t) || !(weight > 0)) continue;
-    const prev = merged.get(t);
-    merged.set(t, { ticker: t, name: prev?.name ?? prettyName(h.description ?? t), weight: (prev?.weight ?? 0) + weight });
+    if (!/^[A-Z][A-Z.]{0,5}$/.test(t) || !Number.isFinite(weight) || !(weight > 0)) continue;
+    const previous = merged.get(t);
+    merged.set(t, { ticker: t, name: previous?.name ?? h.description ?? t, weight: (previous?.weight ?? 0) + weight });
   }
-  if (merged.size === 0) return null;
-
+  if (!merged.size) return null;
   const sectors = new Map<SectorLabel, number>();
-  for (const s of raw.sectors ?? []) {
-    const w = Number(s.weight);
-    if (!(w > 0)) continue;
-    const label = sectorFromGics(s.sector);
-    sectors.set(label, (sectors.get(label) ?? 0) + w);
+  for (const s of legacy.sectors ?? []) {
+    const weight = Number(s.weight);
+    if (!Number.isFinite(weight) || !(weight > 0)) continue;
+    const sector = sectorFromGics(s.sector);
+    sectors.set(sector, (sectors.get(sector) ?? 0) + weight);
   }
-
   return {
-    ticker,
-    holdings: [...merged.values()].sort((a, b) => b.weight - a.weight),
+    ticker: normalizeTicker(ticker), holdings: [...merged.values()].sort((a, b) => b.weight - a.weight),
     sectors: [...sectors].map(([sector, weight]) => ({ sector, weight })),
-    asOf: (raw.last_updated ?? "").slice(0, 10),
-    source,
+    asOf: (legacy.last_updated ?? "").slice(0, 10), source,
+    warnings: ["Legacy top-holdings response: full coverage and retrieval provenance are unverified"],
   };
 }
-
-const SEED = seed as unknown as Record<string, RawProfile>;
-
-async function fetchLive(ticker: string): Promise<EtfProfile | null> {
-  const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-  if (!apiKey) return null;
-  const url = `${BASE}?function=ETF_PROFILE&symbol=${encodeURIComponent(ticker)}&apikey=${apiKey}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" });
-  if (!res.ok) throw new Error(`alphavantage ${res.status}`);
-  const raw = (await res.json()) as RawProfile & { Information?: string; Note?: string };
-  // Rate-limit and key messages come back as 200 with a note; don't cache those as "not an ETF".
-  if (raw.Information || raw.Note) throw new Error("alphavantage limit");
-  return parseProfile(ticker, raw, "live");
-}
-
-// Look-through data for an ETF, or null when there is none (not an ETF, not seeded and no key, or the lookup failed).
-export async function getEtfProfile(ticker: string): Promise<EtfProfile | null> {
+export function etfAvailability(ticker: string): { available: boolean; reason?: string } {
   const t = normalizeTicker(ticker);
-  if (SEED[t]) return parseProfile(t, SEED[t], "seed");
-
-  // Alpha Vantage's free key allows 25 calls a day, so every answer (including "not an ETF") is cached, across cold starts too.
-  return memo(`etf:${t}`, TTL_MS, () => fetchLive(t), { persist: true }).catch((err) => {
-    console.error(`[etf] ${t}:`, err instanceof Error ? err.message : "unknown");
-    return null;
-  });
+  return Object.hasOwn(SEED.profiles, t) ? { available: true } : { available: false, reason: SEED.meta.blocked[t]?.reason ?? "No recorded full holdings source available" };
+}
+export async function getEtfProfile(ticker: string): Promise<SourcedEtfProfile | null> {
+  const t = normalizeTicker(ticker);
+  if (!/^[A-Z][A-Z0-9.]{0,14}$/.test(t) || !Object.hasOwn(SEED.profiles, t)) return null;
+  const profile = structuredClone(SEED.profiles[t]);
+  if (Date.now() - Date.parse(profile.holdingsSource.retrievedAt) > 24 * 60 * 60 * 1000) {
+    const markStale = (evidence: Provenance): Provenance => evidence.kind === "computed"
+      ? { ...evidence, stale: true, inputs: evidence.inputs.map(markStale) }
+      : evidence.kind === "retrieved" ? { ...evidence, stale: true } : evidence;
+    profile.holdingsSource = { ...profile.holdingsSource, stale: true };
+    for (const holding of profile.holdings) if (holding.classification) holding.classification.source = { ...holding.classification.source, stale: true };
+    profile.provenance = Object.fromEntries(Object.entries(profile.provenance ?? {}).map(([pointer, evidence]) => [pointer, markStale(evidence)]));
+    profile.warnings = [...(profile.warnings ?? []), `Cached holdings snapshot retrieved ${profile.holdingsSource.retrievedAt}; holdings as of ${profile.asOf}. Refresh needed.`];
+  }
+  return profile;
 }

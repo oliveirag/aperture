@@ -3,6 +3,7 @@
 import { formatPct } from "@/lib/format";
 import { sectorFromIndustry } from "@/lib/sectors";
 import type { ApertureInput } from "@/lib/xray/compute";
+import type { EtfProfile } from "@/lib/nport/contract";
 import type { ShockEdge, ShockImpact, ShockNode, ShockScenario, Source } from "@/types/demo";
 import { TABLES, type ScenarioTable } from "./sensitivities";
 
@@ -37,12 +38,19 @@ function hitsFor(p: ApertureInput, table: ScenarioTable): Hit[] {
     hits.set(channel, h);
   };
   if (p.kind === "etf" && p.etf) {
+    // ApertureInput's legacy shape is narrower; retain canonical optional
+    // classification/source fields carried by the actual ETF profile.
+    const etf: Pick<EtfProfile, "holdings" | "sectors" | "schemaVersion" | "holdingsSource"> = p.etf;
+    const sourced = etf.schemaVersion === 2 || !!etf.holdingsSource;
     const named = new Map<string, number>();
-    for (const h of p.etf.holdings) {
+    for (const h of etf.holdings) {
       const rule = table.entities[h.ticker];
       if (!rule) continue;
       add(rule.channel, value * h.weight, rule.ret, h.ticker, `s-${p.ticker.toLowerCase()}-holdings`);
-      named.set(rule.sector, (named.get(rule.sector) ?? 0) + h.weight);
+      // Only a constituent included in a partial sourced total can reduce it.
+      // Legacy aggregate profiles retain their existing scenario-label behavior.
+      const sector = sourced ? h.sector : rule.sector;
+      if (sector) named.set(sector, (named.get(sector) ?? 0) + h.weight);
     }
     for (const s of p.etf.sectors) {
       const rule = table.sectors[s.sector];

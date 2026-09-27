@@ -5,7 +5,7 @@ import seed from "@/data/etf-seed.json";
 import { formatPct } from "@/lib/format";
 import type { ShockScenario, Source } from "@/types/demo";
 import { TABLES, type ScenarioTable } from "./sensitivities";
-import { sectorFromGics } from "@/lib/sectors";
+import { validateSeed, type SourcedEtfProfile } from "@/lib/nport/contract";
 
 export type GraphNodeKind = "driver" | "channel" | "holding" | "company" | "source";
 export type GraphLinkKind = "shock" | "aperture" | "context" | "evidence";
@@ -64,9 +64,7 @@ export type ShockGraph = { nodes: GraphNode[]; links: GraphLink[]; maxDepth: num
 
 export type GraphHolding = { ticker: string; name: string; kind: "etf" | "stock"; value: number; color?: string };
 
-type SeedRow = { symbol: string; description: string; weight: string };
-type SeedEtf = { last_updated: string; holdings: SeedRow[]; sectors: { sector: string; weight: string }[] };
-const SEED = seed as unknown as Record<string, SeedEtf>;
+const SEED: Record<string, SourcedEtfProfile> = validateSeed(seed).profiles;
 
 // Look-through companies drawn per ETF: every modeled one up to this cap, plus its biggest unaffected names for context.
 const MAX_HIT_PER_ETF = 30;
@@ -83,7 +81,7 @@ const seedSourceId = (etf: string) => `seed-${etf.toLowerCase()}`;
 const pctOf = (w: number) => `${(w * 100).toFixed(2)}%`;
 
 export function isSeededEtf(ticker: string) {
-  return ticker in SEED;
+  return Object.hasOwn(SEED, ticker);
 }
 
 export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[], total: number, override?: ScenarioTable): ShockGraph {
@@ -218,7 +216,7 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
     const etf = SEED[h.ticker];
     if (!etf || h.kind !== "etf") continue;
     const rows = etf.holdings
-      .map((r) => ({ symbol: r.symbol.toUpperCase(), name: r.description, weight: Number(r.weight) || 0 }))
+      .map((r) => ({ ...r, symbol: r.ticker, name: r.name }))
       .filter((r) => r.symbol && r.symbol !== "N/A" && r.weight > 0)
       .sort((a, b) => b.weight - a.weight);
     const etfNode = id.ticker(h.ticker);
@@ -231,23 +229,26 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
 
     // The data file itself is a node: the rows we drew, exactly as they came out of the seed.
     const shownRows = [...drawn.values()].sort((a, b) => b.weight - a.weight);
+    const source = etf.holdingsSource;
+    const issuer = source.filing ? `SEC ${source.filing.form}` : source.provider;
     const dataQuote: Quote = {
       sourceId: dataSourceId,
       kind: "data",
       title: `${h.ticker} constituents`,
-      issuer: "Alpha Vantage ETF_PROFILE",
-      date: etf.last_updated,
+      issuer,
+      date: source.asOf!,
+      url: source.endpoint,
       docType: "ETF holdings",
       columns: ["symbol", "description", "weight"],
       rows: shownRows.map((r) => ({ cells: [r.symbol, r.name, pctOf(r.weight)], hit: !!table.entities[r.symbol] })),
-      text: `${rows.length} holdings in the file; ${hitRows.length} have a modeled sensitivity in this scenario.`,
+      text: `${rows.length} mapped holdings in the file; ${hitRows.length} named sensitivities shown. Sector coverage is partial (${pctOf(etf.sectorCoverage.classifiedWeight)} classified; ${pctOf(etf.sectorCoverage.unclassifiedWeight)} unclassified). Unclassified does not mean zero economic risk. Retrieved ${source.retrievedAt}.`,
       supports: `Constituents → ${h.ticker}`,
     };
     addNode({
       id: id.source(dataSourceId),
       kind: "source",
       label: `${h.ticker} holdings file`,
-      sublabel: `ETF_PROFILE · ${etf.last_updated.slice(0, 10)}`,
+      sublabel: `${issuer} · ${source.asOf}`,
       baseReturn: null,
       exposure: 0,
       baseDollar: null,
@@ -282,8 +283,9 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
         sourceId: dataSourceId,
         kind: "data",
         title: `${h.ticker} constituents`,
-        issuer: "Alpha Vantage ETF_PROFILE",
-        date: etf.last_updated,
+        issuer,
+        date: source.asOf!,
+        url: source.endpoint,
         docType: "ETF holdings",
         columns: ["symbol", "description", "weight"],
         rows: [{ cells: [r.symbol, r.name, pctOf(r.weight)], hit: !!rule }],
@@ -310,11 +312,13 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
     }
     // Show the residual sector exposure used by the calculation, without inventing individual company classifications.
     for (const sector of etf.sectors) {
-      const label = sectorFromGics(sector.sector);
+      const label = sector.sector;
       const rule = table.sectors[label];
       if (!rule) continue;
-      const named = rows.reduce((sum, r) => sum + (table.entities[r.symbol]?.sector === label ? r.weight : 0), 0);
-      const weight = Math.max(0, Number(sector.weight) - named);
+      // The sourced total contains only classified constituents. Scenario labels
+      // cannot remove unclassified names (or names classified in another sector).
+      const named = rows.reduce((sum, r) => sum + (r.sector === label && table.entities[r.symbol] ? r.weight : 0), 0);
+      const weight = Math.max(0, sector.weight - named);
       if (!(weight > 0)) continue;
       const channel = ensureChannel(rule.channel);
       if (!channel) continue;
@@ -322,7 +326,7 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
       addNode({ id: sectorId, kind: "company", label: `${h.ticker}: ${label}`, sublabel: "Sector remainder after named companies", baseReturn: rule.ret, exposure: h.value * weight, baseDollar: h.value * weight * rule.ret });
       addLink({ source: channel, target: sectorId, kind: "shock", label: "Assumed sector sensitivity", weight: Math.abs(rule.ret), method: "ASSUMPTION", sourceId: rule.sourceId, hit: true });
       addLink({ source: sectorId, target: etfNode, kind: "aperture", label: `${pctOf(weight)} of ${h.ticker}`, weight, method: "Sector weight minus named companies", sourceId: dataSourceId, hit: true });
-      addQuote(sectorId, { ...dataQuote, rows: [{ cells: [label, "Sector remainder (calculated)", pctOf(weight)], hit: true }], text: `Reported sector weight ${pctOf(Number(sector.weight))} minus ${pctOf(named)} already counted named companies. Dollar effect = ${h.value.toFixed(2)} × ${weight.toFixed(6)} × ${rule.ret.toFixed(6)} at base severity.` });
+      addQuote(sectorId, { ...dataQuote, rows: [{ cells: [label, "Sector remainder (calculated)", pctOf(weight)], hit: true }], text: `Partial SEC SIC-classified sector weight ${pctOf(sector.weight)} minus ${pctOf(named)} already modeled named constituents included in that sourced total. Unclassified holdings remain unknown, not zero risk. Dollar effect = ${h.value.toFixed(2)} × ${weight.toFixed(6)} × ${rule.ret.toFixed(6)} at base severity.` });
     }
   }
 

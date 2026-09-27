@@ -26,7 +26,7 @@ const disclosures = (o: object): unknown[] => Object.values(o).flatMap((v) => (v
 for (const l of LEVELS) for (const v of disclosures(POLICIES[l])) if (v === "open" || v === "collapsed" || typeof v !== "string") continue; else assert.ok(!/hidden|absent|none-shown/.test(v), `${l}: ${v}`);
 
 // 2. X-Ray: same model, same material set and same exposure list at every level; only the initial row count changes.
-const fund = (holdings: [string, number][], asOf = "2026-09-25") => ({ holdings: holdings.map(([ticker, weight]) => ({ ticker, name: ticker, weight })), sectors: [{ sector: "Technology" as const, weight: 0.6 }], asOf, holdingsSource: { name: "Test seed file", url: "https://www.sec.gov/Archives/edgar/data/test" } });
+const fund = (holdings: [string, number][], asOf = "2026-09-25") => ({ holdings: holdings.map(([ticker, weight]) => ({ ticker, name: ticker, weight })), sectors: [{ sector: "Technology" as const, weight: 0.6 }], asOf, source: "seed" as const });
 const inputs: ApertureInput[] = [
   { ticker: "NVDA", name: "NVIDIA", shares: 100, price: 100, kind: "stock", industry: "Semiconductors" },
   { ticker: "AAA", name: "Fund A", shares: 100, price: 100, kind: "etf", etf: fund([["NVDA", 0.3], ["AAPL", 0.3], ["MSFT", 0.4]]) },
@@ -49,8 +49,8 @@ assert.equal(live.exposures?.length, live.underlyingCompanies, "the model keeps 
 const partial = xrayMaterial(live).partial.map((c) => c.ticker);
 assert.deepEqual(partial, ["BBB"], "a fund with 5% visible weight is flagged as partial coverage");
 assert.equal(xrayMaterial(live).opaque[0], "ZZZ");
-assert.match(live.sources.find((s) => s.id === "s-aaa-holdings")!.issuer, /seed file/, "holdings are labeled with their actual source");
-assert.equal(live.priceBasis?.source, "Finnhub quotes");
+assert.match(live.sources.find((s) => s.id === "s-aaa-holdings")!.issuer, /seed file/, "seeded holdings are labeled as seeded");
+assert.equal(live.valuation?.source, "Finnhub quotes");
 
 // 3. Radar: counts and coverage never depend on the level; Beginner folds low-severity cards behind a counted row.
 for (const l of LEVELS) {

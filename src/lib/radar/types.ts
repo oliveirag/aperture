@@ -1,5 +1,4 @@
 import type { RadarChange, Severity } from "@/data/radar";
-import type { RetrievedProvenance } from "@/lib/provenance";
 
 // A real filing comparison for one company, as /api/radar returns it. "Why this matters to you" is not here:
 // the client computes it from the X-Ray so it always matches the active portfolio.
@@ -24,7 +23,6 @@ export interface RadarFiling {
   // "model": Gemini proposed the changes; "text": a sentence-level comparison found them. Both are quote-verified.
   method?: "model" | "text";
   checkedAt: string;
-  provenance?: { latest: RetrievedProvenance; prior: RetrievedProvenance };
 }
 
 // NDJSON lines streamed by POST /api/radar.

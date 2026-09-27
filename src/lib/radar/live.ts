@@ -4,7 +4,7 @@
 // working SEC connection is all Radar needs.
 import { forgetKeys, memo, recall } from "@/lib/cache";
 import { geminiAvailable, generateJson } from "@/lib/gemini";
-import { companyFor, displayName, extractSection, filingPair, filingDocument, listFilings, type Filing, type Section } from "@/lib/sec";
+import { companyFor, displayName, extractSection, filingPair, filingText, listFilings, type Filing, type Section } from "@/lib/sec";
 import { textDiff } from "./text-diff";
 import { track } from "./tracked";
 import type { RadarFiling } from "./types";
@@ -60,12 +60,12 @@ function prompt(company: string, latest: Filing, prior: Filing, latestSection: {
   ].join("\n\n");
 }
 
-type Texts = { latestText: string; priorText: string; latestSection: Section; priorSection: Section; provenance: NonNullable<RadarFiling["provenance"]> };
+type Texts = { latestText: string; priorText: string; latestSection: Section; priorSection: Section };
 
 async function readPair(company: string, latest: Filing, prior: Filing, onProgress: (m: string) => void): Promise<Texts> {
   onProgress(`Reading ${company}'s ${latest.form} filed ${latest.filedAt}`);
-  const [current, previous] = await Promise.all([filingDocument(latest), filingDocument(prior)]);
-  return { latestText: current.text, priorText: previous.text, latestSection: extractSection(current.text, latest.form), priorSection: extractSection(previous.text, prior.form), provenance: { latest: current.provenance, prior: previous.provenance } };
+  const [latestText, priorText] = await Promise.all([filingText(latest), filingText(prior)]);
+  return { latestText, priorText, latestSection: extractSection(latestText, latest.form), priorSection: extractSection(priorText, prior.form) };
 }
 
 async function modelChanges(company: string, latest: Filing, prior: Filing, t: Texts, onProgress: (m: string) => void) {
@@ -111,7 +111,6 @@ function toFiling(ticker: string, company: string, latest: Filing, prior: Filing
     model: found.model,
     method: found.method,
     checkedAt: new Date().toISOString(),
-    provenance: t.provenance,
   };
 }
 
@@ -128,7 +127,7 @@ export async function radarFor(ticker: string, opts: { fresh?: boolean; onProgre
   if (!pair) return { status: "unsupported", reason: "No two recent 10-K or 10-Q filings to compare." };
   const name = displayName(company.name);
   const { latest, prior } = pair;
-  const id = `v2:${ticker}:${latest.accession}:${prior.accession}`;
+  const id = `${ticker}:${latest.accession}:${prior.accession}`;
   // A Gemini comparison beats a text one; without Gemini, a cached text comparison needs no filing download.
   const cached = (await recall<RadarFiling>(`radar:${id}`)) ?? (geminiAvailable() ? undefined : await recall<RadarFiling>(`radar-text:${id}`));
   if (cached) {
@@ -157,6 +156,6 @@ export async function cachedRadarFor(ticker: string): Promise<RadarFiling | null
   const filings = await recall<Filing[]>(`sec:filings:${company.cik}`);
   const pair = filings ? filingPair(filings) : null;
   if (!pair) return null;
-  const id = `v2:${ticker}:${pair.latest.accession}:${pair.prior.accession}`;
+  const id = `${ticker}:${pair.latest.accession}:${pair.prior.accession}`;
   return (await recall<RadarFiling>(`radar:${id}`)) ?? (await recall<RadarFiling>(`radar-text:${id}`)) ?? null;
 }

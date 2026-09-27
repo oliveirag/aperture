@@ -41,7 +41,7 @@ export function askContext(opts: {
   return {
     portfolio: {
       kind: opts.kind === "practice" ? "practice (hypothetical money)" : opts.kind,
-      valuation: model.priceBasis ?? (opts.kind === "demo" ? { asOf: "dated demo snapshot", source: "Demo" } : null),
+      valuation: model.valuation ?? (opts.kind === "demo" ? { asOf: "dated demo snapshot", source: "Demo" } : null),
       totalValueUsd: Math.round(model.total),
       positionsCount: model.positionsCount,
       underlyingCompanies: model.underlyingCompanies,

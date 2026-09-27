@@ -1,8 +1,0 @@
-{
-  "provider": "openfigi",
-  "endpoint": "https://api.openfigi.com/v3/mapping",
-  "retrievedAt": "2026-09-27T07:45:10.336Z",
-  "body": "[{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"data\":[{\"figi\":\"BBG000BKLTP8\",\"name\":\"PATHWARD FINANCIAL INC\",\"ticker\":\"CASH\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG000BKLTP8\",\"securityType\":\"Common Stock\",\"marketSector\":\"Equity\",\"shareClassFIGI\":\"BBG001S7G4Q7\",\"securityType2\":\"Common Stock\",\"securityDescription\":\"CASH\"}]}]",
-  "schemaVersion": 1,
-  "sha256": "8ad0788a0d770f9e356b831594c9305539af015d8c814fef20f9a6b5b2621635"
-}

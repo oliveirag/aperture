@@ -8,7 +8,7 @@ import { isSeededEtf } from "@/lib/etf";
 import type { RawHolding } from "@/lib/price-holdings";
 import { companyFor } from "@/lib/sec";
 
-type OcrWorker = { recognize: (image: Buffer) => Promise<{ data: { text: string; confidence?: number } }>; terminate: () => Promise<unknown> };
+type OcrWorker = { recognize: (image: Buffer) => Promise<{ data: { text: string } }>; terminate: () => Promise<unknown> };
 
 let worker: Promise<OcrWorker> | null = null;
 
@@ -34,41 +34,36 @@ const NOT_TICKERS = new Set([
   "SYMBOL", "SYMBOLS", "NAME", "COST", "GAIN", "LOSS", "DAY", "TODAY", "ALL", "BUY", "SELL", "TRADE", "IRA", "ROTH", "LLC", "INC", "CO", "CORP",
 ]);
 
-const MONEY = /\(?[-−]?\$\s?[-−]?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)\)?/g;
-const SHARES = /([-−]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?))\s*(?:shares?|shs?\b|sh\b|units?)/i;
+const MONEY = /[-−]?\$\s?(\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?)/g;
+const SHARES = /(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(?:shares?|shs?\b|sh\b|units?)/i;
 // A line that starts with a ticker, optionally after OCR junk ("vVOO", "• AAPL").
 const LEAD = /^[^A-Z]{0,3}([A-Z]{1,5}(?:\.[A-Z])?)\b(.*)$/;
 
-const num = (s: string) => Number(s.replace(/,/g, "").replace(/−/g, "-"));
+const num = (s: string) => Number(s.replace(/,/g, ""));
 
-export type Candidate = { ticker: string; shares: number | null; marketValue: number | null; name: string | null; reviewState: "required"; ocrConfidence?: number; reviewWarnings: string[]; rawText: string; rowType?: "cash" | "total" | "unresolved" | "position" };
+type Candidate = { ticker: string; shares: number | null; marketValue: number | null; name: string | null };
 
 // Every line that could start a position row, with the numbers found on it and the next line.
-export function parseRows(text: string, confidence?: number): Candidate[] {
+export function parseRows(text: string): Candidate[] {
   const lines = text.split(/\n+/).map((l) => l.replace(/[|¦]/g, " ").trim()).filter(Boolean);
   const out: Candidate[] = [];
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(LEAD);
-    if (!m || (NOT_TICKERS.has(m[1]) && !["USD", "CASH", "TOTAL", "TOTALS"].includes(m[1]))) continue;
+    if (!m || NOT_TICKERS.has(m[1])) continue;
     const rest = m[2];
     const next = lines[i + 1] && !LEAD.test(lines[i + 1]) ? lines[i + 1] : "";
     const both = `${rest} ${next}`;
-    const dollars = [...both.matchAll(MONEY)].map((x) => (/[-−(]/.test(x[0]) ? -1 : 1) * num(x[1]));
+    const dollars = [...both.matchAll(MONEY)].map((x) => num(x[1])).filter((v) => v > 0);
     const sharesMatch = both.match(SHARES);
     // The last bare number before the first dollar amount is the quantity column ("AAPL Apple Inc 50 $284.00 $14,200.00").
     const beforeMoney = rest.split(/[-−]?\$/)[0];
-    const bare = [...beforeMoney.matchAll(/(?<![\w.,−-])([-−]?(?:\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?))(?![\d.,]*\s*%)(?![\w])/g)].pop();
+    const bare = [...beforeMoney.matchAll(/(?<![\w.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d.,]*\s*%)(?![\w])/g)].pop();
     const shares = sharesMatch ? num(sharesMatch[1]) : bare ? num(bare[1]) : null;
-    // A share price can exceed the value of a fractional holding. Do not select
-    // max(price, value, cost basis, gain); ambiguous columns need human review.
-    const marketValue = dollars.length === 1 ? dollars[0] : null;
-    if (shares === null && dollars.length === 0) continue;
+    // The largest dollar figure on the row is the position value; price and day change are smaller.
+    const marketValue = dollars.length ? Math.max(...dollars) : null;
+    if (shares === null && marketValue === null) continue;
     const name = rest.replace(MONEY, "").replace(SHARES, "").replace(/[-+−]?\d[\d,.]*%?/g, "").replace(/\s+/g, " ").trim();
-    out.push({ ticker: m[1], shares, marketValue, name: /[a-z]{3}/.test(name) ? name.slice(0, 80) : null,
-      rowType: /^(USD|CASH)$/.test(m[1]) ? "cash" : /^TOTALS?$/.test(m[1]) ? "total" : "position",
-      reviewState: "required", rawText: lines[i],
-      ocrConfidence: Number.isFinite(confidence) && confidence! >= 0 && confidence! <= 100 ? confidence : undefined,
-      reviewWarnings: ["OCR extraction requires comparison with the source image.", ...(dollars.length > 1 ? ["Ambiguous monetary columns; enter the position value."] : [])] });
+    out.push({ ticker: m[1], shares, marketValue, name: /[a-z]{3}/.test(name) ? name.slice(0, 80) : null });
   }
   return out;
 }
@@ -85,15 +80,13 @@ async function resolve(ticker: string) {
   return null;
 }
 
-export async function ocrHoldings(images: Buffer[]): Promise<(RawHolding & Candidate)[]> {
-  const rows: (RawHolding & Candidate)[] = [];
+export async function ocrHoldings(images: Buffer[]): Promise<RawHolding[]> {
+  const rows: RawHolding[] = [];
   for (const image of images) {
-    const { data } = await (await ocrWorker()).recognize(image);
-    for (const c of parseRows(data.text, data.confidence)) {
-      // Retain unknown symbols and cash. A suggested repair must be reviewed,
-      // not silently replace an OCR ticker with a different real security.
-      const suggestion = c.rowType === "position" ? await resolve(c.ticker) : null;
-      rows.push({ ...c, reviewWarnings: [...c.reviewWarnings, ...(suggestion && suggestion !== c.ticker ? [`Possible ticker: ${suggestion}; confirm against the image.`] : [])] });
+    for (const c of parseRows(await ocrText(image))) {
+      // Funds outside the seed aren't in SEC's list; a row with both a share count and a value is kept for pricing and review.
+      const ticker = (await resolve(c.ticker)) ?? (c.shares !== null && c.marketValue !== null ? c.ticker : null);
+      if (ticker) rows.push({ ...c, ticker });
     }
   }
   return rows;

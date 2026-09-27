@@ -1,3 +1,4 @@
+import { geminiConfigured } from "@/lib/gemini";
 import { RunError, runCommittee } from "@/lib/ic/run";
 import type { IcEvent } from "@/lib/ic/types";
 import { MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
@@ -18,13 +19,13 @@ function fail(error: string, status: number) {
 export async function POST(request: Request) {
   const limited = await rateLimit(request, "ic");
   if (limited) return limited;
+  if (!geminiConfigured()) return fail("The IC Room is not configured", 503);
   let body: { ticker?: unknown; thesis?: unknown; amount?: unknown; holdings?: unknown };
   try {
     body = await request.json();
   } catch {
     return fail("Expected JSON", 400);
   }
-  if (!body || typeof body !== "object" || Array.isArray(body)) return fail("Expected a JSON object", 400);
   const ticker = typeof body.ticker === "string" ? body.ticker.trim().toUpperCase() : "";
   const thesis = typeof body.thesis === "string" ? body.thesis.trim() : "";
   const amount = typeof body.amount === "number" ? Math.round(body.amount) : NaN;

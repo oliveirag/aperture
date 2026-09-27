@@ -4,17 +4,16 @@ import { formatPct } from "@/lib/format";
 import { sectorFromIndustry } from "@/lib/sectors";
 import { cleanName, type ApertureInput } from "@/lib/xray/compute";
 import type { XrayModel } from "@/lib/xray/types";
-import { positionValue } from "@/lib/xray/valuation";
 
 export const FIT_NOTE = "Computed from your X-Ray, with and without the position";
 
-const valueOf = positionValue;
+const valueOf = (p: ApertureInput) => p.shares * p.price;
 
 // Look-through dollars in one company: held directly plus its weight inside every ETF.
 export function exposureValue(inputs: ApertureInput[], ticker: string) {
   let total = 0;
   for (const p of inputs) {
-    if (!(valueOf(p) > 0)) continue;
+    if (!(p.shares > 0 && p.price > 0)) continue;
     if (p.kind === "etf" && p.etf) total += valueOf(p) * (p.etf.holdings.find((h) => h.ticker === ticker)?.weight ?? 0);
     else if (p.ticker === ticker) total += valueOf(p);
   }
@@ -26,7 +25,7 @@ export function exposureNote(inputs: ApertureInput[], ticker: string, total: num
   const value = exposureValue(inputs, ticker);
   if (value <= 0 || total <= 0) return "Not in your portfolio today";
   const paths = inputs
-    .filter((p) => valueOf(p) > 0)
+    .filter((p) => p.shares > 0 && p.price > 0)
     .filter((p) => (p.kind === "etf" ? p.etf?.holdings.some((h) => h.ticker === ticker) : p.ticker === ticker))
     .map((p) => (p.kind === "etf" ? p.ticker : "direct"));
   const direct = paths.includes("direct");
@@ -39,13 +38,8 @@ export function exposureNote(inputs: ApertureInput[], ticker: string, total: num
 export function withPosition(inputs: ApertureInput[], candidate: ApertureInput): ApertureInput[] {
   const held = inputs.find((p) => p.ticker === candidate.ticker);
   if (!held) return [...inputs, candidate];
-  if (held.kind !== candidate.kind) throw new Error("Cannot combine different security types in portfolio fit.");
-  const value = valueOf(held) + valueOf(candidate);
-  if (held.marketValue !== undefined || candidate.marketValue !== undefined || held.price === 0) {
-    return inputs.map((p) => p === held ? { ...held, shares: held.shares + candidate.shares, marketValue: value } : p);
-  }
-  const price = held.price;
-  const shares = held.shares + valueOf(candidate) / price;
+  const price = held.price > 0 ? held.price : candidate.price;
+  const shares = held.shares + (candidate.shares * candidate.price) / price;
   return inputs.map((p) => (p === held ? { ...held, price, shares } : p));
 }
 

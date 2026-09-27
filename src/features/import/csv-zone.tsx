@@ -3,7 +3,7 @@
 import { useRef, useState, type DragEvent } from "react";
 import { AlertTriangle, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { parseReviewCsv, type ParsedRow, type SkippedRow } from "./csv";
+import { parsePositionsCsv, type ParsedRow, type SkippedRow } from "./csv";
 import type { Phase } from "./drop-zone";
 import { readWorkbook, type SheetResult } from "./spreadsheet";
 
@@ -41,12 +41,12 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
     setReading(true);
     try {
       if (/\.xlsx?$/i.test(f.name)) {
-        const found = await readWorkbook(await f.arrayBuffer(), true);
+        const found = await readWorkbook(await f.arrayBuffer());
         setWorkbookName(f.name);
         if (found.length > 1) { setSheets(found); return; }
         if (!found.length) throw new Error("No visible worksheet found.");
         accept(f.name, found[0].result);
-      } else accept(f.name, parseReviewCsv(await f.text()));
+      } else accept(f.name, parsePositionsCsv(await f.text()));
     } catch (e) { setError(e instanceof Error ? e.message : "Couldn't read this spreadsheet. Export the positions as CSV."); }
     finally { setReading(false); }
   }

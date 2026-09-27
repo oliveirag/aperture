@@ -1,22 +1,18 @@
 import { createHash } from "node:crypto";
 import type { ImportRow } from "./types";
 
-const cell = (v: unknown) => {
-  const text = String(v ?? "");
-  const safe = typeof v === "string" && /^[\s]*[=+@-]/.test(text) ? `'${text}` : text;
-  return `"${safe.replaceAll('"', '""')}"`;
-};
+const cell = (v: unknown) => `"${String(v ?? "").replaceAll('"', '""')}"`;
 export const sha256 = (text: string) => createHash("sha256").update(text, "utf8").digest("hex");
 export function auditCsv(rows: ImportRow[]) {
-  return "ticker,name,kind,shares,market_value,valuation_date,excluded,reason,currency,row_type,source_line,ocr_confidence,review_state\n" + rows.map(r =>
-    [r.ticker, r.name, r.kind, r.shares, r.marketValue, r.valuationDate, r.excluded === true, r.exclusionReason, r.currency ?? "USD", r.rowType, r.sourceLine, r.ocrConfidence, r.reviewState].map(cell).join(",")
+  return "ticker,name,kind,shares,market_value,valuation_date,excluded,reason\n" + rows.map(r =>
+    [r.ticker, r.name, r.kind, r.shares, r.marketValue, r.valuationDate, r.excluded === true, r.exclusionReason].map(cell).join(",")
   ).join("\n") + "\n";
 }
 
 export function extractionCsv(rows: unknown[]) {
-  return "ticker,name,kind,shares,market_value,valuation_date,currency,row_type,source_line,ocr_confidence,review_warnings,raw_text\n" + rows.map(value=>{
+  return "ticker,name,kind,shares,market_value,valuation_date\n" + rows.map(value=>{
     const r=value && typeof value==="object" ? value as Record<string,unknown> : {};
-    return [r.ticker,r.name,r.kind,r.shares,r.marketValue,r.valuationDate,r.currency,r.rowType,r.sourceLine,r.ocrConfidence,JSON.stringify(r.reviewWarnings??[]),r.rawText].map(cell).join(",");
+    return [r.ticker,r.name,r.kind,r.shares,r.marketValue,r.valuationDate].map(cell).join(",");
   }).join("\n")+"\n";
 }
 
@@ -32,10 +28,8 @@ function units(n: number): bigint {
 export function identityCsv(rows: ImportRow[]) {
   const merged = new Map<string, bigint>();
   for (const r of rows.filter(r => !r.excluded)) {
-    const valueOnly = r.kind === "cash" || (r.kind === "unsupported" && r.shares === null);
-    const security = r.kind === "cash" ? "USD" : r.ticker || r.name;
-    const key = `${r.kind}${valueOnly && r.kind !== "cash" ? ":value" : ""},${cell(security)},${r.currency ?? "USD"}`;
-    merged.set(key, (merged.get(key) ?? BigInt(0)) + units(valueOnly ? r.marketValue! : r.shares!));
+    const key = `${r.kind},${r.kind === "cash" ? "USD" : r.ticker},USD`;
+    merged.set(key, (merged.get(key) ?? BigInt(0)) + units(r.kind === "cash" ? r.marketValue! : r.shares!));
   }
-  return "identity-v2\nkind,security,currency,units_1e18\n" + [...merged].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k,v]) => `${k},${v}`).join("\n") + "\n";
+  return "identity-v1\nkind,security,currency,units_1e18\n" + [...merged].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([k,v]) => `${k},${v}`).join("\n") + "\n";
 }

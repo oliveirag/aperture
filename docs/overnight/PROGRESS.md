@@ -121,3 +121,12 @@
 - Release suite: all 36 checks + typegen + tsc + lint + webpack build PASS.
 - Quota exhausted for background subagents this session; remaining work is serial.
 - Next: draft PR to main for handoff; ws/d, ws/h, ws/i-api integration and remaining DoD items continue in the handoff session.
+
+## 2026-09-27 — merge origin/main (PR #66 conflicts)
+- Merged origin/main (fc3203c, adaptive experience levels) into overnight/real-data; resolved 11 conflicts.
+- Kept branch provenance semantics: supplied prices/market values are the frozen valuation; SEC/N-PORT holdings attribution (no default "Alpha Vantage"); no Gemini news facts; no Alpha ETF fetch in import worker.
+- Adopted main: shared `lib/limits` MAX_POSITIONS + too-many messages, priceMode plumbing, coverage list, exposures, uncapped ETF columns, ask userTurn fencing, test:experience.
+- main's `XrayModel.valuation: {asOf, source}` collided with branch's provenance-bearing `valuation`; renamed main's field to `priceBasis` (hero, ask context, demo, check-experience). /api/shock now returns both `valuation` and `priceBasis`.
+- Opaque/unsupported ETFs report visibleShare 0 in coverage.
+- Gates: tsc, lint, test:release (37/37), test:experience, build --webpack, git diff --check all pass.
+- Next action: STATE.md priority list item 1 (merge ws/d).

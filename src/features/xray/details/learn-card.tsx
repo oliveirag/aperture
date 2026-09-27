@@ -1,7 +1,7 @@
 import { BookOpen } from "lucide-react";
 import { DetailCard } from "./card";
 
-// Beginner only.
+// Plain-language note on concentration; opens by default for Beginner, one tap away at other levels.
 export function LearnCard() {
   return (
     <DetailCard title="Learn" headline="Why concentration matters" className="lg:col-span-12">

@@ -7,7 +7,7 @@ import { getScenario, scenarioTotals } from "@/data/shock";
 import { useShockData } from "@/features/shock/model-context";
 import { scenarioIn } from "@/features/shock/use-shock-model";
 import { useShock } from "@/features/shock/store";
-import { useLevel } from "@/lib/level";
+import { useLevelValue } from "@/lib/experience/store";
 import type { ScenarioId } from "@/types/demo";
 import { PropagationGraph } from "./propagation-graph";
 import { ScenarioPicker } from "./scenario-picker";
@@ -26,7 +26,7 @@ export function ShockStage() {
   const hasRun = useShock((s) => s.hasRun);
   const setScenario = useShock((s) => s.setScenario);
   const setSeverity = useShock((s) => s.setSeverity);
-  const level = useLevel((s) => s.level);
+  const level = useLevelValue();
   const model = useShockData();
   const reduce = useReducedMotion() ?? false;
   const [runKey, setRunKey] = useState(() => (useShock.getState().hasRun ? 1 : 0));
@@ -116,11 +116,9 @@ export function ShockStage() {
         </div>
       </div>
 
-      {level === "beginner" ? (
-        <p className="-mt-2 text-[13px] text-text-muted">
-          Each line is one way the shock can reach your money. Click a line to see the source.
-        </p>
-      ) : null}
+      <p className="-mt-2 text-[13px] text-text-muted">
+        Each line is one way the shock can reach your money. Click a line to see the source.
+      </p>
       <ResearchEvidence />
     </section>
   );

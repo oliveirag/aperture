@@ -13,7 +13,7 @@ type Context = {
   concentrationFlags?: { label: string; weight: number }[];
   etfOverlaps?: { a: string; b: string; overlapByWeight: number; sharedCompanies: number }[];
   filingRadar?: { ticker: string; company: string; severity: string; change: string; filing: string; apertureWeight: number }[];
-  icMemos?: { ticker: string; date: string; memo: { stance: string; summary: Record<string, string>; keyRisks?: string[] } }[];
+  icMemos?: { ticker: string; date: string; memo: { stance: string; summary: Record<string, string>; keyRisks?: { text: string }[] } }[];
 };
 
 // A stress test Aperture already calculated, as the Ask store sends it alongside the portfolio.

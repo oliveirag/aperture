@@ -26,7 +26,7 @@ export type Evidence = {
   bull: Point[];
   bear: Point[];
   assumptions: Assumption[];
-  watch: string[];
+  watch: MemoPoint[];
   fitLine: string;
 };
 
@@ -150,12 +150,13 @@ export function evaluate(name: string, facts: Fact[], fit: FitRow[]): Evidence {
       against: c.against,
     }));
 
-  const watch = [
-    earnings ? `Next earnings on ${earnings.s.date}` : "",
-    radar?.s.category ? `Further changes in ${radar.s.category.split(" · ").pop()!.toLowerCase()} disclosures` : "",
-    revenue ? "Whether year-over-year revenue growth holds next quarter" : "",
-    analysts ? "Shifts in analyst ratings" : "",
-  ].filter(Boolean).slice(0, 4);
+  // Each watch item cites the fact it follows from.
+  const watch: MemoPoint[] = [
+    earnings ? { text: `Next earnings on ${earnings.s.date}`, refs: [earnings.id] } : null,
+    radar?.s.category ? { text: `Further changes in ${radar.s.category.split(" · ").pop()!.toLowerCase()} disclosures`, refs: [radar.id] } : null,
+    revenue ? { text: "Whether year-over-year revenue growth holds next quarter", refs: [revenue.id] } : null,
+    analysts ? { text: "Shifts in analyst ratings", refs: [analysts.id] } : null,
+  ].filter((w): w is MemoPoint => w !== null).slice(0, 4);
 
   const fitLine = candidate
     ? `${candidate.label.replace(" look-through", "")} goes from ${formatPct(candidate.before)} to ${formatPct(candidate.after)} of your money${topSector ? `; ${topSector.label.replace(" (your largest)", "").toLowerCase()} from ${formatPct(topSector.before)} to ${formatPct(topSector.after)}` : ""}.`
@@ -198,7 +199,9 @@ export function rulesMemo(name: string, e: Evidence, bull: Side, bear: Side, ass
   return {
     stance,
     summary,
-    keyRisks: e.bear.flatMap((p) => (p.risk ? [p.risk] : [])).slice(0, 4),
+    summarySource: { beginner: "rules", intermediate: "rules", advanced: "rules" },
+    // A key risk cites the fact behind the bear point it came from.
+    keyRisks: e.bear.flatMap((p) => (p.risk ? [{ text: p.risk, refs: p.refs }] : [])).slice(0, 4),
     watch: e.watch,
     chairNote: `${e.fitLine} ${note}`.trim(),
   };

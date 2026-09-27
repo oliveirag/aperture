@@ -70,6 +70,10 @@ process.env.APERTURE_CACHE_DIR = mkdtempSync(path.join(os.tmpdir(), "aperture-ch
   assert.ok(e.bear.some((p) => /Technology sector would be 45\.0%/.test(p.text)), "sector concentration point");
   const memoOut = rulesMemo("Example", e, rulesSide("bull", "Example", e), rulesSide("bear", "Example", e), e.assumptions);
   assert.ok(memoOut.chairNote.endsWith(RULES_NOTE));
+  // Rules memos carry the same shape as the chair's: key risks and watch items cite facts, summaries are labeled.
+  for (const p of [...memoOut.keyRisks, ...memoOut.watch]) assert.ok(p.refs.length > 0 && p.refs.every((r) => ids.has(r)), `cited: ${p.text}`);
+  assert.ok(memoOut.keyRisks.length > 0, "the valuation bear point yields a key risk");
+  assert.deepEqual(memoOut.summarySource, { beginner: "rules", intermediate: "rules", advanced: "rules" });
   assert.ok(!/\b(buy|sell)\b/i.test(JSON.stringify(memoOut)), "no advice words");
 
   // Ask without a model: a named company, a definition, and an unknown question.

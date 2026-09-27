@@ -20,6 +20,15 @@ function joinNames(names: string[]) {
 // Companies the Radar covers: stocks held directly (largest first), then the X-Ray's top-10 look-through companies.
 // Funds are left out: they don't file 10-Ks.
 export function coveredCompanies(model: XrayModel, holdings: ImportedHolding[]): Covered[] {
+  return radarCandidates(model, holdings).slice(0, MAX_COVERED);
+}
+
+// Companies beyond the Radar's cap: listed, not silently dropped.
+export function uncoveredCompanies(model: XrayModel, holdings: ImportedHolding[]): Covered[] {
+  return radarCandidates(model, holdings).slice(MAX_COVERED);
+}
+
+function radarCandidates(model: XrayModel, holdings: ImportedHolding[]): Covered[] {
   // A held position without a company industry is a fund (Finnhub has profiles for companies only). An opaque
   // position with an industry is a stock whose live profile failed, so it stays covered.
   const funds = new Set([
@@ -38,7 +47,7 @@ export function coveredCompanies(model: XrayModel, holdings: ImportedHolding[]):
   }
   // Share classes (GOOGL and GOOG) are one filer: keep the larger.
   const seen = new Set<string>();
-  return [...out.values()].filter((c) => !seen.has(c.name) && seen.add(c.name)).slice(0, MAX_COVERED);
+  return [...out.values()].filter((c) => !seen.has(c.name) && seen.add(c.name));
 }
 
 function fromExposure(e: XrayModel["topTen"][number], total: number): Covered {
@@ -111,8 +120,8 @@ export function liveHeadline(cards: { severity: Severity; exposureWeight: number
       high.length > 0
         ? `${high.length === 1 ? "One company" : `${high.length} companies`} you own changed how ${high.length === 1 ? "it describes its" : "they describe their"} biggest risks.`
         : cards.length > 0
-          ? `${cards.length} ${companies(cards.length)} you own updated their risk warnings. Nothing major.`
-          : "None of the companies you own changed their risk warnings in a big way.",
+          ? `${cards.length} ${companies(cards.length)} you own updated their risk warnings. None was rated high severity.`
+          : `No verified risk-warning changes in the ${filings} ${filings === 1 ? "filing" : "filings"} we read.`,
     intermediate:
       high.length > 0
         ? `${high.length} high-severity ${high.length === 1 ? "change" : "changes"} in companies that make up ${pct} of your money.`

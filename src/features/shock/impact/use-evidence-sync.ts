@@ -4,11 +4,14 @@ import { useEffect } from "react";
 import { useSourceDrawer } from "@/components/shared/source-drawer";
 import { useShock } from "@/features/shock/store";
 import { scenarioIn, type ShockModel } from "@/features/shock/use-shock-model";
-import { useLevel } from "@/lib/level";
+import { isOpen } from "@/lib/experience/policy";
+import { usePolicy } from "@/lib/experience/store";
 
-// "CRE −20%" at severity 30 -> "CRE −30%"
+// "CRE −20%" at severity 30 -> "CRE −30%"; "Oil price +20%" at 25 -> "Oil price +25%". Keeps the label's own sign.
 export function shortLabelAt(shortLabel: string, severity: number) {
-  return `${shortLabel.split(" −")[0]} −${severity}%`;
+  const m = shortLabel.match(/^(.*?)\s*([+−-])\s*\d+(?:\.\d+)?%$/);
+  if (!m) return `${shortLabel} (${severity}%)`;
+  return `${m[1]} ${m[2] === "+" ? "+" : "−"}${severity}%`;
 }
 
 // Keeps the evidence drawer and the shared selectedEdgeId in step, whether the edge was picked here or in the graph.
@@ -16,7 +19,8 @@ export function useEvidenceSync(model: ShockModel) {
   const edgeId = useShock((s) => s.selectedEdgeId);
   const scenarioId = useShock((s) => s.scenarioId);
   const severity = useShock((s) => s.severity);
-  const level = useLevel((s) => s.level);
+  const policy = usePolicy();
+  const showMethod = isOpen(policy.calculation);
 
   useEffect(() => {
     if (!edgeId) return;
@@ -29,11 +33,12 @@ export function useEvidenceSync(model: ShockModel) {
       { label: "Link", value: `${label(edge.from)} → ${label(edge.to)}` },
       { label: "Scenario", value: shortLabelAt(scenario.shortLabel, severity) },
     ];
-    if (level === "advanced") {
+    // Method details follow the level's calculation default; the drawer always names the link and the scenario.
+    if (showMethod) {
       meta.push({ label: "Transmission weight", value: edge.weight.toFixed(2) }, { label: "Method", value: edge.method });
     }
     useSourceDrawer.getState().open({ source, meta });
-  }, [edgeId, scenarioId, severity, level, model]);
+  }, [edgeId, scenarioId, severity, showMethod, model]);
 
   // Closing the drawer (X, Escape, overlay) clears the selected edge.
   useEffect(

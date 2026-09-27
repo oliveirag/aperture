@@ -1,16 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowRight, ChevronDown, Info } from "lucide-react";
-import { AnimatePresence, motion } from "motion/react";
+import { AlertTriangle, ArrowRight, Info } from "lucide-react";
+import { SectionControls } from "@/components/shared/disclosure";
 import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
-import { formatUSD } from "@/lib/format";
-import { useLevel } from "@/lib/level";
+import { formatPct, formatUSD } from "@/lib/format";
+import { useLevelValue } from "@/lib/experience/store";
 import { AS_OF } from "@/data/portfolio";
 import { usePortfolio } from "@/lib/portfolio-store";
-import { cn } from "@/lib/utils";
 import type { XrayModel } from "@/lib/xray/types";
+import { xrayMaterial } from "@/lib/xray/view";
 import { FlagsStrip } from "./flags-strip";
 import { ApertureMap } from "./aperture-map";
 
@@ -35,36 +34,59 @@ function HeaderStats({ model }: { model: XrayModel }) {
   );
 }
 
-function BeginnerExplainer({ demo }: { demo: boolean }) {
-  const [open, setOpen] = useState(false);
+function Explanation({ demo }: { demo: boolean }) {
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="inline-flex items-center gap-1.5 rounded-md text-[14px] font-medium text-text-muted transition-colors duration-150 hover:text-text"
-      >
-        What does this mean?
-        <ChevronDown aria-hidden className={cn("size-4 transition-transform duration-200 ease-out", open && "rotate-180")} />
-      </button>
-      <AnimatePresence initial={false}>
-        {open ? (
-          <motion.p
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0, transition: { duration: 0.15 } }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="max-w-[72ch] overflow-hidden pt-2 text-[15px] leading-6 text-text-muted"
-          >
-            An <Term term="ETF">ETF</Term> is a basket of many companies.{" "}
-            {demo
-              ? "When you own VOO and QQQ, you also own small slices of NVIDIA, Apple and Microsoft, the same companies you bought directly. "
-              : "When you own an ETF, you also own a small slice of every company inside it, sometimes the same companies you bought directly. "}
-            <Term term="look-through">Look-through</Term> adds those slices together so you see your real exposure.
-          </motion.p>
-        ) : null}
-      </AnimatePresence>
+    <p>
+      An <Term term="ETF">ETF</Term> is a basket of many companies.{" "}
+      {demo
+        ? "When you own VOO and QQQ, you also own small slices of NVIDIA, Apple and Microsoft, the same companies you bought directly. "
+        : "When you own an ETF, you also own a small slice of every company inside it, sometimes the same companies you bought directly. "}
+      <Term term="look-through">Look-through</Term> adds those slices together so you see your real exposure.
+    </p>
+  );
+}
+
+// The arithmetic behind the headline, from the model's own numbers.
+function Calculation({ model }: { model: XrayModel }) {
+  const lead = model.topTen[0];
+  if (!lead) return <p>No equity exposure to break down.</p>;
+  const pct = (v: number) => formatPct(v / model.total);
+  return (
+    <div className="flex flex-col gap-1">
+      <p>
+        Look-through value of a company = value held directly + Σ (fund value × the company&apos;s weight in that fund). Weight = that
+        value ÷ total portfolio value ({formatUSD(model.total)}).
+      </p>
+      <p className="font-mono text-[12px] text-text">
+        {lead.ticker}: {lead.sources.map((s) => `${s.via} ${formatUSD(s.value, 2)}`).join(" + ")} = {formatUSD(lead.value, 2)} ({pct(lead.value)})
+      </p>
+      <p>Flags: any company above 10% or sector above 35% of total value.</p>
+    </div>
+  );
+}
+
+// Material at every level: when the prices are from, and any fund we can only partly (or not) see inside.
+function MaterialNotices({ model }: { model: XrayModel }) {
+  const m = xrayMaterial(model);
+  if (!m.partial.length && !m.opaque.length && !m.valuation) return null;
+  return (
+    <div className="flex flex-col gap-2 text-[13px] text-text-muted">
+      {m.valuation ? (
+        <p>
+          Values: {m.valuation.source} ·{" "}
+          {/^\d{4}-\d{2}-\d{2}$/.test(m.valuation.asOf) ? m.valuation.asOf : new Date(m.valuation.asOf).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}
+        </p>
+      ) : null}
+      {m.partial.length > 0 ? (
+        <p role="note" className="flex items-start gap-2">
+          <AlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0 text-sev-medium" />
+          <span>
+            <Term term="coverage">Partial coverage</Term>:{" "}
+            {m.partial.map((c) => `${c.ticker} ${formatPct(c.visibleShare ?? 0, 0)} of fund weight visible`).join(", ")}. The rest is counted
+            in its fund&apos;s total but not traced to companies, so exposures from it are unknown, not zero.
+          </span>
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -103,7 +125,7 @@ function ImportedNotice({ model }: { model: XrayModel }) {
 }
 
 export function XrayHero({ model }: { model: XrayModel }) {
-  const level = useLevel((s) => s.level);
+  const level = useLevelValue();
   const demoPortfolio = usePortfolio((s) => s.imported === null);
 
   return (
@@ -115,9 +137,10 @@ export function XrayHero({ model }: { model: XrayModel }) {
         subline={model.subline[level]}
         actions={<HeaderStats model={model} />}
       />
-      {level === "beginner" ? <BeginnerExplainer demo={demoPortfolio} /> : null}
+      <SectionControls id="xray-hero" explain={<Explanation demo={demoPortfolio} />} calculation={<Calculation model={model} />} />
       <ApertureMap model={model} />
       <FlagsStrip flags={model.flags} />
+      <MaterialNotices model={model} />
     </section>
   );
 }

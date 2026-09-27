@@ -152,7 +152,7 @@ export function useLiveIc() {
           } else if (e.type === "memo") {
             finished = true;
             update((s) => {
-              const data = { ...s.data, memo: { ...s.data.memo, ...e.memo } };
+              const data = { ...s.data, memo: { ...s.data.memo, ...e.memo }, runId: e.runId, models: e.models };
               return { ...s, status: "done", data, at: { ...s.at, ...arrived("memo") } };
             });
           } else {

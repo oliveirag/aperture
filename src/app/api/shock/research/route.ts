@@ -4,7 +4,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { filingEvidence } from "@/lib/shock/filing-evidence";
 import { buildLiveScenario } from "@/lib/shock/live";
 import { DRIVER_IDS, DRIVERS, knownPlan, planFromProposal, REFERENCES, researchScenario, portfolioKey, type ResearchEvidence, type ResearchPlan, type ResearchResult } from "@/lib/shock/research-model";
-import { apertureInputs, modelFor, parseHoldings, MAX_POSITIONS } from "@/lib/xray/live";
+import { apertureInputs, applySuppliedPrices, modelFor, parseHoldings, priceModeOf, MAX_POSITIONS } from "@/lib/xray/live";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -47,7 +47,7 @@ async function proposePlan(question: string, evidence: ResearchEvidence[]): Prom
 export async function POST(request: Request) {
   const limited = await rateLimit(request, "ask");
   if (limited) return limited;
-  let body: { question?: unknown; holdings?: unknown; demo?: unknown };
+  let body: { question?: unknown; holdings?: unknown; demo?: unknown; priceMode?: unknown };
   try { body = await request.json(); } catch { return Response.json({ error: "Expected JSON" }, { status: 400 }); }
   const question = typeof body.question === "string" ? body.question.trim() : "";
   if (!question || question.length > 500) return Response.json({ error: "Describe a scenario in 1–500 characters." }, { status: 400 });
@@ -93,8 +93,10 @@ export async function POST(request: Request) {
       if (filings.length) evidenceMode = "filing";
     }
     const { base, table, assumption, sensitivities } = researchScenario(plan, evidence);
+    // Same valuation as the X-Ray and Shock pages: live quotes (the supplied price only where a quote is missing), or a
+    // saved snapshot's own prices when the page shows that snapshot (priceMode "supplied").
     const inputs = await apertureInputs(holdings);
-    // Same valuation as the X-Ray and Shock pages: live quotes, with the supplied price only where a quote is missing.
+    if (priceModeOf(body.priceMode) === "supplied") applySuppliedPrices(inputs, holdings);
     if (inputs.some(p => !(p.price > 0))) return Response.json({ error: "Some holdings have no price. Complete portfolio pricing before running a scenario." }, { status: 422 });
     const model = await modelFor(inputs);
     if (!model) return Response.json({ error: "No portfolio valuations available." }, { status: 422 });

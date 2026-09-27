@@ -5,6 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import { create } from "zustand";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { formatPct, formatSignedPct } from "@/lib/format";
+import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { useLiveHoldings } from "@/lib/market";
 import type { PerformanceHolding, PerformanceResponse } from "@/lib/performance";
 import { cn } from "@/lib/utils";
@@ -64,11 +65,13 @@ export function LivePerformance() {
   const entry = usePerformance((s) => s.entry);
   const load = usePerformance((s) => s.load);
 
+  const tooMany = positions.length > MAX_POSITIONS;
   useEffect(() => {
-    if (positions.length) load(key, positions);
-  }, [key, positions, load]);
+    if (positions.length && !tooMany) load(key, positions);
+  }, [key, positions, load, tooMany]);
 
   if (!positions.length) return <Empty>No positions are available, so there is no price history to chart.</Empty>;
+  if (tooMany) return <Empty>{tooManyPositionsMessage(positions.length, "Performance")}</Empty>;
   const mine = entry?.key === key ? entry : null;
   if (!mine || mine.status === "loading") {
     return (

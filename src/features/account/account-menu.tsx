@@ -4,8 +4,11 @@ import { useEffect } from "react";
 import { Menu } from "@base-ui/react/menu";
 import { Cloud, LogIn, LogOut, Save, Trash2, UserRound, X } from "lucide-react";
 import { samePositions } from "@/lib/accounts";
+import { hydrateLastSeen } from "@/lib/experience/last-seen";
+import { useHydrateExperience } from "@/lib/experience/store";
 import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
+import { useScopeSync } from "./scope-sync";
 import { startAccounts, useAccount } from "./store";
 
 const ITEM =
@@ -15,7 +18,12 @@ const GROUP_LABEL = "px-3 pt-3 pb-1 text-[11px] font-normal tracking-[0.08em] te
 // Mounted once in the root layout: starts Supabase auth (and finishes a Google redirect) on any page.
 export function AccountSync() {
   useHydratePortfolio();
-  useEffect(() => startAccounts(), []);
+  useHydrateExperience();
+  useScopeSync();
+  useEffect(() => {
+    hydrateLastSeen();
+    startAccounts();
+  }, []);
   return null;
 }
 

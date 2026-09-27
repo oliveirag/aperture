@@ -10,7 +10,8 @@ import { coveredCompanies, toCard } from "@/features/radar/live-model";
 import { useLiveRadar } from "@/features/radar/use-live-radar";
 import { useXray } from "@/features/xray/use-xray";
 import { DISCLAIMER } from "@/lib/ask/prompt";
-import { useLevel } from "@/lib/level";
+import type { Level } from "@/lib/experience/policy";
+import { useLevelValue } from "@/lib/experience/store";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import { askContext } from "./context";
@@ -33,11 +34,21 @@ function useAskContext() {
     const model = xray.model;
     const demo = !imported;
     const names = Object.fromEntries((imported ?? []).map((h) => [h.ticker, h.name]));
-    const radar = coveredCompanies(model, imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))).flatMap((c) => {
-          const e = entries[c.ticker];
-          return e?.status === "ready" && e.filing.severity ? [toCard(e.filing, c)] : [];
-        });
-    return askContext({ kind: demo ? "demo" : kind, model, names, radar, memos });
+    const covered = coveredCompanies(model, imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category })));
+    const radar = covered.flatMap((c) => {
+      const e = entries[c.ticker];
+      return e?.status === "ready" && e.filing.severity ? [toCard(e.filing, c)] : [];
+    });
+    const status = (fn: (e: (typeof entries)[string] | undefined) => boolean) => covered.filter((c) => fn(entries[c.ticker])).length;
+    const radarStatus = {
+      covered: covered.length,
+      withChanges: radar.length,
+      noMaterialChange: status((e) => e?.status === "ready" && !e.filing.severity),
+      failed: status((e) => e?.status === "error"),
+      unsupported: status((e) => e?.status === "unsupported"),
+      notChecked: status((e) => !e || e.status === "loading"),
+    };
+    return askContext({ kind: demo ? "demo" : kind, model, names, radar, radarStatus, memos });
   }, [xray, imported, kind, entries, memos]);
 }
 
@@ -71,12 +82,21 @@ function Answer({ text }: { text: string }) {
   );
 }
 
-function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
+const LEVEL_LABEL = { beginner: "Beginner", intermediate: "Intermediate", advanced: "Advanced" } as const;
+
+function Message({ m, level, onNavigate, onRephrase }: { m: AskMessage; level: Level; onNavigate: () => void; onRephrase: () => void }) {
   if (m.role === "user") {
-    return <p className={cn("ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text", ENTER)}>{m.text}</p>;
+    return (
+      <p className={cn("ml-10 self-end bg-surface-3 px-4 py-2.5 text-[14px] leading-[22px] text-text", ENTER)}>
+        {m.rephraseOf ? <span className="mb-1 block text-[12px] text-text-muted">Rephrase for {LEVEL_LABEL[m.level ?? level]}</span> : null}
+        {m.text}
+      </p>
+    );
   }
+  const other = m.level && m.level !== level && !m.pending && !m.error && !m.declined;
   return (
     <div className={cn("mr-6 flex flex-col gap-3 text-[14px] leading-[22px] text-text", ENTER)}>
+      {m.level && !m.pending ? <p className="text-[11px] tracking-[0.06em] text-text-subtle uppercase">Written for {LEVEL_LABEL[m.level]}</p> : null}
       {m.pending && !m.text ? (
         <p className="flex items-center gap-2 text-text-muted">
           <LoaderCircle aria-hidden className="size-4 animate-spin text-accent" />
@@ -99,6 +119,12 @@ function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
         </Link>
       ) : null}
       {m.scenario && <Link href="/shock" onClick={onNavigate} className="w-fit border border-border-strong px-3 py-2 text-[14px] text-accent hover:bg-surface-2">Open scenario graph and evidence</Link>}
+      {other ? (
+        <button type="button" onClick={onRephrase} className="inline-flex w-fit items-center gap-1.5 text-[13px] font-medium text-text-muted hover:text-text">
+          <RotateCcw aria-hidden className="size-3" />
+          Rephrase for {LEVEL_LABEL[level]}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -112,7 +138,8 @@ export function AskPanel() {
   const ask = useAsk((s) => s.ask);
   const stop = useAsk((s) => s.stop);
   const clear = useAsk((s) => s.clear);
-  const level = useLevel((s) => s.level);
+  const notice = useAsk((s) => s.notice);
+  const level = useLevelValue();
   const context = useAskContext();
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -127,6 +154,14 @@ export function AskPanel() {
     if (!question.trim() || busy || !context) return;
     setDraft("");
     ask(question, level, context);
+  }
+
+  // Asks the same question again at the current level; the earlier answer stays as it was written.
+  function rephrase(answer: AskMessage) {
+    const index = messages.findIndex((m) => m.id === answer.id);
+    const question = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
+    if (!question || busy || !context) return;
+    ask(question.text, level, context, { rephraseOf: answer.id });
   }
 
   function onSubmit(e: FormEvent) {
@@ -151,6 +186,11 @@ export function AskPanel() {
         </div>
 
         <div aria-live="polite" aria-busy={busy} className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
+          {notice ? (
+            <p role="status" className="border border-border bg-surface-2 px-3 py-2 text-[13px] text-text-muted">
+              {notice}
+            </p>
+          ) : null}
           {messages.length === 0 ? (
             <div className="flex flex-col gap-4">
               <MessageCircleQuestion aria-hidden className="size-5 text-text-muted" />
@@ -171,7 +211,7 @@ export function AskPanel() {
               </ul>
             </div>
           ) : (
-            messages.map((m) => <Message key={m.id} m={m} onNavigate={() => setOpen(false)} />)
+            messages.map((m) => <Message key={m.id} m={m} level={level} onNavigate={() => setOpen(false)} onRephrase={() => rephrase(m)} />)
           )}
           <div ref={endRef} />
         </div>

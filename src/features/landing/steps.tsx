@@ -1,7 +1,7 @@
 import { Reveal } from "@/components/shared/reveal";
 
 const STEPS = [
-  { n: "01", title: "Choose your level", body: "Beginner, Intermediate or Advanced. The numbers stay the same; the explanation changes." },
+  { n: "01", title: "Choose your level", body: "Beginner, Intermediate or Advanced sets how much detail starts open. The numbers stay the same, and every detail is one tap away." },
   { n: "02", title: "Drop a screenshot", body: "A brokerage positions screen is enough. Tickers and share counts are read; the image is never stored." },
   { n: "03", title: "Look through it", body: "X-Ray, Shock Test, Filing Radar and IC Room, all on the portfolio you already hold." },
 ];

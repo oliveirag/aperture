@@ -62,6 +62,20 @@ const B = "00000000-0000-0000-0000-00000000000b";
   await as(A, "delete from public.portfolios where id = $1", [pa.id]);
   assert.equal((await as(A, "select * from public.holdings")).length, 0);
 
+  // Experience migration: a late write carrying an older choice can't overwrite a newer one (the app's upsert path).
+  await db.exec(readFileSync("supabase/migrations/20260927000000_experience.sql", "utf8"));
+  const upsertLevel = (level: string, at: string) =>
+    as(A, `insert into public.profiles (id, experience_level, experience_level_updated_at) values (auth.uid(), '${level}', '${at}')
+      on conflict (id) do update set experience_level = excluded.experience_level, experience_level_updated_at = excluded.experience_level_updated_at`);
+  const levelOfA = async () => (await as<{ experience_level: string }>(A, "select experience_level from public.profiles"))[0].experience_level;
+  await upsertLevel("advanced", "2026-09-27T10:00:00Z");
+  assert.equal(await levelOfA(), "advanced");
+  await upsertLevel("beginner", "2026-09-27T09:00:00Z");
+  assert.equal(await levelOfA(), "advanced", "an older choice arriving late is ignored");
+  await upsertLevel("intermediate", "2026-09-27T11:00:00Z");
+  assert.equal(await levelOfA(), "intermediate", "a newer choice wins");
+  assert.equal((await as(B, "update public.profiles set experience_level = 'beginner' where id <> auth.uid() returning id")).length, 0, "B can't change A's level");
+
   // The offer to save compares positions, not order or prices.
   const h = (ticker: string, shares: number, price = 1) => ({ ticker, name: ticker, industry: null, shares, price });
   assert.ok(samePositions([h("VOO", 75), h("NVDA", 110)], [h("NVDA", 110, 180), h("VOO", 75, 560)]));

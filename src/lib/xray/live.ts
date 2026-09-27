@@ -4,8 +4,9 @@ import { HOLDINGS } from "@/data/portfolio";
 import { isSeededEtf, normalizeTicker } from "@/lib/etf";
 import { getVerifiedEtfProfile } from "@/lib/imports/quotes";
 import { finnhubConfigured, getProfile, getQuote } from "@/lib/finnhub";
+import { MAX_POSITIONS } from "@/lib/limits";
 import { computeXray, type ApertureInput } from "@/lib/xray/compute";
-import type { XrayModel } from "@/lib/xray/types";
+import type { Valuation, XrayModel } from "@/lib/xray/types";
 import { positionValue } from "./valuation";
 import { assertProvenance } from "@/lib/provenance";
 
@@ -15,7 +16,32 @@ const KNOWN_COLORS = new Map(HOLDINGS.map((h) => [h.ticker, h.color]));
 // Refresh explicitly replaces it; rendering another tab must not reprice shares.
 export type PositionInput = { shares: number; price: number | null; name: string | null; kind?: ApertureInput["kind"]; marketValue?: number; industry?: string | null; provenance?: ApertureInput["provenance"] };
 
-export const MAX_POSITIONS = 50;
+export { MAX_POSITIONS };
+
+// Which prices a request wants: fresh quotes, or the ones it supplied (a saved snapshot, or the valuation the page
+// already shows) so every view of one portfolio uses one set of values.
+export type PriceMode = "live" | "supplied";
+export const priceModeOf = (v: unknown): PriceMode => (v === "supplied" ? "supplied" : "live");
+
+// Replaces quotes with the supplied prices where the request carried them.
+export function applySuppliedPrices(inputs: ApertureInput[], holdings: Map<string, PositionInput>) {
+  for (const input of inputs) {
+    const supplied = holdings.get(input.ticker)?.price;
+    if (supplied && Number.isFinite(supplied)) {
+      input.price = supplied;
+      input.priced = "supplied";
+    }
+  }
+  return inputs;
+}
+
+function valuationOf(inputs: ApertureInput[]): Valuation {
+  const supplied = inputs.filter((p) => p.priced !== "quote" && p.price > 0).length;
+  const quoted = inputs.filter((p) => p.priced === "quote").length;
+  const source =
+    supplied === 0 ? "Finnhub quotes" : quoted === 0 ? "Prices supplied with the portfolio" : `Finnhub quotes; ${supplied} of ${inputs.length} positions at supplied prices`;
+  return { asOf: new Date().toISOString(), source };
+}
 const TICKER = /^[A-Z][A-Z0-9.]{0,14}$/;
 
 // Request body rows ({ ticker, shares, price?, name? }) to positions, merging repeated tickers. Invalid rows are skipped.
@@ -70,7 +96,8 @@ export async function apertureInputs(merged: Map<string, PositionInput>): Promis
       const kind = h.kind ?? (ticker === "USD" ? "cash" : undefined);
       const price = h.price ?? (kind === "cash" ? 1 : quote?.price) ?? (h.marketValue !== undefined ? 0 : undefined);
       if (price === undefined || !Number.isFinite(price) || (price <= 0 && h.marketValue === undefined)) throw new Error(`Price unavailable for ${ticker}; portfolio valuation is incomplete. Review a dated value before analysis.`);
-      const base = {ticker,name:profile?.name ?? h.name ?? ticker,shares:h.shares,price,marketValue:h.marketValue,provenance:h.provenance};
+      const priced = h.price !== null || h.marketValue !== undefined ? ("supplied" as const) : ("quote" as const);
+      const base = {ticker,name:profile?.name ?? h.name ?? ticker,shares:h.shares,price,priced,marketValue:h.marketValue,provenance:h.provenance};
       if (kind === "cash" || kind === "opaque") return {...base,kind};
       if (kind === "stock" || profile) return {...base,kind:"stock" as const,industry:profile?.industry || h.industry || null};
       const etf = await getVerifiedEtfProfile(ticker);
@@ -92,7 +119,8 @@ export async function modelFor(inputs: ApertureInput[]): Promise<XrayModel | nul
   const live = finnhubConfigured();
 
   // ETF files spell names in capitals ("NVIDIA CORP"); swap in Finnhub names for the companies the page names.
-  const first = computeXray(inputs, KNOWN_COLORS);
+  const valuation = valuationOf(inputs);
+  const first = computeXray(inputs, KNOWN_COLORS, new Map(), valuation);
   const named = first.topTen.filter((e) => !e.sources.some((s) => s.via === "Direct")).map((e) => e.ticker);
   const names = new Map<string, string>();
   if (live) {
@@ -102,5 +130,5 @@ export async function modelFor(inputs: ApertureInput[]): Promise<XrayModel | nul
       if (r.status === "fulfilled" && r.value) names.set(t, r.value.name);
     });
   }
-  return names.size ? computeXray(inputs, KNOWN_COLORS, names) : first;
+  return names.size ? computeXray(inputs, KNOWN_COLORS, names, valuation) : first;
 }

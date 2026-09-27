@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { IC_AMOUNT, IC_THESIS, IC_TICKER } from "@/data/ic-room";
+import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 import { Composer, type IdeaForm } from "./composer";
 import { InstantContext } from "./enter";
@@ -18,17 +19,25 @@ export function IcRoom() {
   const imported = usePortfolio((s) => s.imported);
   const live = useLiveIc();
   const [form, setForm] = useState<IdeaForm>(DEMO_FORM);
+  const [blocked, setBlocked] = useState<string | null>(null);
   const reduce = useReducedMotion();
   const memoRef = useRef<HTMLElement>(null);
 
   // Every run is live. DEMO_RUN only fills the stage's shape before the first run; none of it is shown as research.
   const active = { data: live.state?.data ?? DEMO_RUN, frame: live.frame, status: live.status, instant: live.instant, elapsed: live.elapsed, skip: live.skip };
-  const failed = live.state?.status === "error" ? live.state.error : null;
+  const failed = blocked ?? (live.state?.status === "error" ? live.state.error : null);
   const memoShown = active.frame?.memo ?? false;
   const debateShown = active.frame?.debate ?? false;
 
   function run() {
     const holdings = imported ?? DEMO_HOLDINGS;
+    // The portfolio-fit step prices every position; say so up front instead of failing mid-run.
+    if (holdings.length > MAX_POSITIONS) {
+      live.reset();
+      setBlocked(tooManyPositionsMessage(holdings.length, "The IC Room's portfolio fit"));
+      return;
+    }
+    setBlocked(null);
     live.run({ ticker: form.ticker, thesis: form.thesis.trim(), amount: form.amount, holdings });
   }
 

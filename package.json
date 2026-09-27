@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test:release": "node scripts/check-all.mjs",
+    "test:experience": "node --import tsx scripts/check-experience.ts",
     "warm": "node --import tsx scripts/warm.ts"
   },
   "dependencies": {

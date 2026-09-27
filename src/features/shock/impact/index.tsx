@@ -10,7 +10,8 @@ import { useShockData } from "@/features/shock/model-context";
 import { scenarioIn } from "@/features/shock/use-shock-model";
 import { useShock } from "@/features/shock/store";
 import { formatPct, formatSignedPct, formatSignedUSD } from "@/lib/format";
-import { useLevel } from "@/lib/level";
+import { usePolicy } from "@/lib/experience/store";
+import { cn } from "@/lib/utils";
 import { TopHits } from "./top-hits";
 import { shortLabelAt, useEvidenceSync } from "./use-evidence-sync";
 
@@ -49,7 +50,7 @@ export function ShockImpact() {
   const hasRun = useShock((s) => s.hasRun);
   const scenarioId = useShock((s) => s.scenarioId);
   const severity = useShock((s) => s.severity);
-  const level = useLevel((s) => s.level);
+  const policy = usePolicy();
   const model = useShockData();
   useEvidenceSync(model);
 
@@ -77,10 +78,10 @@ export function ShockImpact() {
   return (
     <aside aria-label="Shock Test results" className="flex flex-col gap-4 xl:sticky xl:top-[72px] xl:self-start">
       <Card title="Portfolio impact">
-        <p className="display text-[64px] leading-none text-negative tabular-nums">
+        <p className={cn("display text-[64px] leading-none tabular-nums", totals.dollar < 0 ? "text-negative" : "text-positive")}>
           <AnimatedNumber value={totals.pct} from={0} format={(v) => formatSignedPct(v)} />
         </p>
-        <p className="mt-2 text-[16px] font-medium text-negative">
+        <p className={cn("mt-2 text-[16px] font-medium", totals.dollar < 0 ? "text-negative" : "text-positive")}>
           <AnimatedNumber value={totals.dollar} from={0} format={(v) => formatSignedUSD(v)} />
         </p>
         <p className="mt-1 text-[13px] text-text-muted">at {shortLabelAt(scenario.shortLabel, severity)}</p>
@@ -94,11 +95,11 @@ export function ShockImpact() {
           </p>
         </div>
 
-        {level === "beginner" ? (
-          <p className="mt-4 text-[13px] leading-5 text-text-muted">
-            This is an estimate of how much your holdings could fall if this happened. It isn&apos;t a prediction.
-          </p>
-        ) : null}
+        <p className="mt-4 text-[13px] leading-5 text-text-muted">
+          {policy.level === "beginner"
+            ? "This is an estimate of how your holdings could move if this happened. It isn't a prediction."
+            : "Modeled from assumed sensitivities at this size. Not a forecast."}
+        </p>
       </Card>
 
       <Card title="Top hits">

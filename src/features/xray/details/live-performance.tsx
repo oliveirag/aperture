@@ -15,7 +15,7 @@ import { PerformanceChart } from "./performance-chart";
 type Entry = { key: string; status: "loading" | "ready" | "error"; data: PerformanceResponse | null; error: string | null };
 
 export function performancePositions(holdings: readonly PerformanceHolding[]): PerformanceHolding[] {
-  return holdings.map(({ ticker, shares, price, kind, marketValue }) => ({ ticker, shares, price, kind, marketValue }));
+  return holdings.map(({ ticker, shares, price, kind, marketValue, provenance }) => ({ ticker, shares, price, kind, marketValue, provenance }));
 }
 
 // Keyed by the full shared valuation so refresh cannot reuse an old coverage denominator.
@@ -62,6 +62,7 @@ export function LivePerformance() {
     if (positions.length) load(key, positions);
   }, [key, positions, load]);
 
+  if (!positions.length) return <Empty>No positions are available, so there is no price history to chart.</Empty>;
   const mine = entry?.key === key ? entry : null;
   if (!mine || mine.status === "loading") {
     return (
@@ -127,8 +128,8 @@ export function LivePerformance() {
           </tbody>
         </table>
         <p className="text-[12px] leading-5 text-text-subtle">
-          Assumes you held today&apos;s share counts for the whole period. Weekly closes adjusted for splits and dividends (Alpha Vantage);
-          the last point is today&apos;s price.
+          Assumes you held today&apos;s share counts for the whole period; this is not account performance or verified total return.
+          The last point uses the active portfolio valuation.
           {data.excluded.length > 0
             ? ` Not included (unsupported/value-only/cash or no price history): ${data.excluded.join(", ")}, ${formatPct(1 - data.coverage)} of your money.`
             : ""}

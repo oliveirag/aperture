@@ -3,9 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
-import { HOLDINGS } from "@/data/portfolio";
 import { IC_AMOUNT, IC_THESIS, IC_TICKER } from "@/data/ic-room";
-import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
+import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 import { Composer, type IdeaForm } from "./composer";
 import { InstantContext } from "./enter";
 import { DEMO_RUN, IcDataContext } from "./run-data";
@@ -29,7 +28,7 @@ export function IcRoom() {
   const debateShown = active.frame?.debate ?? false;
 
   function run() {
-    const holdings = (imported ?? HOLDINGS).map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name }));
+    const holdings = imported ?? DEMO_HOLDINGS;
     live.run({ ticker: form.ticker, thesis: form.thesis.trim(), amount: form.amount, holdings });
   }
 

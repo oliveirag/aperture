@@ -90,6 +90,47 @@ async function main() {
   assert.equal(exposureValue(mixed,"VALUEONLY"),150,"IC uses actual value, not a fabricated share count");
   assert.equal(computeXray(withPosition(mixed,{...mixed[3],marketValue:25})).total,825,"IC adds value-only candidate dollars");
   assert.equal(computeXray(withPosition(mixed,{...mixed[1],marketValue:25})).total,825,"IC retains existing unsupported value");
-  console.log("Snapshot selection checks passed: mixed-value activation, session reload, explicit refresh/repricing, model/header/performance/IC conservation, demo and practice transitions.");
+  // Exercise the actual HTTP boundary, not only buildPerformance's pure math.
+  const {POST} = await import("../src/app/api/performance/route");
+  const request = (holdings: unknown) => new Request("http://localhost/api/performance",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({holdings})});
+  const response = await POST(request(payload));
+  assert.equal(response.status,200,"Missing history is a terminal unavailable series, not a lost portfolio");
+  const body = await response.json();
+  assert.deepEqual([...body.excluded].sort(),mixed.map(p=>p.ticker).sort());
+  assert.equal(body.unmodeled.reduce((sum:number,p:{marketValue:number})=>sum+p.marketValue,0),800);
+  assert.equal(body.historySources.USD.status,"unsupported");
+  assert.equal(body.historySources["PRIVATE NOTE"].status,"unsupported");
+  assert.equal((await POST(request([{...payload[0],marketValue:-1}]))).status,400);
+  // Seed an INTERNAL mathematical history (not a fabricated provider response)
+  // in this test's isolated cache, and execute the real route/parser/calculator.
+  const {put} = await import("../src/lib/cache");
+  const internalHistory = {symbol:"AAPL",status:"available",daily:[],weekly:history,stale:false,
+    adjustment:{status:"unverified",suspiciousDates:[],reason:"Internal mathematical fixture; no total-return claim"},
+    crossValidation:{status:"not-comparable",primary:"none",secondary:"none",selected:"none",reason:"Internal fixture"},numericProvenance:{}};
+  put("history:sourced:AAPL",internalHistory,60_000);
+  put("prices:history:v2:AAPL",internalHistory,60_000); // ws/a's sourced adapter after merge
+  process.env.ALPHA_VANTAGE_API_KEY="fixture-only-no-network";
+  const modeled = await (await POST(request(payload))).json();
+  assert.equal(modeled.coverage,200/800,"HTTP coverage keeps every reviewed dollar");
+  assert.equal(modeled.series.at(-1).value,200);
+  assert.equal(modeled.unmodeled.reduce((sum:number,p:{marketValue:number})=>sum+p.marketValue,0),600);
+  const {assertNumericProvenance} = await import("../src/lib/provenance");
+  const {provenance: modeledEvidence,...modeledData}=modeled;
+  assertNumericProvenance(modeledData,modeledEvidence);
+  const opaqueTicker = await (await POST(request([{...payload.find(p=>p.ticker==="AAPL"),kind:"opaque",marketValue:500}]))).json();
+  assert.equal(opaqueTicker.historySources.AAPL.status,"unsupported","Even a real equity ticker must not fetch history when reviewed as opaque");
+  assert.deepEqual(opaqueTicker.series,[]);
+  delete process.env.ALPHA_VANTAGE_API_KEY;
+  const {runIdFor} = await import("../src/lib/ic/run");
+  const runInput = {ticker:"MSFT",thesis:"Test valuation identity",amount:100,holdings:parseHoldings(mixed)};
+  const id = runIdFor(runInput);
+  for (const patch of [{price:101},{marketValue:201},{kind:"opaque"},{provenance:{kind:"assumption",source:"Review",rationale:"Updated source"}}]) {
+    assert.notEqual(runIdFor({...runInput,holdings:parseHoldings([{...mixed[0],...patch},...mixed.slice(1)])}),id,"IC memo/fit identity must change with valuation, classification or provenance");
+  }
+  const evidence = {kind:"assumption" as const,source:"Reviewed test input",rationale:"Internal integration fixture, not provider data"};
+  assert.deepEqual(performancePositions([{...mixed[0],provenance:evidence}])[0].provenance,evidence);
+  // SSR uses Zustand's initial snapshot, not client mutations. The interactive
+  // empty-position/async-race assertions live in check-import-react.ts.
+  console.log("Snapshot selection checks passed: mixed-value activation, reload, HTTP performance exclusions, IC valuation identity, numeric provenance, and denominator conservation.");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

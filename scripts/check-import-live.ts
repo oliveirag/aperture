@@ -26,9 +26,9 @@ function check(fixture:Fixture) {
   assert.equal(valuation?.price,raw.c);
   assert.equal(quoteValuation({price:raw.c,time:raw.t}),undefined,"Legacy unsourced quote must not gain invented provenance");
   // User quantities are synthetic test inputs, explicitly not provider facts.
-  const input=reviewedValueInput(readRows([{ticker:"AAPL",name:"Synthetic user-input Apple position",kind:"stock",shares:2,marketValue:2*raw.c,valuationDate:asOf.slice(0,10)}])[0],fixture.retrievedAt);
+  const input=reviewedValueInput(readRows([{ticker:"AAPL",name:"Synthetic user-input Apple position",kind:"stock",shares:2,marketValue:2*raw.c,currency:"USD",valuationDate:asOf.slice(0,10)}])[0],fixture.retrievedAt);
   input.provenance={kind:"computed",formula:"synthetic reviewed quantity × real Finnhub unit price",inputs:[input.provenance!,provenance]};
-  const cash=reviewedValueInput(readRows([{ticker:"USD",name:"Synthetic user-input cash",kind:"cash",shares:null,marketValue:50,valuationDate:asOf.slice(0,10)}])[0],fixture.retrievedAt);
+  const cash=reviewedValueInput(readRows([{ticker:"USD",name:"Synthetic user-input cash",kind:"cash",shares:null,marketValue:50,currency:"USD",valuationDate:asOf.slice(0,10)}])[0],fixture.retrievedAt);
   const model=computeXray([input,cash]);
   assert.equal(model.total,2*raw.c+50);
   assert.equal(model.valuation?.total,model.total);

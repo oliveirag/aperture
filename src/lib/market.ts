@@ -111,7 +111,9 @@ export function useLiveHoldings() {
   const imported = usePortfolio((s) => s.imported);
   const snapshot = useSnapshot();
   const base = useMemo(() => portfolioHoldings(imported), [imported]);
-  const priced = priceHoldings(status === "live" && !snapshot ? quotes : {}, base);
+  // Reviewed imports are frozen across every view. Only an explicit portfolio
+  // refresh replaces their valuation; background quote polling is not consent.
+  const priced = priceHoldings(status === "live" && !snapshot && imported === null ? quotes : {}, base);
   const live = status === "live" && priced.holdings.some((h) => h.live);
   return { live, imported: imported !== null, ...priced };
 }

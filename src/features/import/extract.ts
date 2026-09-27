@@ -60,9 +60,9 @@ async function readLive(files: File[]): Promise<ExtractResult> {
 export type TypedRow = ParsedRow;
 
 export function sessionReviewProblem(rows: TypedRow[]): string | null {
-  const unresolved = rows.filter(r => (r.currency !== undefined && r.currency !== "USD") || (r.rowType !== undefined && r.rowType !== "position") || !/^[A-Z][A-Z0-9.]{0,14}$/.test(r.ticker) || r.shares === null || !Number.isFinite(r.shares) || r.shares <= 0);
+  const unresolved = rows.filter(r => ((r.currency ?? (r.marketValue != null ? "UNKNOWN" : "USD")) !== "USD") || (r.rowType !== undefined && r.rowType !== "position") || !/^[A-Z][A-Z0-9.]{0,14}$/.test(r.ticker) || r.shares === null || !Number.isFinite(r.shares) || r.shares <= 0);
   if (!unresolved.length) return null;
-  return `Review required: ${unresolved.map(r => `${r.ticker || r.name || "Unresolved row"}${r.marketValue !== null ? ` (${r.currency ?? "USD"} ${r.marketValue})` : ""}`).join(", ")}. Cash, totals, currency and unsupported/value-only rows require the full review workspace. Nothing was imported; no exposure was discarded.`;
+  return `Review required: ${unresolved.map(r => `${r.ticker || r.name || "Unresolved row"}${r.marketValue !== null ? ` (${r.currency ?? "UNKNOWN"} ${r.marketValue})` : ""}`).join(", ")}. Cash, totals, currency and unsupported/value-only rows require the full review workspace. Nothing was imported; no exposure was discarded.`;
 }
 
 // Prices CSV or typed rows with Finnhub via /api/price. No Gemini involved.

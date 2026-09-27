@@ -38,7 +38,7 @@ export function validValuationDate(date: string): boolean {
 export function rowProblem(row: ImportRow): string | null {
   if (row.excluded) return row.exclusionReason?.trim() ? null : "Explain why this row is excluded.";
   if (row.rowType === "total") return "Summary total: exclude with a reason to avoid counting holdings twice.";
-  if (row.currency !== undefined && row.currency !== "USD") return "Confirm a USD valuation and currency; foreign amounts cannot be treated as dollars.";
+  if ((row.currency ?? (row.marketValue !== null ? "UNKNOWN" : "USD")) !== "USD") return "Confirm a USD valuation and currency; foreign amounts cannot be treated as dollars.";
   if (row.kind === "unknown") return "Confirm whether this is a stock, ETF, USD cash, or unsupported security.";
   if (row.kind === "unsupported") return row.name.trim() && (row.shares === null || (Number.isFinite(row.shares) && row.shares >= 0 && row.shares <= 1e15)) && Number.isFinite(row.marketValue) && row.marketValue! > 0 && validValuationDate(row.valuationDate) ? null : "Enter a security name, nonnegative quantity (or leave it empty), and a dated USD value; unsupported exposure stays in portfolio value.";
   if (row.kind === "cash") return (row.shares === null || (Number.isFinite(row.shares) && row.shares >= 0 && row.shares <= 1e15)) && Number.isFinite(row.marketValue) && row.marketValue! >= 0 && validValuationDate(row.valuationDate) ? null : "Enter the USD cash balance and its valuation date; any supplied quantity must be nonnegative.";
@@ -78,7 +78,9 @@ export function readRows(value: unknown): ImportRow[] {
       shares: typeof r.shares === "number" && Number.isFinite(r.shares) ? r.shares : null,
       marketValue: typeof r.marketValue === "number" && Number.isFinite(r.marketValue) ? r.marketValue : null,
       kind: ["stock", "etf", "cash", "unsupported"].includes(r.kind) ? r.kind : "unknown",
-      currency: r.currency === undefined ? "USD" : typeof r.currency === "string" ? r.currency.trim().toUpperCase().slice(0, 12) : "UNKNOWN",
+      // Quantity-only typed entries use USD quote pricing. An imported amount
+      // without a currency marker (including OCR) requires explicit review.
+      currency: r.currency === undefined ? (r.marketValue != null ? "UNKNOWN" : "USD") : typeof r.currency === "string" ? r.currency.trim().toUpperCase().slice(0, 12) : "UNKNOWN",
       rowType: ["position", "cash", "total", "unresolved"].includes(r.rowType) ? r.rowType : undefined,
       sourceLine: Number.isSafeInteger(r.sourceLine) && r.sourceLine > 0 ? r.sourceLine : undefined,
       rawText: typeof r.rawText === "string" ? r.rawText.slice(0, 2000) : undefined,

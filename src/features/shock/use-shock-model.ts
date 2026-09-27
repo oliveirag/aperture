@@ -8,6 +8,8 @@ import { SCENARIOS } from "@/data/shock";
 import { useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import type { NotModeled } from "@/lib/shock/live";
 import type { ScenarioId, ShockScenario } from "@/types/demo";
+import { useResearch } from "./research-store";
+import { portfolioKey } from "@/lib/shock/research-model";
 
 // What the Shock Test draws: the curated scenarios for the demo, or the same scenarios mapped onto your portfolio.
 export type ShockModel = {
@@ -79,15 +81,22 @@ export function useShockModel(): ShockModelState {
   const imported = usePortfolio((s) => s.imported);
   const entry = useLiveShock((s) => s.entry);
   const load = useLiveShock((s) => s.load);
+  const research = useResearch((s) => s.result);
+  const addResearch = (model: ShockModel): ShockModel => {
+    if (!research || research.portfolioKey !== portfolioKey(imported ?? HOLDINGS)) return model;
+    return { ...model, scenarios: [...model.scenarios, research.result.scenario],
+      modeledShare: { ...model.modeledShare, researched: research.result.modeledShare },
+      notModeled: { ...model.notModeled, researched: research.result.notModeled } };
+  };
 
   useEffect(() => {
     if (hydrated && imported) load(imported);
   }, [hydrated, imported, load]);
 
   if (!hydrated) return { status: "loading" };
-  if (!imported) return { status: "ready", model: DEMO_MODEL };
+  if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
   const mine = entry?.key === keyOf(imported) ? entry : null;
-  if (mine?.status === "ready" && mine.model) return { status: "ready", model: mine.model };
+  if (mine?.status === "ready" && mine.model) return { status: "ready", model: addResearch(mine.model) };
   if (mine?.status === "error") return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, true) };
   return { status: "loading" };
 }

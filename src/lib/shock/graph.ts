@@ -3,11 +3,12 @@
 // the scenario and the seeded sensitivities; nothing here is generated, so the same inputs always draw the same graph.
 import seed from "@/data/etf-seed.json";
 import { formatPct } from "@/lib/format";
-import type { ScenarioId, ShockScenario, Source } from "@/types/demo";
-import { TABLES } from "./sensitivities";
+import type { ShockScenario, Source } from "@/types/demo";
+import { TABLES, type ScenarioTable } from "./sensitivities";
+import { sectorFromGics } from "@/lib/sectors";
 
 export type GraphNodeKind = "driver" | "channel" | "holding" | "company" | "source";
-export type GraphLinkKind = "shock" | "lookthrough" | "context" | "evidence";
+export type GraphLinkKind = "shock" | "aperture" | "context" | "evidence";
 
 // One piece of evidence shown in a node's note: a quoted document passage, or rows of a data file as pulled.
 export type Quote = {
@@ -85,8 +86,9 @@ export function isSeededEtf(ticker: string) {
   return ticker in SEED;
 }
 
-export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[], total: number): ShockGraph {
-  const table = TABLES[scenario.id as ScenarioId];
+export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[], total: number, override?: ScenarioTable): ShockGraph {
+  const table = override ?? (scenario.id === "researched" ? null : TABLES[scenario.id]);
+  if (!table) throw new Error("Scenario has no sensitivity assumptions");
   const nodes = new Map<string, GraphNode>();
   const links = new Map<string, GraphLink>();
   const sourceById = new Map<string, Source>(scenario.sources.map((s) => [s.id, s]));
@@ -144,7 +146,7 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
     kind: "driver",
     label: driver.label,
     sublabel: scenario.shortLabel,
-    baseReturn: -scenario.baseSeverity / 100,
+    baseReturn: null,
     exposure: 0,
     baseDollar: null,
   });
@@ -291,10 +293,10 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
       addLink({
         source: nodeId,
         target: etfNode,
-        kind: rule || held ? "lookthrough" : "context",
+        kind: rule || held ? "aperture" : "context",
         label: `${r.symbol} is ${pctOf(r.weight)} of ${h.ticker}`,
         weight: r.weight,
-        method: "DER-LOOKTHROUGH",
+        method: "Fund holding weight",
         sourceId: dataSourceId,
       });
       if (rule && !held) {
@@ -305,6 +307,22 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
           if (s) addQuote(nodeId, quoteFromSource(s, `${nodes.get(ch)!.label} → ${r.symbol}`));
         }
       }
+    }
+    // Show the residual sector exposure used by the calculation, without inventing individual company classifications.
+    for (const sector of etf.sectors) {
+      const label = sectorFromGics(sector.sector);
+      const rule = table.sectors[label];
+      if (!rule) continue;
+      const named = rows.reduce((sum, r) => sum + (table.entities[r.symbol]?.sector === label ? r.weight : 0), 0);
+      const weight = Math.max(0, Number(sector.weight) - named);
+      if (!(weight > 0)) continue;
+      const channel = ensureChannel(rule.channel);
+      if (!channel) continue;
+      const sectorId = `sector:${h.ticker}:${label}`;
+      addNode({ id: sectorId, kind: "company", label: `${h.ticker}: ${label}`, sublabel: "Sector remainder after named companies", baseReturn: rule.ret, exposure: h.value * weight, baseDollar: h.value * weight * rule.ret });
+      addLink({ source: channel, target: sectorId, kind: "shock", label: "Assumed sector sensitivity", weight: Math.abs(rule.ret), method: "ASSUMPTION", sourceId: rule.sourceId, hit: true });
+      addLink({ source: sectorId, target: etfNode, kind: "aperture", label: `${pctOf(weight)} of ${h.ticker}`, weight, method: "Sector weight minus named companies", sourceId: dataSourceId, hit: true });
+      addQuote(sectorId, { ...dataQuote, rows: [{ cells: [label, "Sector remainder (calculated)", pctOf(weight)], hit: true }], text: `Reported sector weight ${pctOf(Number(sector.weight))} minus ${pctOf(named)} already counted named companies. Dollar effect = ${h.value.toFixed(2)} × ${weight.toFixed(6)} × ${rule.ret.toFixed(6)} at base severity.` });
     }
   }
 
@@ -339,7 +357,7 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
       for (const l of all) {
         if (l.source !== from || l.kind === "evidence" || l.kind === "context") continue;
         const target = nodes.get(l.target)!;
-        const reaches = l.kind === "shock" || (l.kind === "lookthrough" && nodes.get(from)!.baseReturn !== null);
+        const reaches = l.kind === "shock" || (l.kind === "aperture" && nodes.get(from)!.baseReturn !== null);
         if (!reaches) continue;
         l.hit = true;
         if (target.depth > d + 1) {
@@ -350,7 +368,7 @@ export function buildShockGraph(scenario: ShockScenario, holdings: GraphHolding[
     }
     frontier = next;
   }
-  for (const l of all) if (l.kind === "lookthrough" && !l.hit) l.kind = "context";
+  for (const l of all) if (l.kind === "aperture" && !l.hit) l.kind = "context";
   for (const n of nodes.values()) n.hit = n.kind !== "source" && Number.isFinite(n.depth);
   // A source is "pulled" when the first link it backs lights up.
   for (const l of all) {

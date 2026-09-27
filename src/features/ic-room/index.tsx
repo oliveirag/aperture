@@ -39,22 +39,10 @@ export function IcRoom() {
   const debateShown = active.frame?.debate ?? false;
 
   function run() {
-    if (isDemoRun(form, imported === null)) {
-      live.reset();
-      setMode("demo");
-      demo.run();
-      return;
-    }
     setMode("live");
     const holdings = (imported ?? HOLDINGS).map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name }));
     live.run({ ticker: form.ticker, thesis: form.thesis.trim(), amount: form.amount, holdings });
   }
-
-  // Demo runbook: /ic?run=1 starts the committee on load. run() is stable, so this fires once per mount.
-  const demoRun = demo.run;
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("run") === "1") demoRun();
-  }, [demoRun]);
 
   // Follow the meeting: keep the debate on screen while the analysts speak.
   useEffect(() => {
@@ -69,10 +57,10 @@ export function IcRoom() {
   }, [memoShown, active.instant, reduce]);
 
   const note =
-    mode === "live" && live.state?.data.ticker.ticker === form.ticker && live.state.data.ticker.lookthroughNote
-      ? live.state.data.ticker.lookthroughNote
+    mode === "live" && live.state?.data.ticker.ticker === form.ticker && live.state.data.ticker.apertureNote
+      ? live.state.data.ticker.apertureNote
       : isDemoRun({ ...DEMO_FORM, ticker: form.ticker }, imported === null)
-        ? `Not owned directly · ${IC_TICKER.lookthroughNote}`
+        ? `Not owned directly · ${IC_TICKER.apertureNote}`
         : "Any US-listed company. The committee reads its filings, fundamentals and recent news.";
 
   return (
@@ -80,8 +68,9 @@ export function IcRoom() {
       <PageHeader
         eyebrow="IC Room"
         headline="Pressure-test an idea before you buy it."
-        subline="What would have to be true, the evidence both ways, and how it fits what you already own."
+        subline="IC means investment committee. Research a thesis with a bull case, a bear case, source evidence, and the effect on your portfolio."
       />
+      <div className="flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{mode === "demo" && active.status !== "idle" ? "Illustrative AMD replay. Sample claims are not current research." : "New runs retrieve source facts for your thesis. Bull and bear arguments are interpretations, not verified facts or predictions."}</span><button type="button" className="underline underline-offset-4" onClick={() => { live.reset(); setMode("demo"); demo.run(); }}>Replay labeled AMD example</button></div>
 
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside aria-label="Idea" className="min-w-0 lg:sticky lg:top-24">

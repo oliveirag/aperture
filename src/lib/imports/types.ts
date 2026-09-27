@@ -1,5 +1,5 @@
 import type { XrayModel } from "@/lib/xray/types";
-import type { LookthroughInput } from "@/lib/xray/compute";
+import type { ApertureInput } from "@/lib/xray/compute";
 
 export const MAX_IMPORT_ROWS = 2000;
 export type ImportRow = {
@@ -11,7 +11,7 @@ export type PositionResult = {
   state: "pending" | "ready" | "needs_input" | "blocked";
   attempts: number; retryAt?: string; error?: string;
   warnings?: string[];
-  input?: LookthroughInput;
+  input?: ApertureInput;
   valuation?: { price: number; source: string; asOf: string; retrievedAt: string };
 };
 export type ImportJob = {
@@ -35,8 +35,8 @@ export function rowProblem(row: ImportRow): string | null {
   return null;
 }
 
-export function mergeInputs(results: PositionResult[]): LookthroughInput[] {
-  const merged=new Map<string,LookthroughInput>();
+export function mergeInputs(results: PositionResult[]): ApertureInput[] {
+  const merged=new Map<string,ApertureInput>();
   for(const result of results) {
     const input=result.input;if(!input)continue;
     const previous=merged.get(input.ticker);

@@ -5,8 +5,8 @@ import { HOLDINGS, PORTFOLIO_TOTAL, weightOf } from "../src/data/portfolio";
 import { PERFORMANCE, returnOver } from "../src/data/performance";
 import { SCENARIOS, getScenario, scenarioTotals } from "../src/data/shock";
 import {
-  AMD_LOOKTHROUGH,
-  ETF_LOOKTHROUGH,
+  AMD_Aperture,
+  ETF_Aperture,
   EXPOSURES,
   FLAGS,
   SECTORS,
@@ -45,7 +45,7 @@ for (const e of EXPOSURES) {
   assert.ok(Math.abs(exposureTotal(e) - e.value) < 0.01, `${e.ticker} total`);
   for (const s of e.sources) {
     if (s.via === "Direct" || (e.ticker === "BXP" && s.via === "VOO")) continue;
-    const etf = ETF_LOOKTHROUGH.find((x) => x.ticker === s.via);
+    const etf = ETF_Aperture.find((x) => x.ticker === s.via);
     const holding = HOLDINGS.find((h) => h.ticker === s.via);
     const w = etf?.top.find((c) => c.ticker === e.ticker)?.weight;
     assert.ok(etf && holding && w !== undefined, `${e.ticker} via ${s.via} lookup`);
@@ -59,7 +59,7 @@ assert.ok(Math.abs(SECTORS.reduce((s, x) => s + x.weight, 0) - 1) < 0.0005, "sec
 
 // AI-linked
 const aiLinked =
-  exposureTotal(byTicker("NVDA")) + exposureTotal(byTicker("MSFT")) + exposureTotal(byTicker("AVGO")) + AMD_LOOKTHROUGH.value;
+  exposureTotal(byTicker("NVDA")) + exposureTotal(byTicker("MSFT")) + exposureTotal(byTicker("AVGO")) + AMD_Aperture.value;
 assert.equal(pct(aiLinked), "31.2%");
 
 // Shock: CRE

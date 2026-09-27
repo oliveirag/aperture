@@ -11,7 +11,6 @@ import { DropZone, MAX_IMAGE_BYTES, MAX_SCREENSHOTS, releaseStaged, type ImportI
 import { ExtractedPanel } from "./extracted-panel";
 import { ManualEntry, blankRow, type ManualRow } from "./manual-entry";
 import { ModeSwitch, type ImportMode } from "./mode-switch";
-import { HOLDINGS } from "@/data/portfolio";
 import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 import { SCAN_MS, counts, extractHoldings, type ExtractedHolding, type ExtractResult, type TypedRow } from "./extract";
 
@@ -25,12 +24,6 @@ const REDUCED_SCAN_MS = 600;
 
 type State = { phase: Phase; image: ImportImage | null; holdings: ExtractedHolding[]; error: string | null };
 type Action = { type: "start"; image: ImportImage } | { type: "done"; result: ExtractResult } | { type: "reset" };
-
-// A read of the demo screenshot keeps the demo portfolio, so the curated analysis still applies.
-function isDemoPortfolio(holdings: ExtractedHolding[]) {
-  const rows = holdings.filter(counts);
-  return rows.length === HOLDINGS.length && HOLDINGS.every((h) => rows.some((r) => r.ticker === h.ticker && r.shares === h.shares));
-}
 
 const IDLE: State = { phase: "idle", image: null, holdings: [], error: null };
 
@@ -110,7 +103,7 @@ export function ImportFlow() {
 
   // The sample is the demo portfolio; a real read becomes this session's portfolio.
   function confirm() {
-    if (state.image?.kind !== "sample" && !isDemoPortfolio(state.holdings)) {
+    if (state.image?.kind !== "sample") {
       setImported(
         state.holdings
           .filter(counts)
@@ -172,7 +165,7 @@ export function ImportFlow() {
       className="flex min-h-dvh w-full flex-col pb-16"
     >
       <header className="bx-container flex h-24 items-center justify-between gap-6">
-        <Link href="/" aria-label="Lookthrough home">
+        <Link href="/" aria-label="Aperture home">
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
@@ -182,10 +175,11 @@ export function ImportFlow() {
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
         <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
         <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
-          A screenshot, a CSV export or typed positions. Priced live; nothing you upload is stored.
+          Drop a screenshot, upload CSV, XLSX or XLS, or type your positions. Review the extracted rows before opening your analysis. Spreadsheet files stay on your device; screenshots are sent to Gemini to read.
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>
+          <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>
         </p>
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useLevel } from "@/lib/level";
 import type { XrayModel } from "@/lib/xray/types";
+import { HistoricalRange } from "./historical-range";
 import { Holdings } from "./holdings";
 import { LearnCard } from "./learn-card";
 import { OverlapVenn } from "./overlap-venn";
@@ -20,12 +21,13 @@ export function XrayDetails({ model }: { model: XrayModel }) {
         Breakdown
       </h2>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-        <Holdings />
+        {level !== "beginner" && <Holdings />}
         <TopTen model={model} />
-        <SectorDonut sectors={model.sectors} />
+        {level !== "beginner" && <SectorDonut sectors={model.sectors} />}
         <OverlapVenn model={model} />
         {/* Demo: the canon weekly series. Your own portfolio: weekly closes from Alpha Vantage (Finnhub candles are premium). */}
-        {model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />}
+        {level === "advanced" && (model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />)}
+        {level === "advanced" && <HistoricalRange />}
         {level === "beginner" ? <LearnCard /> : null}
       </div>
     </section>

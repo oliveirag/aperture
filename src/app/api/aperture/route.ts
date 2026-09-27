@@ -1,4 +1,4 @@
-import { lookthrough, MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
+import { aperture, MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   if (merged.size === 0) return fail("No holdings", 400);
   if (merged.size > MAX_POSITIONS) return fail(`At most ${MAX_POSITIONS} positions`, 400);
 
-  const model = await lookthrough(merged);
+  const model = await aperture(merged);
   if (!model) return fail("No prices available", 502);
   return Response.json(model);
 }

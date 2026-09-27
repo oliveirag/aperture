@@ -1,6 +1,6 @@
 import { SCENARIOS } from "@/data/shock";
 import { buildLiveScenario, type LiveScenario } from "@/lib/shock/live";
-import { lookthroughInputs, MAX_POSITIONS, modelFor, parseHoldings } from "@/lib/xray/live";
+import { apertureInputs, MAX_POSITIONS, modelFor, parseHoldings } from "@/lib/xray/live";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   if (holdings.size === 0) return fail("No holdings", 400);
   if (holdings.size > MAX_POSITIONS) return fail(`At most ${MAX_POSITIONS} positions`, 400);
 
-  const inputs = await lookthroughInputs(holdings);
+  const inputs = await apertureInputs(holdings);
   const model = await modelFor(inputs);
   if (!model) return fail("No prices available", 502);
   const colors = Object.fromEntries(model.map.positions.map((p) => [p.ticker, p.color]));

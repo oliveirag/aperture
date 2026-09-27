@@ -106,9 +106,11 @@ export function ImportFlow() {
   const editable=!job || job.status==="review" || job.status==="needs_input";
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
-    <header className="flex justify-between"><Link href="/" className="text-2xl">Lookthrough</Link><Link href="/xray">Current X-Ray</Link></header>
-    <h1 className="text-4xl">Import history</h1>
-    <p className="text-sm text-text-muted">Screenshots are kept privately for up to an hour during review. Reviewed rows stay in your history.</p>
+    <header className="flex justify-between"><Link href="/" className="text-2xl">Aperture</Link><Link href="/xray">Current X-Ray</Link></header>
+    <h1 className="text-4xl">Import your portfolio</h1>
+    <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
+    <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
+    <p><Link href="/xray" className="underline" onClick={()=>usePortfolio.getState().resetToDemo()}>Explore the sample portfolio</Link></p>
     {error&&<p role="alert" className="border border-red-500 p-3">{error}</p>}
     {!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
       <p>Sign in to see your saved imports.</p>

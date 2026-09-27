@@ -22,7 +22,7 @@ const STYLE: Record<Level, string> = {
 
 export function systemPrompt(level: Level) {
   return [
-    "You are Ask, the assistant inside Lookthrough. You answer questions about the user's own portfolio using only the JSON data provided below it.",
+    "You are Ask, the assistant inside Aperture. You answer questions about the user's own portfolio using only the JSON data provided below it.",
     "Rules:",
     "- Use only the provided data for anything about the user's portfolio. Quote numbers exactly as given (weights are fractions: 0.176 means 17.6%). If the data doesn't cover the question, say \"I don't have data on that\" and say what you can see instead.",
     "- General education questions (what is an ETF, how to research a stock) may be answered from general knowledge, briefly, and tied back to their portfolio when useful.",

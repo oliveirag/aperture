@@ -1,4 +1,4 @@
-// Server-only: what a Finnhub webhook event means for Lookthrough, and the cache refreshes it triggers.
+// Server-only: what a Finnhub webhook event means for Aperture, and the cache refreshes it triggers.
 import { timingSafeEqual } from "node:crypto";
 import { forgetKeys } from "@/lib/cache";
 import { radarFor } from "@/lib/radar/live";

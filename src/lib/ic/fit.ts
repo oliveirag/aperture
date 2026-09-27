@@ -2,15 +2,15 @@
 import type { FitRow } from "@/data/ic-room";
 import { formatPct } from "@/lib/format";
 import { sectorFromIndustry } from "@/lib/sectors";
-import { cleanName, type LookthroughInput } from "@/lib/xray/compute";
+import { cleanName, type ApertureInput } from "@/lib/xray/compute";
 import type { XrayModel } from "@/lib/xray/types";
 
 export const FIT_NOTE = "Computed from your X-Ray, with and without the position";
 
-const valueOf = (p: LookthroughInput) => p.shares * p.price;
+const valueOf = (p: ApertureInput) => p.shares * p.price;
 
 // Look-through dollars in one company: held directly plus its weight inside every ETF.
-export function exposureValue(inputs: LookthroughInput[], ticker: string) {
+export function exposureValue(inputs: ApertureInput[], ticker: string) {
   let total = 0;
   for (const p of inputs) {
     if (!(p.shares > 0 && p.price > 0)) continue;
@@ -21,7 +21,7 @@ export function exposureValue(inputs: LookthroughInput[], ticker: string) {
 }
 
 // The paths an exposure reaches you through, for the composer note ("0.4% through VOO and QQQ").
-export function exposureNote(inputs: LookthroughInput[], ticker: string, total: number) {
+export function exposureNote(inputs: ApertureInput[], ticker: string, total: number) {
   const value = exposureValue(inputs, ticker);
   if (value <= 0 || total <= 0) return "Not in your portfolio today";
   const paths = inputs
@@ -35,7 +35,7 @@ export function exposureNote(inputs: LookthroughInput[], ticker: string, total: 
 }
 
 // Adds `amount` dollars of `candidate` (an already-classified position) to the portfolio.
-export function withPosition(inputs: LookthroughInput[], candidate: LookthroughInput): LookthroughInput[] {
+export function withPosition(inputs: ApertureInput[], candidate: ApertureInput): ApertureInput[] {
   const held = inputs.find((p) => p.ticker === candidate.ticker);
   if (!held) return [...inputs, candidate];
   const price = held.price > 0 ? held.price : candidate.price;
@@ -47,13 +47,13 @@ const sectorWeight = (m: XrayModel, sector: string) => m.sectors.find((s) => s.s
 
 // Before and after rows: portfolio value, the candidate's look-through weight, your largest exposure, and the sectors involved.
 export function computeFit(
-  candidate: LookthroughInput,
-  before: { inputs: LookthroughInput[]; model: XrayModel | null },
-  after: { inputs: LookthroughInput[]; model: XrayModel },
+  candidate: ApertureInput,
+  before: { inputs: ApertureInput[]; model: XrayModel | null },
+  after: { inputs: ApertureInput[]; model: XrayModel },
 ): FitRow[] {
   const beforeTotal = before.model?.total ?? 0;
   const afterTotal = after.model.total;
-  const share = (inputs: LookthroughInput[], ticker: string, total: number) => (total > 0 ? exposureValue(inputs, ticker) / total : 0);
+  const share = (inputs: ApertureInput[], ticker: string, total: number) => (total > 0 ? exposureValue(inputs, ticker) / total : 0);
   const rows: FitRow[] = [
     { label: "Portfolio value", kind: "usd", before: beforeTotal, after: afterTotal },
     {

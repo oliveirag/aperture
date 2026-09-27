@@ -19,7 +19,7 @@ import type { IcRunData } from "@/lib/ic/types";
 
 // The scripted AMD run in the shared run shape. Its numbers are canon (scripts/check-canon.ts).
 export const DEMO_RUN: IcRunData = {
-  ticker: { ticker: IC_TICKER.ticker, name: IC_TICKER.name, color: IC_TICKER.color, lookthroughNote: IC_TICKER.lookthroughNote },
+  ticker: { ticker: IC_TICKER.ticker, name: IC_TICKER.name, color: IC_TICKER.color, apertureNote: IC_TICKER.apertureNote },
   thesis: IC_THESIS,
   amount: IC_AMOUNT,
   date: IC_DATE,

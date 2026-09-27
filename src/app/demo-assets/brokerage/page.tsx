@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { SampleBrokerageScreenshot } from "@/features/import/sample-screenshot";
 
-export const metadata: Metadata = { title: "Brokerage screenshot · Lookthrough", robots: { index: false } };
+export const metadata: Metadata = { title: "Brokerage screenshot · Aperture", robots: { index: false } };
 
 // Renders only the sample brokerage screen on white so scripts/capture.mjs can save it as a PNG.
 export default function Page() {

@@ -109,7 +109,7 @@ export function PracticeBuilder() {
       className="flex min-h-dvh w-full flex-col pb-16"
     >
       <header className="bx-container flex h-24 items-center justify-between gap-6">
-        <Link href="/" aria-label="Lookthrough home">
+        <Link href="/" aria-label="Aperture home">
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>

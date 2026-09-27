@@ -2,7 +2,7 @@
 // SEC asks for a descriptive User-Agent with a contact address and at most 10 requests a second.
 import { memo } from "@/lib/cache";
 
-const USER_AGENT = process.env.SEC_USER_AGENT || "Lookthrough research app admin@lookthrough.app";
+const USER_AGENT = process.env.SEC_USER_AGENT || "Aperture research app admin@aperture.app";
 const TIMEOUT_MS = 20000;
 const MIN_GAP_MS = 120;
 const DAY = 24 * 60 * 60 * 1000;

@@ -2,8 +2,8 @@
 // (the company's own, else its sector's). No model in the math: the same inputs always give the same numbers.
 import { formatPct } from "@/lib/format";
 import { sectorFromIndustry } from "@/lib/sectors";
-import type { LookthroughInput } from "@/lib/xray/compute";
-import type { ScenarioId, ShockEdge, ShockImpact, ShockNode, ShockScenario, Source } from "@/types/demo";
+import type { ApertureInput } from "@/lib/xray/compute";
+import type { ShockEdge, ShockImpact, ShockNode, ShockScenario, Source } from "@/types/demo";
 import { TABLES, type ScenarioTable } from "./sensitivities";
 
 // Holding nodes the graph has room for; smaller hits fold into one "other holdings" node.
@@ -21,11 +21,11 @@ export type LiveScenario = {
 
 type Hit = { channel: string; exposed: number; dollar: number; names: Set<string>; sourceId: string };
 
-const valueOf = (p: LookthroughInput) => p.shares * p.price;
+const valueOf = (p: ApertureInput) => p.shares * p.price;
 const spread = (n: number, from: number, to: number) => (n <= 1 ? [(from + to) / 2] : Array.from({ length: n }, (_, i) => from + ((to - from) * i) / (n - 1)));
 
 // Every channel one position reaches, with the dollars exposed and lost at base severity.
-function hitsFor(p: LookthroughInput, table: ScenarioTable): Hit[] {
+function hitsFor(p: ApertureInput, table: ScenarioTable): Hit[] {
   const value = valueOf(p);
   const hits = new Map<string, Hit>();
   const add = (channel: string, exposed: number, ret: number, name: string, sourceId: string) => {
@@ -62,7 +62,7 @@ function hitsFor(p: LookthroughInput, table: ScenarioTable): Hit[] {
   return [...hits.values()];
 }
 
-function edgeLabel(p: LookthroughInput, hit: Hit, table: ScenarioTable) {
+function edgeLabel(p: ApertureInput, hit: Hit, table: ScenarioTable) {
   const names = [...hit.names];
   if (p.kind === "etf") {
     const share = formatPct(hit.exposed / valueOf(p));
@@ -72,8 +72,9 @@ function edgeLabel(p: LookthroughInput, hit: Hit, table: ScenarioTable) {
   return table.entities[p.ticker]?.kind ?? names[0];
 }
 
-export function buildLiveScenario(base: ShockScenario, inputs: LookthroughInput[], etfSources: Source[]): LiveScenario {
-  const table = TABLES[base.id as ScenarioId];
+export function buildLiveScenario(base: ShockScenario, inputs: ApertureInput[], etfSources: Source[], override?: ScenarioTable): LiveScenario {
+  const table = override ?? (base.id === "researched" ? null : TABLES[base.id]);
+  if (!table) throw new Error("Scenario has no sensitivity assumptions");
   const rows = inputs.filter((p) => p.shares > 0 && p.price > 0);
   const total = rows.reduce((s, p) => s + valueOf(p), 0);
   const driver = base.nodes.find((n) => n.kind === "driver")!;
@@ -83,7 +84,7 @@ export function buildLiveScenario(base: ShockScenario, inputs: LookthroughInput[
     .map((p) => ({ p, hits: hitsFor(p, table) }))
     .filter((x) => x.hits.length > 0)
     .map((x) => ({ ...x, dollar: x.hits.reduce((s, h) => s + h.dollar, 0), exposed: x.hits.reduce((s, h) => s + h.exposed, 0) }))
-    .sort((a, b) => a.dollar - b.dollar);
+    .sort((a, b) => Math.abs(b.dollar) - Math.abs(a.dollar));
   const notModeled: NotModeled[] = rows
     .filter((p) => !affected.some((a) => a.p.ticker === p.ticker))
     .map((p) => ({ ticker: p.ticker, weight: valueOf(p) / total }))
@@ -137,12 +138,12 @@ export function buildLiveScenario(base: ShockScenario, inputs: LookthroughInput[
           to: nodeId,
           label: nodeId === OTHERS ? "Smaller exposures" : edgeLabel(a.p, h, table),
           weight,
-          method: a.p.kind === "etf" ? "DER-LOOKTHROUGH" : "DER-SENSITIVITY",
+          method: a.p.kind === "etf" ? "DER-Aperture" : "DER-SENSITIVITY",
           sourceId: h.sourceId,
         });
     }
     // The path shown for a holding follows its biggest channel.
-    const main = [...a.hits].sort((x, y) => x.dollar - y.dollar)[0];
+    const main = [...a.hits].sort((x, y) => Math.abs(y.dollar) - Math.abs(x.dollar))[0];
     const channel = table.channels.find((c) => c.id === main.channel)!;
     impacts.push({
       ticker: a.p.ticker,
@@ -166,7 +167,7 @@ export function buildLiveScenario(base: ShockScenario, inputs: LookthroughInput[
         }
       : {
           ...base.headline,
-          advanced: `${base.headline.advanced.split(" maps to ")[0]} maps to {pct} ({usd}) across ${n} modeled ${n === 1 ? "holding" : "holdings"} (${covered} of your money has a modeled sensitivity); ${m} ${m === 1 ? "holding has" : "holdings have"} no modeled path.`,
+          advanced: `${base.headline.intermediate} ${n} modeled ${n === 1 ? "holding" : "holdings"}; ${covered} of value has a sensitivity. ${m} ${m === 1 ? "holding has" : "holdings have"} no modeled path.`,
         };
 
   const usedSources = new Set(edges.map((e) => e.sourceId));

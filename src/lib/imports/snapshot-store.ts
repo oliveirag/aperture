@@ -6,7 +6,7 @@ import { usePortfolio, useHydratePortfolio } from "@/lib/portfolio-store";
 import { mergeInputs, type Snapshot } from "./types";
 type SnapshotState = {snapshot: Snapshot | null; hydrated: boolean};
 export const useSnapshots = create<SnapshotState>()(persist((): SnapshotState => ({snapshot:null,hydrated:false}), {
- name:"lookthrough-import-snapshot",storage:createJSONStorage(()=>sessionStorage),skipHydration:true,
+ name:"aperture-import-snapshot",storage:createJSONStorage(()=>sessionStorage),skipHydration:true,
  partialize:s=>({snapshot:s.snapshot}),onRehydrateStorage:()=>()=>useSnapshots.setState({hydrated:true}),
 }));
 usePortfolio.subscribe((next, previous)=>{

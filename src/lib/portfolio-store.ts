@@ -46,7 +46,7 @@ export const usePortfolio = create<PortfolioState>()(
       restoreStashed: () => set((s) => (s.stashed ? { imported: s.stashed.holdings, kind: s.stashed.kind, stashed: null } : {})),
     }),
     {
-      name: "lookthrough-portfolio",
+      name: "aperture-portfolio",
       storage: createJSONStorage(() => sessionStorage),
       // Rehydrated in an effect so the server render and first client render agree.
       skipHydration: true,

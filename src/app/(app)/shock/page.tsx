@@ -1,16 +1,16 @@
 import { NextStepCTA } from "@/components/shared/next-step-cta";
-import { ShockTest } from "@/features/shock";
+import { ShockGraphView } from "@/features/graph";
 import { ShockViewTabs } from "@/features/shock/view-tabs";
 
 export default function Page() {
   return (
     <div className="flex flex-col gap-12">
-      <ShockViewTabs active="flow" />
-      <ShockTest />
+      <ShockViewTabs active="graph" />
+      <ShockGraphView />
       <NextStepCTA
         href="/radar"
         label="See what changed in their filings"
-        description="Four filings, ranked by how much of your money they touch."
+        description="Read filing changes and the source passages behind them."
       />
     </div>
   );

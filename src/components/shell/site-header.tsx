@@ -40,7 +40,7 @@ export function SiteHeader() {
       )}
     >
       <div className="bx-container flex h-20 items-center justify-between gap-6 lg:h-24 2xl:gap-8">
-        <Link href="/" aria-label="Lookthrough home" className="shrink-0">
+        <Link href="/" aria-label="Aperture home" className="shrink-0">
           <Wordmark size="sm" className="lg:hidden" />
           <Wordmark className="hidden lg:inline-flex" />
         </Link>

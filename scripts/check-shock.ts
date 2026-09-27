@@ -4,7 +4,7 @@ import { getScenario, scenarioTotals } from "../src/data/shock";
 import { parseProfile } from "../src/lib/etf";
 import { scaleShock } from "../src/lib/format";
 import { buildLiveScenario } from "../src/lib/shock/live";
-import { computeXray, type LookthroughInput } from "../src/lib/xray/compute";
+import { computeXray, type ApertureInput } from "../src/lib/xray/compute";
 import seed from "../src/data/etf-seed.json";
 
 const SEED = seed as unknown as Record<string, Parameters<typeof parseProfile>[1]>;
@@ -14,7 +14,7 @@ const etf = (ticker: string) => {
 };
 
 // $10k BXP direct, $5k KRE held without look-through, $20k VOO (seed), $10k AAPL, $5k a mystery fund.
-const inputs: LookthroughInput[] = [
+const inputs: ApertureInput[] = [
   { ticker: "BXP", name: "BXP Inc", shares: 100, price: 100, kind: "stock", industry: "Real Estate" },
   { ticker: "KRE", name: "SPDR S&P Regional Banking ETF", shares: 100, price: 50, kind: "opaque" },
   { ticker: "VOO", name: "Vanguard S&P 500 ETF", shares: 40, price: 500, kind: "etf", etf: etf("VOO") },
@@ -53,7 +53,7 @@ for (const i of s.impacts) for (const id of i.pathEdgeIds) assert.ok(edgeIds.has
 const nodeIds = new Set(s.nodes.map((n) => n.id));
 for (const e of s.edges) assert.ok(nodeIds.has(e.from) && nodeIds.has(e.to), e.id);
 assert.ok(s.sources.find((x) => x.id === "s-voo-holdings")!.issuer === "Alpha Vantage", "live ETF source wins over the demo canon");
-assert.match(s.headline.advanced, /3 modeled holdings .* 2 holdings have no modeled path/);
+assert.match(s.headline.advanced, /3 modeled holdings.*2 holdings have no modeled path/);
 
 // AI capex: NVDA inside VOO and QQQ, MSFT direct.
 const ai = buildLiveScenario(getScenario("ai-capex"), [...inputs, { ticker: "MSFT", name: "Microsoft", shares: 10, price: 500, kind: "stock", industry: "Software" }], model.sources);

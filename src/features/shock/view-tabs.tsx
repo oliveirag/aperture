@@ -3,8 +3,8 @@ import { Activity, Waypoints } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const VIEWS = [
-  { id: "flow", href: "/shock", label: "Flow", icon: Activity },
-  { id: "graph", href: "/shock/graph", label: "Graph", icon: Waypoints },
+  { id: "graph", href: "/shock", label: "Graph", icon: Waypoints },
+  { id: "flow", href: "/shock/flow", label: "Step-by-step", icon: Activity },
 ] as const;
 
 // Two ways to read the same Shock Test: the step-by-step flow, or the whole knowledge graph.

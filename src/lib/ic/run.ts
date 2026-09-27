@@ -2,8 +2,8 @@
 // together with the exact fact pack and fit they were built from (the audit trail).
 import { createHash } from "node:crypto";
 import { memo, put, recall } from "@/lib/cache";
-import { cleanName, type LookthroughInput } from "@/lib/xray/compute";
-import { lookthroughInputs, modelFor, type PositionInput } from "@/lib/xray/live";
+import { cleanName, type ApertureInput } from "@/lib/xray/compute";
+import { apertureInputs, modelFor, type PositionInput } from "@/lib/xray/live";
 import { argue, chair, testAssumptions, type Context } from "./committee";
 import { buildFactPack, factSteps, type Fact } from "./facts";
 import { computeFit, exposureNote, FIT_NOTE, withPosition } from "./fit";
@@ -29,11 +29,11 @@ export async function auditFor(runId: string) {
 }
 
 async function portfolioFit(input: RunInput, name: string) {
-  const before = await lookthroughInputs(input.holdings);
+  const before = await apertureInputs(input.holdings);
   // Classify the candidate the same way as a held position (stock, ETF with holdings, or opaque).
-  const [probe] = await lookthroughInputs(new Map([[input.ticker, { shares: 1, price: null, name }]]));
+  const [probe] = await apertureInputs(new Map([[input.ticker, { shares: 1, price: null, name }]]));
   const priced = probe.price > 0;
-  const candidate: LookthroughInput = { ...probe, price: priced ? probe.price : input.amount, shares: priced ? input.amount / probe.price : 1 };
+  const candidate: ApertureInput = { ...probe, price: priced ? probe.price : input.amount, shares: priced ? input.amount / probe.price : 1 };
   const after = withPosition(before, candidate);
   const [beforeModel, afterModel] = await Promise.all([modelFor(before), modelFor(after)]);
   if (!afterModel) throw new Error("no prices for the fit");
@@ -93,7 +93,7 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
   const name = cleanName(pack.name);
   emit({
     type: "facts",
-    ticker: { ticker: input.ticker, name, color: COLOR, lookthroughNote: fit.note },
+    ticker: { ticker: input.ticker, name, color: COLOR, apertureNote: fit.note },
     facts: pack.facts.map(toSource),
     fit: fit.fit,
     fitNote: FIT_NOTE,

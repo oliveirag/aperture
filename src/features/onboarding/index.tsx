@@ -31,7 +31,7 @@ export function Onboarding() {
   return (
     <main className="flex min-h-dvh flex-col">
       <header className="bx-container flex h-24 items-center justify-between gap-6 lg:h-[132px]">
-        <Link href="/" aria-label="Lookthrough home">
+        <Link href="/" aria-label="Aperture home">
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>
@@ -94,7 +94,7 @@ function OwnsQuestion({ onBack, onPick }: { onBack: () => void; onPick: (href: s
   return (
     <main className="flex min-h-dvh flex-col">
       <header className="bx-container flex h-24 items-center justify-between gap-6 lg:h-[132px]">
-        <Link href="/" aria-label="Lookthrough home">
+        <Link href="/" aria-label="Aperture home">
           <Wordmark size="sm" className="sm:hidden" />
           <Wordmark className="hidden sm:inline-flex" />
         </Link>

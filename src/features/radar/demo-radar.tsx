@@ -123,6 +123,8 @@ export function DemoRadar() {
           onRecheck={recheck}
           highExposure={HIGH_SEVERITY_EXPOSURE}
           lastChecked={RADAR_LAST_CHECKED}
+          recheckLabel="Replay example feed"
+          checkedMessage="Example replay complete. No live filing request was made."
         />
       </div>
     </div>

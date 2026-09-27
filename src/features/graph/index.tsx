@@ -6,7 +6,7 @@ import { AlertTriangle, Building2, Cpu, LoaderCircle, Play, RotateCcw, type Luci
 import { AnimatedNumber } from "@/components/shared/animated-number";
 import { PageHeader } from "@/components/shared/page-header";
 import { HOLDINGS } from "@/data/portfolio";
-import { getScenario, scenarioTotals, SCENARIOS } from "@/data/shock";
+import { getScenario, scenarioTotals } from "@/data/shock";
 import { ShockModelContext, useShockData } from "@/features/shock/model-context";
 import { useShock } from "@/features/shock/store";
 import { scenarioIn, useShockModel } from "@/features/shock/use-shock-model";
@@ -21,8 +21,11 @@ import { NotePanel } from "./note-panel";
 import { HOP_MS, useGraphUi } from "./settings";
 import { SettingsPanel } from "./settings-panel";
 import { ShockLog } from "./shock-log";
+import { ShockInput } from "@/features/shock/stage/shock-input";
+import { ResearchEvidence } from "@/features/shock/research-evidence";
+import { useResearch } from "@/features/shock/research-store";
 
-const ICONS: Record<ScenarioId, LucideIcon> = { cre: Building2, "ai-capex": Cpu };
+const ICONS: Record<ScenarioId, LucideIcon> = { cre: Building2, "ai-capex": Cpu, researched: Cpu };
 const EASE_DRAWER = [0.32, 0.72, 0, 1] as const;
 const NOTE_W = 420;
 
@@ -99,13 +102,15 @@ function GraphWorkspace() {
   const setScenario = useShock((s) => s.setScenario);
   const setSeverity = useShock((s) => s.setSeverity);
   const level = useLevel((s) => s.level);
+  const research = useResearch((s) => s.result);
   const settings = useGraphUi((s) => s.settings);
   const reduce = useReducedMotion() ?? false;
   const holdings = useGraphHoldings();
   const wide = useWide();
 
   const scenario = scenarioIn(model, scenarioId);
-  const graph = useMemo(() => buildShockGraph(scenario, holdings, model.total), [scenario, holdings, model.total]);
+  const graph = useMemo(() => buildShockGraph(scenario, holdings, model.total, scenario.id === "researched" ? research?.table : undefined), [scenario, holdings, model.total, research]);
+  const visibleSettings = useMemo(() => ({ ...settings, showSources: level === "advanced" && settings.showSources, showContext: level !== "beginner" && settings.showContext, showUnaffected: level !== "beginner" && settings.showUnaffected, arrows: true }), [settings, level]);
   const totals = useMemo(() => scenarioTotals(scenario, severity, model.total), [scenario, severity, model.total]);
 
   const [runStart, setRunStart] = useState(0);
@@ -115,8 +120,9 @@ function GraphWorkspace() {
 
   // Wave leaves the driver a beat after a replay; on first load, once the layout has mostly unfolded.
   const replay = useCallback((delay = 250) => setRunStart(performance.now() + delay), []);
+  useEffect(() => { const frame = requestAnimationFrame(() => { replay(900); setSelectedId(null); }); return () => cancelAnimationFrame(frame); }, [scenario, replay]);
   useEffect(() => {
-    // Deep link: /shock/graph?scenario=ai-capex
+    // Deep link: /shock?scenario=ai-capex
     const id = new URLSearchParams(window.location.search).get("scenario");
     if (id === "cre" || id === "ai-capex") setScenario(id, getScenario(id).baseSeverity);
     const raf = requestAnimationFrame(() => replay(1300));
@@ -136,7 +142,7 @@ function GraphWorkspace() {
 
   function pick(id: ScenarioId) {
     if (id !== scenarioId) {
-      setScenario(id, getScenario(id).baseSeverity);
+      setScenario(id, scenarioIn(model, id).baseSeverity);
       setSelectedId(null);
     }
     // A new scenario re-lays the graph out first.
@@ -151,16 +157,18 @@ function GraphWorkspace() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Shock Test · Graph"
+        eyebrow="Shock Test"
         headline="Watch a shock travel through everything you own."
-        subline="Every dot is a note: the shock, the channels it moves through, the companies inside your ETFs, and the filings and data files behind each link. Click any dot to read its evidence."
+        subline="Trace a scenario through businesses and the funds you own. Click a company to inspect the evidence. Returns are calculated from explicit stress-test assumptions."
       />
+
+      <ShockInput onRun={(id, severity) => { setScenario(id, severity); replay(); }} />
 
       <div className="relative flex h-[calc(100dvh-140px)] max-h-[920px] min-h-[620px] flex-col overflow-hidden border border-white/10 bg-[#1e1e1e]">
         {/* Obsidian-style tab strip: one tab per prepared scenario, severity on the right. */}
         <div className="flex shrink-0 flex-wrap items-stretch justify-between gap-x-4 border-b border-white/[0.08] bg-[#161616]">
           <div role="tablist" aria-label="Scenario" className="flex min-w-0 overflow-x-auto">
-            {SCENARIOS.map((s) => {
+            {model.scenarios.map((s) => {
               const Icon = ICONS[s.id];
               const active = s.id === scenarioId;
               return (
@@ -185,7 +193,7 @@ function GraphWorkspace() {
           </div>
           <div className="flex w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 text-[12.5px] text-[#8f8f8f] sm:w-auto sm:flex-nowrap">
             <label htmlFor="graph-severity" className="whitespace-nowrap">
-              <span className="font-mono text-[#ff6b4a] tabular-nums">−{severity}%</span> {scenario.severityLabel}
+              <span className="font-mono text-[#ff6b4a] tabular-nums">{severity}%</span> {scenario.severityLabel}
             </label>
             <input
               id="graph-severity"
@@ -211,7 +219,7 @@ function GraphWorkspace() {
         <div className="relative min-h-0 flex-1">
           <GraphCanvas
             graph={graph}
-            settings={settings}
+            settings={visibleSettings}
             severity={severity}
             baseSeverity={scenario.baseSeverity}
             runStart={runStart}
@@ -236,7 +244,7 @@ function GraphWorkspace() {
             </p>
             <p className="mt-1 text-[14px] text-[#dadada] tabular-nums">
               {settled ? <AnimatedNumber value={totals.dollar} from={0} duration={700} format={(v) => formatSignedUSD(v)} /> : "…"}
-              <span className="text-[#8f8f8f]"> at {scenario.shortLabel.split(" −")[0]} −{severity}%</span>
+              <span className="text-[#8f8f8f]"> · hypothetical scenario</span>
             </p>
             <p className="mt-2 font-mono text-[11px] text-[#8f8f8f] tabular-nums">
               {reached} nodes reached · {cited} sources cited · {graph.links.length} links
@@ -278,10 +286,13 @@ function GraphWorkspace() {
         </div>
       </div>
 
+      <ResearchEvidence />
+      {scenario.notModeled.length > 0 && <section aria-label="Unmodeled holdings" className="border border-border p-5 text-[14px]"><h2 className="font-medium">Unknown exposure</h2><p className="mt-2 text-text-muted">These holdings have no modeled path: {scenario.notModeled.join(", ")}. Their risk is unknown, not zero.</p></section>}
+      <p className="text-[13px] text-text-muted">Sources support economic relationships. Equity sensitivities are illustrative assumptions, not measured predictions. Unmodeled holdings and exposures are unknown, not unaffected.</p>
+
       {level === "beginner" ? (
         <p className="-mt-4 text-[13px] text-text-muted">
-          The red dot is the shock. Glowing dots are the companies it reaches; the brighter, the bigger the hit. Purple dots are
-          the documents we read to draw each line. This is an estimate, not a prediction.
+          The red dot is the shock. Glowing dots are the companies it reaches; the brighter, the bigger the hit. Open a company to inspect its sources. This is an estimate, not a prediction.
         </p>
       ) : (
         <p className="-mt-4 text-[13px] text-text-muted">

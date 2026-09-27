@@ -12,7 +12,7 @@ for (const s of SCENARIOS) {
   const by = (k: string) => g.nodes.filter((n) => n.kind === k).length;
   const lk = (k: string) => g.links.filter((l) => l.kind === k).length;
   console.log(s.id, { nodes: g.nodes.length, driver: by("driver"), channel: by("channel"), holding: by("holding"), company: by("company"), source: by("source") });
-  console.log("  links", { shock: lk("shock"), lookthrough: lk("lookthrough"), context: lk("context"), evidence: lk("evidence"), maxDepth: g.maxDepth });
+  console.log("  links", { shock: lk("shock"), aperture: lk("aperture"), context: lk("context"), evidence: lk("evidence"), maxDepth: g.maxDepth });
   console.log("  holdings", g.nodes.filter((n) => n.kind === "holding").map((n) => `${n.label} d=${n.depth} r=${n.baseReturn}`).join(", "));
   const noQuote = g.nodes.filter((n) => n.hit && n.kind !== "driver" && n.quotes.length === 0).map((n) => n.id);
   console.log("  hit without quotes:", noQuote);

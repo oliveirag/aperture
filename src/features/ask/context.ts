@@ -28,9 +28,9 @@ export function askContext(opts: {
         valueUsd: Math.round(p.value),
         weight: r(p.weight),
       })),
-      fundsWithoutLookThrough: model.opaque,
+      fundsWithoutAperture: model.opaque,
     },
-    lookThroughTop10: model.topTen.map((e) => ({
+    apertureTop10: model.topTen.map((e) => ({
       ticker: e.ticker,
       name: e.name,
       valueUsd: Math.round(e.value),
@@ -47,7 +47,7 @@ export function askContext(opts: {
       change: c.title,
       summary: c.summary,
       filing: `${c.filingType} filed ${c.filedAt}`,
-      lookThroughWeight: r(c.exposureWeight),
+      apertureWeight: r(c.exposureWeight),
     })),
     icMemos: opts.memos,
   };

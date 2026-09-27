@@ -65,7 +65,7 @@ function Quiet({ company, filing }: { company: Covered; filing: RadarFiling }) {
     <li className="flex items-center gap-3 px-5 py-3 text-[13px]">
       <CircleCheck aria-hidden className="size-4 shrink-0 text-text-subtle" />
       <span className="min-w-0 flex-1 text-text-muted">
-        <span className="font-medium text-text">{company.name}</span> · no material risk changes in its {filing.filingType} filed{" "}
+        <span className="font-medium text-text">{company.name}</span> · {filing.dropped ? "comparison incomplete; proposed quotes could not be verified" : "no verified material changes found in the reviewed text"} · {filing.filingType} filed{" "}
         {formatSourceDate(filing.filedAt)}
       </span>
       <a

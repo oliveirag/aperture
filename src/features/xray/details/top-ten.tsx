@@ -19,14 +19,15 @@ function viaWeight(e: XExposure, via: string, total: number) {
 const sumOf = (e: XExposure) => e.sources.reduce((sum, s) => sum + s.value, 0);
 
 export function TopTen({ model }: { model: XrayModel }) {
-  const advanced = useLevel((s) => s.level) === "advanced";
-  const exposures = model.topTen;
+  const level = useLevel((s) => s.level);
+  const advanced = level === "advanced";
+  const exposures = level === "beginner" ? model.topTen.slice(0, 3) : model.topTen;
   const vias = ["Direct", ...model.etfColumns];
   const weightOf = (v: number) => v / model.total;
   const maxWeight = exposures[0] ? weightOf(sumOf(exposures[0])) : 1;
 
   return (
-    <DetailCard title="True Top 10" headline="Your biggest companies, counted through your ETFs" className="lg:col-span-7">
+    <DetailCard title={level === "beginner" ? "Your three biggest exposures" : "True Top 10"} headline="Your biggest companies, counted through your ETFs" className="lg:col-span-7">
       <div className="-mx-2 mt-4 overflow-x-auto">
         <table className="w-full min-w-[520px] border-collapse text-[14px]">
           <thead>

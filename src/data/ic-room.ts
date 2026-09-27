@@ -4,7 +4,7 @@
 import type { Source } from "../types/demo";
 import { PORTFOLIO_TOTAL, weightOf } from "./portfolio";
 import { getScenario, scenarioTotals } from "./shock";
-import { AI_LINKED_TICKERS, AMD_LOOKTHROUGH, EXPOSURES, SECTORS, SEMIS_WEIGHT, exposureTotal } from "./xray";
+import { AI_LINKED_TICKERS, AMD_Aperture, EXPOSURES, SECTORS, SEMIS_WEIGHT, exposureTotal } from "./xray";
 
 export type IcLevel = "beginner" | "intermediate" | "advanced";
 
@@ -38,8 +38,8 @@ export const IC_TICKER = {
   name: "Advanced Micro Devices",
   color: "#E5484D",
   owned: false,
-  lookthroughWeight: 0.004,
-  lookthroughNote: "0.4% through VOO and QQQ",
+  apertureWeight: 0.004,
+  apertureNote: "0.4% through VOO and QQQ",
 } as const;
 
 // Hypothetical position size (display only)
@@ -198,8 +198,8 @@ export const MEMO = {
 } as const;
 
 // Look-through value of a company from the X-Ray canon (AMD is only held through ETFs).
-function lookthroughValue(ticker: string) {
-  if (ticker === "AMD") return AMD_LOOKTHROUGH.value;
+function apertureValue(ticker: string) {
+  if (ticker === "AMD") return AMD_Aperture.value;
   const e = EXPOSURES.find((x) => x.ticker === ticker);
   if (!e) throw new Error(`Unknown exposure ${ticker}`);
   return exposureTotal(e);
@@ -210,13 +210,13 @@ const TECH_WEIGHT = SECTORS.find((x) => x.sector === "Technology")?.weight ?? 0;
 // Before → after if the $10,000 position were added. "Before" reads the X-Ray and Shock canon; "after" is pre-computed.
 export const PORTFOLIO_FIT: FitRow[] = [
   { label: "Portfolio value", kind: "usd", before: PORTFOLIO_TOTAL, after: PORTFOLIO_TOTAL + IC_AMOUNT },
-  { label: "AMD look-through", kind: "weight", before: weightOf(lookthroughValue("AMD")), after: 0.067 },
-  { label: "NVIDIA look-through", kind: "weight", before: weightOf(lookthroughValue("NVDA")), after: 0.165 },
+  { label: "AMD look-through", kind: "weight", before: weightOf(apertureValue("AMD")), after: 0.067 },
+  { label: "NVIDIA look-through", kind: "weight", before: weightOf(apertureValue("NVDA")), after: 0.165 },
   { label: "Semiconductors", kind: "weight", before: SEMIS_WEIGHT, after: 0.263 },
   {
     label: "AI-linked exposure (NVDA, MSFT, AVGO, AMD)",
     kind: "weight",
-    before: weightOf(AI_LINKED_TICKERS.reduce((sum, t) => sum + lookthroughValue(t), 0)),
+    before: weightOf(AI_LINKED_TICKERS.reduce((sum, t) => sum + apertureValue(t), 0)),
     after: 0.355,
   },
   { label: "Technology sector", kind: "weight", before: TECH_WEIGHT, after: 0.53 },

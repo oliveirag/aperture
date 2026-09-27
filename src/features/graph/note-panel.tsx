@@ -125,9 +125,10 @@ function QuoteCallout({ q }: { q: Quote }) {
         </div>
       ) : null}
       {q.text ? (
-        <blockquote className={cn("mt-2 text-[13px] leading-[1.55] text-[#cfcfcf]", !isData && "italic")}>
-          {isData ? q.text : <>&ldquo;<Highlighted text={q.text} highlight={q.highlight} />&rdquo;</>}
-        </blockquote>
+        <div className="mt-2 text-[13px] leading-[1.55] text-[#cfcfcf]">
+          <p className="mb-2 text-[11px] text-[#8f8f8f]">{q.url?.includes("browse-edgar") || q.sourceId.startsWith("s-fed-") ? "Illustrative demo summary; not a verified filing quotation." : "Source summary or data. The stress-test coefficient is an assumption."}</p>
+          {isData ? q.text : <Highlighted text={q.text} highlight={q.highlight} />}
+        </div>
       ) : null}
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[11.5px]">

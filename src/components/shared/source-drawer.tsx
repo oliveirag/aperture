@@ -8,6 +8,12 @@ import type { Source } from "@/types/demo";
 
 export type SourceLike = Source;
 
+export function sourceDescription(source: Source): string {
+  if (source.url.includes("browse-edgar") || source.id.startsWith("s-fed-") || ["https://www.amd.com/en/newsroom.html", "https://www.tsmc.com/english/news-events"].includes(source.url)) return "Illustrative demo summary. This text has not been verified against a specific filing; the link opens the issuer or agency listing. Do not cite it as a verbatim quotation.";
+  if (source.docType === "News" || source.docType === "Market data" || source.docType === "ETF holdings") return "Source summary or calculated data, not a verbatim quotation. Check the source date and original document.";
+  return "Retrieved filing passage. Interpretations and scenario sensitivities are separate from the source text.";
+}
+
 export type SourceDrawerPayload = {
   source: SourceLike;
   meta?: { label: string; value: string }[];
@@ -77,6 +83,7 @@ export function SourceDrawer() {
             </div>
 
             <div className="flex flex-1 flex-col gap-6 px-6 py-6">
+              <p className="text-[13px] leading-5 text-text-muted">{sourceDescription(source)}</p>
               {payload?.meta && payload.meta.length > 0 ? (
                 <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-[13px]">
                   {payload.meta.map((m) => (
@@ -91,10 +98,10 @@ export function SourceDrawer() {
               {/* With a compare, the latest wording is the excerpt; don't show it twice. */}
               {!payload?.compare ? (
                 <section>
-                  <Label>Excerpt</Label>
-                  <blockquote className="border-l-2 border-accent pl-4 text-[15px] leading-6 text-text">
+                  <Label>Source text or summary</Label>
+                  <div className="border-l-2 border-accent pl-4 text-[15px] leading-6 text-text">
                     {highlightPhrases(source.excerpt, source.highlight ? [source.highlight] : [])}
-                  </blockquote>
+                  </div>
                 </section>
               ) : null}
 

@@ -28,7 +28,7 @@ function rules(tickers: string[], rule: Omit<EntityRule, "sourceId">, sourceFor:
   return Object.fromEntries(tickers.map((t) => [t, { ...rule, sourceId: sourceFor(t) }]));
 }
 
-export const TABLES: Record<ScenarioId, ScenarioTable> = {
+export const TABLES: Record<Exclude<ScenarioId, "researched">, ScenarioTable> = {
   cre: {
     channels: [
       { id: "office", label: "Office valuations", sublabel: "Most rate-sensitive property type", weight: 1.1, method: "DER-VALUATION", sourceId: "s-fed-fsr" },

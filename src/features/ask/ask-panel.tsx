@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { ArrowUp, CircleStop, LoaderCircle, MessageCircleQuestion, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
-import { RADAR_CARDS } from "@/data/radar";
-import { DEMO_RUN } from "@/features/ic-room/run-data";
+import { HOLDINGS } from "@/data/portfolio";
 import { useIcMemos } from "@/features/ic-room/memos";
 import { coveredCompanies, toCard } from "@/features/radar/live-model";
 import { useLiveRadar } from "@/features/radar/use-live-radar";
@@ -14,10 +13,10 @@ import { DISCLAIMER } from "@/lib/ask/prompt";
 import { useLevel } from "@/lib/level";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
-import { askContext, type AskMemo } from "./context";
+import { askContext } from "./context";
 import { useAsk, type AskMessage } from "./store";
 
-const CHIPS = ["What's my biggest risk?", "How much of my money is in AI?", "What changed in Apple's latest filing?"];
+const CHIPS = ["What's my biggest risk?", "What if Iran closes the Strait of Hormuz?", "What if Democrats win and tariffs go down?"];
 const BEGINNER_CHIPS = ["What is an ETF?", "How do I research a stock before buying?"];
 // New turns rise into place instead of teleporting in.
 const ENTER = "transition-[opacity,translate] duration-200 ease-out starting:translate-y-1 starting:opacity-0";
@@ -34,14 +33,11 @@ function useAskContext() {
     const model = xray.model;
     const demo = !imported;
     const names = Object.fromEntries((imported ?? []).map((h) => [h.ticker, h.name]));
-    const radar = demo
-      ? RADAR_CARDS
-      : coveredCompanies(model, imported).flatMap((c) => {
+    const radar = coveredCompanies(model, imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))).flatMap((c) => {
           const e = entries[c.ticker];
           return e?.status === "ready" && e.filing.severity ? [toCard(e.filing, c)] : [];
         });
-    const demoMemo: AskMemo = { ticker: DEMO_RUN.ticker.ticker, date: DEMO_RUN.date, memo: DEMO_RUN.memo };
-    return askContext({ kind: demo ? "demo" : kind, model, names, radar, memos: demo ? [demoMemo, ...memos] : memos });
+    return askContext({ kind: demo ? "demo" : kind, model, names, radar, memos });
   }, [xray, imported, kind, entries, memos]);
 }
 
@@ -102,6 +98,7 @@ function Message({ m, onNavigate }: { m: AskMessage; onNavigate: () => void }) {
           Open the IC Room
         </Link>
       ) : null}
+      {m.scenario && <Link href="/shock" onClick={onNavigate} className="w-fit border border-border-strong px-3 py-2 text-[14px] text-accent hover:bg-surface-2">Open scenario graph and evidence</Link>}
     </div>
   );
 }
@@ -149,7 +146,7 @@ export function AskPanel() {
         <div className="border-b border-border px-6 pt-6 pb-4 pr-12">
           <SheetTitle className="text-[18px] leading-6 font-medium tracking-[-0.01em] text-text">Ask about your portfolio</SheetTitle>
           <SheetDescription className="mt-1 text-[13px] text-text-muted">
-            Answers come from your X-Ray, Filing Radar and IC memos. {DISCLAIMER}
+            Ask about your portfolio or research a scenario with web sources and a calculated shock graph.
           </SheetDescription>
         </div>
 

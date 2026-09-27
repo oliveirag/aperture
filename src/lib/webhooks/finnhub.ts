@@ -11,7 +11,7 @@ const TICKER = /^[A-Z][A-Z.]{0,5}$/;
 
 // Constant-time check of the X-Finnhub-Secret header. No secret configured means every request is refused.
 export function validSecret(header: string | null, secret: string | undefined) {
-  if (!secret || !header) return false;
+  if (!secret || !header || secret.length > 1024 || header.length > 1024) return false;
   const a = Buffer.from(header);
   const b = Buffer.from(secret);
   return a.length === b.length && timingSafeEqual(a, b);
@@ -20,16 +20,20 @@ export function validSecret(header: string | null, secret: string | undefined) {
 // Finnhub posts { event, data: [...] }; items name their company in `symbol`, `ticker` or (news) a comma list in `related`.
 export function parseEvent(body: unknown): ParsedEvent {
   const b = (body ?? {}) as { event?: unknown; type?: unknown; data?: unknown };
-  const name = String(b.event ?? b.type ?? "").toLowerCase();
-  const kind: EventKind = /filing|sec/.test(name) ? "filings" : /news|press/.test(name) ? "news" : /earning/.test(name) ? "earnings" : "other";
+  const label = b.event ?? b.type;
+  const name = typeof label === "string" && label.length <= 100 ? label.toLowerCase() : "";
+  const kind: EventKind = ["filings", "filing", "sec"].includes(name) ? "filings" : ["news", "company-news", "press-release"].includes(name) ? "news" : ["earnings", "earning"].includes(name) ? "earnings" : "other";
   const items = Array.isArray(b.data) ? b.data : b.data ? [b.data] : [];
+  if (items.length > 100) throw new Error("Webhook item limit exceeded");
   const tickers = new Set<string>();
   for (const item of items as Record<string, unknown>[]) {
     for (const field of [item?.symbol, item?.ticker, item?.related]) {
       if (typeof field !== "string") continue;
+      if (field.length > 2000) throw new Error("Webhook ticker field limit exceeded");
       for (const t of field.split(",")) {
         const ticker = t.trim().toUpperCase().replace(/[/-]/g, ".");
         if (TICKER.test(ticker)) tickers.add(ticker);
+        if (tickers.size > 100) throw new Error("Webhook ticker limit exceeded");
       }
     }
   }
@@ -59,7 +63,7 @@ export type Refresh = (ticker: string) => Promise<unknown>;
 // Refreshes only what the event touches, and only for tickers someone holds or follows in Radar.
 export async function handleEvent(
   event: ParsedEvent,
-  deps: { interested?: (tickers: string[]) => Promise<Set<string>>; refreshRadar?: Refresh; forget?: (keys: string[]) => void } = {},
+  deps: { interested?: (tickers: string[]) => Promise<Set<string>>; refreshRadar?: Refresh; forget?: (keys: string[]) => unknown } = {},
 ) {
   const interested =
     deps.interested ??
@@ -71,15 +75,22 @@ export async function handleEvent(
   const forget = deps.forget ?? forgetKeys;
   if (event.kind === "other" || event.tickers.length === 0) return { refreshed: [] as string[] };
 
-  const targets = [...(await interested(event.tickers))];
+  if (event.tickers.length > 100 || event.tickers.some(t => !TICKER.test(t))) throw new Error("Invalid webhook targets");
+  const requested = new Set(event.tickers);
+  const targets = [...(await interested(event.tickers))].filter(t => requested.has(t));
   const day = new Date().toISOString().slice(0, 10);
   for (const t of targets) {
     // The IC Room's fact pack for today is rebuilt with the new filing, headline or date.
     const keys = [`ic:facts:${t}:${day}`];
     if (event.kind === "news") keys.push(`finnhub:news:${t}:14`);
     if (event.kind === "earnings") keys.push(`finnhub:earnings:${t}`, `finnhub:metric:${t}`);
-    forget(keys);
+    await forget(keys);
   }
-  if (event.kind === "filings") await Promise.allSettled(targets.map((t) => refreshRadar(t)));
+  if (event.kind === "filings") {
+    const results = await Promise.allSettled(targets.map((t) => refreshRadar(t)));
+    // Let the receiver release its claim and return retryable 503, rather than
+    // marking a failed refresh as successfully delivered forever.
+    if (results.some(result => result.status === "rejected")) throw new Error("Webhook filing refresh failed");
+  }
   return { refreshed: targets };
 }

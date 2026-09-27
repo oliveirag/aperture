@@ -112,6 +112,13 @@ for (let seed=1;seed<=100;seed++) {
   close(model.map.exposures.reduce((s,p)=>s+p.value,0),model.total);
   close(model.overlaps[0].overlap,0.55);
   close(computeXray([...positions].reverse()).overlaps[0].overlap,model.overlaps[0].overlap);
+  // Equal position values force the actual a/b orientation to reverse as well,
+  // rather than merely reversing input order before value-based sorting.
+  const equalFunds=positions.filter(p=>p.kind==="etf").map(p=>({...p,shares:1,price:1}));
+  const forward=computeXray(equalFunds).overlaps[0];
+  const backward=computeXray([...equalFunds].reverse()).overlaps[0];
+  assert.equal(forward.a,backward.b);
+  close(forward.overlap,backward.overlap);
   assert.equal(JSON.stringify(positions),before);
   const prices=new Map(positions.map(p=>[p.ticker,p.price*1.1]));
   const repriced=repricePositions(positions,prices);

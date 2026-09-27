@@ -26,9 +26,10 @@ function amount(value: unknown): number {
 }
 export function parseTrustSchedule(ticker: Trust, html: string, source: RetrievedProvenance): TrustSchedule {
   assertProvenance(source);
+  if (source.provider !== "sec-edgar" || !source.filing) throw new Error("Invalid trust source/identity");
   const filing = source.filing;
-  const expected = filing && `https://www.sec.gov/Archives/edgar/data/${Number(CIK[ticker])}/${filing.accession.replace(/-/g, "")}/`;
-  if (source.provider !== "sec-edgar" || filing?.cik !== CIK[ticker] || filing.form !== "N-30D" || source.endpoint !== filing.url || !source.endpoint?.startsWith(expected!) || !/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/\d+\/\d{18}\/\w+\.htm$/.test(source.endpoint) || !source.asOf) throw new Error("Invalid trust source/identity");
+  const expected = `https://www.sec.gov/Archives/edgar/data/${Number(CIK[ticker])}/${filing.accession.replace(/-/g, "")}/`;
+  if (filing.cik !== CIK[ticker] || filing.form !== "N-30D" || source.endpoint !== filing.url || !source.endpoint.startsWith(expected) || !/^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\/\d+\/\d{18}\/\w+\.htm$/.test(source.endpoint) || !source.asOf) throw new Error("Invalid trust source/identity");
   if (html.length > 8 * 1024 * 1024 || !/<html/i.test(html)) throw new Error("Invalid trust schedule HTML");
   const text = clean(html.replace(/<[^>]*>/g, " "));
   const date = new Date(`${source.asOf}T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });

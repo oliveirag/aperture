@@ -39,5 +39,5 @@ export async function checkCacheLive() {
     assert.equal(stale.value.provenance.retrievedAt, retrievedAt);
     assert.equal(stale.value.provenance.asOf, asOf);
     console.log(JSON.stringify({ status: "PASS", provider: "finnhub", symbol: "AAPL", price: raw.c, endpoint, retrievedAt, asOf, verified: ["live retrieval", "atomic disk cold start", "Map roundtrip", "LKG labeled stale", "original dates preserved"], remoteStorage: "disabled" }, null, 2));
-  }, { waitMs: 0 });
+  });
 }

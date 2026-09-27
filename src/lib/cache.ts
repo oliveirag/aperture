@@ -180,6 +180,7 @@ async function sharedLoad<T>(key: string, ttlMs: number, provider: "finnhub" | "
   let loaded: CacheRecord<T> | undefined;
   try {
     return await cachedProviderRecord(key, ttlMs, async () => {
+      // Reserve both possible Finnhub attempts up front.
       await reserve(provider, provider === "finnhub" && !key.startsWith("finnhub:quote:"));
       if (provider === "finnhub") await reserve(provider, !key.startsWith("finnhub:quote:"));
       try { const value = await load(); loaded = makeRecord(key, value, ttlMs); return value; }

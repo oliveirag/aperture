@@ -73,5 +73,6 @@ export async function filingEvidence(driver: Driver, tickers: string[]): Promise
   return found.map((p) => ({
     text: `${p.company} (${p.ticker}) in its ${p.filing.form} filed ${p.filing.filedAt}: “${p.text}”`,
     sources: [{ title: `${p.company} Form ${p.filing.form}, Item 1A. Risk Factors (filed ${p.filing.filedAt})`, url: p.filing.url }],
+    filing: { issuer: p.company, form: "10-K" as const, filedAt: p.filing.filedAt, quote: p.text },
   }));
 }

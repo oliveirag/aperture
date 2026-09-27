@@ -13,7 +13,7 @@ export function LevelNotice() {
     <div role="status" className="border-b border-border bg-surface-1">
       <div className="bx-container flex flex-wrap items-center gap-x-4 gap-y-2 py-3 text-[14px]">
         <span className="min-w-0 flex-1 text-text-muted">
-          Showing Intermediate detail. Switch levels in the masthead, or{" "}
+          Showing Intermediate detail. You can{" "}
           <Link href="/onboarding" className="text-text underline underline-offset-4">
             choose how much we explain
           </Link>

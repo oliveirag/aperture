@@ -6,11 +6,10 @@ import { AccountMenu } from "@/features/account/account-menu";
 import { Closing } from "./closing";
 import { Hero } from "./hero";
 import { Pillars } from "./pillars";
-import { Scale } from "./scale";
 import { Steps } from "./steps";
 import { TryDemoLink } from "./try-demo-link";
 
-// The front page, built like an editorial homepage: black hero, white "about", black two-up,
+// The front page, built like an editorial homepage: black hero, black two-up,
 // a marquee, white steps, a black closing band and the footer.
 export function Landing() {
   return (
@@ -46,7 +45,6 @@ export function Landing() {
           <Hero />
         </main>
       </div>
-      <Scale />
       <Pillars />
       <Steps />
       <Closing />

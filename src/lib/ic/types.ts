@@ -16,7 +16,7 @@ export interface IcMemo {
 
 // Everything the IC Room stage and memo draw. The scripted AMD demo and a live run share this shape.
 export interface IcRunData {
-  ticker: { ticker: string; name: string; color: string; lookthroughNote: string };
+  ticker: { ticker: string; name: string; color: string; apertureNote: string };
   thesis: string;
   amount: number;
   date: string;

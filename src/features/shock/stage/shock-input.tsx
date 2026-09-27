@@ -1,82 +1,39 @@
 "use client";
-
-import { useState, type FormEvent } from "react";
-import { ArrowUp } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowUp, LoaderCircle } from "lucide-react";
 import type { ScenarioId } from "@/types/demo";
 import { matchScenario } from "./match-scenario";
+import { runResearch } from "../research-store";
 
-const SUGGESTIONS = ["Commercial real estate falls 20%", "Big tech cuts AI spending 30%"];
+const SUGGESTIONS = ["What if Iran closes the Strait of Hormuz?", "What if Democrats win and tariffs go down?"];
 
-// Free-text entry, keyword matched locally. No match changes nothing and says what is modeled.
-export function ShockInput({ onRun }: { onRun: (id: ScenarioId, severity: number) => void }) {
+export function ShockInput({ onRun }: { onRun?: (id: ScenarioId, severity: number) => void }) {
   const [text, setText] = useState("");
-  const [miss, setMiss] = useState(false);
-
-  function submit(value: string) {
-    if (!value.trim()) return;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => () => request.current?.abort(), []);
+  async function submit(value: string) {
+    if (!value.trim() || busy) return;
+    setError("");
     const hit = matchScenario(value);
-    if (!hit) {
-      setMiss(true);
-      return;
-    }
-    setMiss(false);
-    onRun(hit.id, hit.severity);
+    if (hit && onRun) { onRun(hit.id, hit.severity); return; }
+    const controller = new AbortController();
+    request.current = controller;
+    setBusy(true);
+    try { await runResearch(value, controller.signal); }
+    catch (e) { if (!controller.signal.aborted) setError(e instanceof Error ? e.message : "Research failed"); }
+    finally { if (!controller.signal.aborted) setBusy(false); }
   }
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    submit(text);
-  }
-
-  return (
-    <div>
-      <form onSubmit={onSubmit} className="flex flex-col gap-2 @[700px]:flex-row @[700px]:items-center">
-        <div className="relative min-w-0 flex-1">
-          <label htmlFor="shock-input" className="sr-only">
-            Describe a shock
-          </label>
-          <input
-            id="shock-input"
-            value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              setMiss(false);
-            }}
-            placeholder="Describe a shock…"
-            autoComplete="off"
-            aria-describedby={miss ? "shock-input-miss" : undefined}
-            className="h-12 w-full border-0 border-b border-border-strong bg-surface-1 pr-12 pl-4 text-[16px] font-light text-text transition-[border-color] duration-200 outline-none placeholder:text-text-subtle hover:border-text focus-visible:border-text"
-          />
-          <button
-            type="submit"
-            aria-label="Run shock"
-            disabled={!text.trim()}
-            className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full border border-text text-text transition-[opacity,transform,translate,scale,background-color,color] duration-150 ease-out hover:bg-text hover:text-bg active:scale-[0.94] disabled:opacity-30"
-          >
-            <ArrowUp aria-hidden className="size-4" />
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => {
-                setText(s);
-                submit(s);
-              }}
-              className="inline-flex h-7 items-center border border-border px-3 text-[12px] text-text-muted transition-[border-color,color,transform,translate,scale] duration-150 ease-out hover:border-border-strong hover:text-text active:scale-[0.97]"
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </form>
-      {miss ? (
-        <p id="shock-input-miss" role="status" className="mt-2 pl-4 text-[13px] text-text-muted">
-          Not modeled yet. Try commercial real estate or AI data-center spending.
-        </p>
-      ) : null}
-    </div>
-  );
+  function onSubmit(e: FormEvent) { e.preventDefault(); void submit(text); }
+  return <div className="space-y-3">
+    <form onSubmit={onSubmit} className="relative">
+      <label htmlFor="shock-input" className="sr-only">Describe a scenario</label>
+      <input id="shock-input" value={text} maxLength={500} onChange={e => setText(e.target.value)} placeholder="What if… describe an event or economic change" disabled={busy} className="h-12 w-full border-b border-border-strong bg-surface-1 pr-12 pl-4 text-[16px] text-text outline-none focus-visible:border-text" />
+      <button type="submit" aria-label="Research scenario" disabled={busy || !text.trim()} className="absolute top-2 right-2 flex size-8 items-center justify-center rounded-full border border-text text-text disabled:opacity-30">{busy ? <LoaderCircle className="size-4 animate-spin" /> : <ArrowUp className="size-4" />}</button>
+    </form>
+    <div className="flex flex-wrap gap-2">{SUGGESTIONS.map(s => <button key={s} disabled={busy} onClick={() => { setText(s); void submit(s); }} className="border border-border px-3 py-1 text-left text-[12px] text-text-muted hover:text-text disabled:opacity-40">{s}</button>)}</div>
+    {busy && <p role="status" className="text-[13px] text-text-muted">Finding evidence and calculating the scenario…</p>}
+    {error && <p role="alert" className="text-[13px] text-sev-medium">{error}</p>}
+  </div>;
 }

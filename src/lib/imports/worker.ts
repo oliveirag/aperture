@@ -1,11 +1,11 @@
 import { admin } from "@/lib/supabase/server";
 import { getQuote, getProfile } from "./quotes";
-import { computeXray, type LookthroughInput } from "@/lib/xray/compute";
+import { computeXray, type ApertureInput } from "@/lib/xray/compute";
 import { sectorFromGics } from "@/lib/sectors";
 import { cachedProvider, reserve, cooldown, QuotaWait } from "./provider";
 import { mergeInputs, rowProblem, type ImportJob, type ImportRow, type PositionResult } from "./types";
 
-async function fund(ticker: string): Promise<NonNullable<LookthroughInput["etf"]>> {
+async function fund(ticker: string): Promise<NonNullable<ApertureInput["etf"]>> {
   return cachedProvider(`verified-etf:${ticker}`,86400000, async () => {
     if (!process.env.ALPHA_VANTAGE_API_KEY) throw new Error("ETF holdings provider is not configured.");
     await reserve("alpha");
@@ -58,7 +58,7 @@ async function resolve(row: ImportRow, previous: PositionResult, review=false): 
       return {state:"pending",attempts:previous.attempts,valuation};
     }
     if (review) return {state:"pending",attempts:previous.attempts,valuation};
-    const input: LookthroughInput = {ticker:row.ticker,name:row.name || row.ticker,shares:row.shares!,price:valuation.price,kind:row.kind as "stock"|"etf"};
+    const input: ApertureInput = {ticker:row.ticker,name:row.name || row.ticker,shares:row.shares!,price:valuation.price,kind:row.kind as "stock"|"etf"};
     const warnings:string[]=[];
     if (row.kind === "etf") input.etf = await fund(row.ticker);
     else {

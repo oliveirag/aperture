@@ -8,7 +8,7 @@ export type ImportMode = "screenshot" | "csv" | "manual";
 
 const MODES: { value: ImportMode; label: string }[] = [
   { value: "screenshot", label: "Screenshot" },
-  { value: "csv", label: "CSV file" },
+  { value: "csv", label: "CSV / Excel" },
   { value: "manual", label: "Type it in" },
 ];
 

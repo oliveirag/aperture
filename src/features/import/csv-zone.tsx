@@ -5,10 +5,11 @@ import { AlertTriangle, ChevronDown, FileSpreadsheet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parsePositionsCsv, type ParsedRow, type SkippedRow } from "./csv";
 import type { Phase } from "./drop-zone";
+import { readWorkbook, type SheetResult } from "./spreadsheet";
 
 // Matches the server's per-import limit; Finnhub calls queue behind a shared rate limit, so big files are slower, not refused.
 const MAX_POSITIONS = 50;
-const MAX_BYTES = 1024 * 1024;
+const MAX_BYTES = 5 * 1024 * 1024;
 
 const EXAMPLE = "Symbol,Quantity\nVOO,75\nQQQ,60\nNVDA,110\nAAPL,50\n";
 
@@ -17,7 +18,7 @@ export type CsvFile = { name: string; rows: ParsedRow[]; skipped: SkippedRow[] }
 const formatShares = (n: number) => n.toLocaleString("en-US", { maximumFractionDigits: 4 });
 
 function isCsv(f: File) {
-  return /\.(csv|txt)$/i.test(f.name) || f.type === "text/csv" || f.type === "text/plain";
+  return /\.(csv|txt|xlsx|xls)$/i.test(f.name) || f.type === "text/csv" || f.type === "text/plain";
 }
 
 // CSV import: drop or pick a broker export. Parsed in the browser; only ticker, shares and value are sent for pricing.
@@ -26,19 +27,38 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [sheets, setSheets] = useState<SheetResult[]>([]);
+  const [workbookName, setWorkbookName] = useState("");
+  const [reading, setReading] = useState(false);
   const idle = phase === "idle";
 
   async function read(f: File | undefined) {
     if (!f) return;
     setError(null);
-    if (!isCsv(f)) return setError("Choose a .csv file exported from your brokerage.");
-    if (f.size > MAX_BYTES) return setError("That file is larger than 1MB.");
-    const parsed = parsePositionsCsv(await f.text());
+    if (!isCsv(f)) return setError("Choose a CSV, XLSX or XLS brokerage export.");
+    if (f.size > MAX_BYTES) return setError("Choose a file of 5MB or less.");
+    setSheets([]);
+    setReading(true);
+    try {
+      if (/\.xlsx?$/i.test(f.name)) {
+        const found = await readWorkbook(await f.arrayBuffer());
+        setWorkbookName(f.name);
+        if (found.length > 1) { setSheets(found); return; }
+        if (!found.length) throw new Error("No visible worksheet found.");
+        accept(f.name, found[0].result);
+      } else accept(f.name, parsePositionsCsv(await f.text()));
+    } catch (e) { setError(e instanceof Error ? e.message : "Couldn't read this spreadsheet. Export the positions as CSV."); }
+    finally { setReading(false); }
+  }
+
+  function accept(name: string, parsed: SheetResult["result"]) {
     if (parsed.error) return setError(parsed.error);
+    if (parsed.skipped.some(row => row.reason === "No share count or value")) return setError("Some positions have no share count or value. Correct those rows and upload again; nothing was imported.");
     if (parsed.rows.length > MAX_POSITIONS) {
-      return setError(`This file has ${parsed.rows.length} positions; an import handles up to ${MAX_POSITIONS}. Remove the smallest and try again.`);
+      return setError(`This file has ${parsed.rows.length} positions; this version supports ${MAX_POSITIONS}. Use a smaller account export; nothing was imported.`);
     }
-    onRows({ name: f.name, rows: parsed.rows, skipped: parsed.skipped });
+    setSheets([]);
+    onRows({ name, rows: parsed.rows, skipped: parsed.skipped });
   }
 
   function onDrop(e: DragEvent) {
@@ -64,7 +84,7 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
       <input
         ref={inputRef}
         type="file"
-        accept=".csv,text/csv,text/plain"
+        accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         tabIndex={-1}
         className="sr-only"
         aria-hidden
@@ -80,12 +100,13 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
-            aria-label="Choose a CSV export of your brokerage positions"
+            aria-label="Choose a CSV or Excel export of your brokerage positions"
+            disabled={reading}
             className="absolute inset-0 rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-inset"
           />
           <div className="pointer-events-none relative flex max-w-[380px] flex-col items-center px-6 text-center">
             <FileSpreadsheet aria-hidden className="size-7 text-text-muted" strokeWidth={1.5} />
-            <p className="mt-4 text-[16px] font-medium text-text">Drop your positions CSV here</p>
+            <p className="mt-4 text-[16px] font-medium text-text">{reading ? "Reading spreadsheet…" : "Drop your CSV or Excel file here"}</p>
             <p className="mt-1 text-[13px] text-text-muted">or click to choose a file</p>
             <p className="mt-5 text-[13px] leading-5 text-text-muted">
               Works with Fidelity, Schwab and Vanguard exports, or any file with a <span className="text-text">Symbol</span> column and{" "}
@@ -93,11 +114,12 @@ export function CsvZone({ phase, file, onRows }: { phase: Phase; file: CsvFile |
             </p>
             <a
               href={example}
-              download="lookthrough-example.csv"
+              download="aperture-example.csv"
               className="pointer-events-auto mt-5 text-[13px] font-medium text-text underline underline-offset-4 hover:text-accent"
             >
               Download an example file
             </a>
+            {sheets.length > 1 && <div className="pointer-events-auto mt-4 space-y-2 text-left"><p className="text-[13px]">Choose the positions sheet. Sheets are not combined automatically.</p>{sheets.map(sheet => <button key={sheet.name} onClick={() => accept(`${workbookName} · ${sheet.name}`, sheet.result)} className="block w-full border border-border px-3 py-2 text-[13px]">{sheet.name} · {sheet.result.rows.length} positions</button>)}</div>}
             {error ? (
               <p role="alert" className="mt-5 flex items-start gap-2 text-left text-[13px] text-text">
                 <AlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-sev-medium" />

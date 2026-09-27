@@ -15,6 +15,7 @@ import { SeverityControl } from "./severity-control";
 import { ShockHeadline } from "./shock-headline";
 import { ShockInput } from "./shock-input";
 import { useRunTimeline } from "./timeline";
+import { ResearchEvidence } from "../research-evidence";
 
 const SCENARIO_IDS: ScenarioId[] = ["cre", "ai-capex"];
 
@@ -41,7 +42,7 @@ export function ShockStage() {
 
   function run(id: ScenarioId, sev?: number) {
     const prev = useShock.getState();
-    const scenario = getScenario(id);
+    const scenario = scenarioIn(model, id);
     setScenario(id, scenario.baseSeverity);
     if (sev !== undefined && sev !== scenario.baseSeverity) setSeverity(sev);
     // Same scenario again: the store doesn't transition, so replay explicitly.
@@ -120,6 +121,7 @@ export function ShockStage() {
           Each line is one way the shock can reach your money. Click a line to see the source.
         </p>
       ) : null}
+      <ResearchEvidence />
     </section>
   );
 }

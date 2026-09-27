@@ -7,15 +7,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
 import { formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
-import { useLiveHoldings } from "@/lib/market";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import type { XrayModel } from "@/lib/xray/types";
 import { FlagsStrip } from "./flags-strip";
-import { LookthroughMap } from "./lookthrough-map";
+import { ApertureMap } from "./aperture-map";
 
 function HeaderStats({ model }: { model: XrayModel }) {
-  const { total } = useLiveHoldings();
+  const total = model.total;
   return (
     <div className="flex flex-wrap gap-x-12 gap-y-6">
       <div>
@@ -109,7 +108,7 @@ export function XrayHero({ model }: { model: XrayModel }) {
         actions={<HeaderStats model={model} />}
       />
       {level === "beginner" ? <BeginnerExplainer demo={model.mode === "demo"} /> : null}
-      <LookthroughMap model={model} />
+      <ApertureMap model={model} />
       <FlagsStrip flags={model.flags} />
     </section>
   );

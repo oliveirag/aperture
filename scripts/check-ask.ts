@@ -23,7 +23,7 @@ assert.notEqual(systemPrompt("advanced"), prompt);
 
 // The context carries the X-Ray's numbers exactly (weights as fractions).
 const ctx = askContext({ kind: "demo", model: DEMO_XRAY, names: {}, radar: RADAR_CARDS, memos: [] });
-const nvda = ctx.lookThroughTop10.find((e) => e.ticker === "NVDA")!;
+const nvda = ctx.apertureTop10.find((e) => e.ticker === "NVDA")!;
 assert.equal(nvda.weight, Math.round((DEMO_XRAY.topTen.find((e) => e.ticker === "NVDA")!.value / DEMO_XRAY.total) * 1e4) / 1e4);
 assert.equal(nvda.weight, 0.1759);
 assert.equal(ctx.portfolio.totalValueUsd, 148420);

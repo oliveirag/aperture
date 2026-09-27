@@ -15,14 +15,14 @@ const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings.map((h) =
 type Entry = { key: string; status: "loading" | "ready" | "error"; model: XrayModel | null; error: string | null };
 
 // Last computed look-through, keyed by the imported holdings, so navigating back to X-Ray doesn't refetch.
-const useLookthrough = create<{ entry: Entry | null; load: (holdings: ImportedHolding[], force?: boolean) => void }>()((set, get) => ({
+const useAperture = create<{ entry: Entry | null; load: (holdings: ImportedHolding[], force?: boolean) => void }>()((set, get) => ({
   entry: null,
   load: (holdings, force = false) => {
     const key = keyOf(holdings);
     const current = get().entry;
     if (!force && current?.key === key && current.status !== "error") return;
     set({ entry: { key, status: "loading", model: null, error: null } });
-    importFetch("/api/lookthrough", {
+    importFetch("/api/aperture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ holdings: holdings.map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name })) }),
@@ -53,8 +53,8 @@ export function useXray(): XrayState {
   const snapshotReady = useSnapshots(s=>s.hydrated);
   const [verified,setVerified]=useState<{id:string;model:XrayModel|null;error?:string}|null>(null);
   const [attempt,setAttempt]=useState(0);
-  const entry = useLookthrough((s) => s.entry);
-  const load = useLookthrough((s) => s.load);
+  const entry = useAperture((s) => s.entry);
+  const load = useAperture((s) => s.load);
 
   useEffect(() => {
     if (hydrated && snapshotReady && imported && !snapshot) load(imported);

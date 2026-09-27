@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { CircleArrow } from "@/components/shared/circle-arrow";
-import { CountUpPct } from "@/components/shared/count-up";
 import { Reveal } from "@/components/shared/reveal";
 import { HOLDINGS, PORTFOLIO_TOTAL, weightOf } from "@/data/portfolio";
 import { EXPOSURES, POSITIONS_COUNT, UNDERLYING_COMPANIES, exposureTotal } from "@/data/xray";
@@ -18,7 +17,7 @@ export function Scale() {
       <div className="bx-container">
         <Reveal className="text-center">
           <p className="eyebrow eyebrow-center">The demo portfolio</p>
-          <h2 className="display mt-10 text-[44px] leading-[1.15] text-text sm:text-[56px]">Seen through, not around</h2>
+          <h2 className="display mt-10 text-[44px] leading-[1.15] text-text sm:text-[56px]">Several funds can own the same companies</h2>
         </Reveal>
 
         <div className="mx-auto mt-20 grid max-w-[1104px] gap-16 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-32">
@@ -36,7 +35,7 @@ export function Scale() {
           </Reveal>
           <Reveal delay={0.15}>
             <p className="display text-[88px] leading-none text-text tabular-nums">
-              <CountUpPct value={NVIDIA_WEIGHT} />
+              {NVIDIA_PCT}
             </p>
             <p className="mt-4 text-[18px] font-normal text-text">NVIDIA look-through exposure</p>
             <p className="mt-6 text-[14px] leading-[1.6] text-text-muted">

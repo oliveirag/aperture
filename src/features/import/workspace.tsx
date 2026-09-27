@@ -106,7 +106,7 @@ export function ImportFlow() {
   const editable=!job || job.status==="review" || job.status==="needs_input";
   const issues=rows.map(rowProblem); const ready=reviewed && !issues.some(Boolean) && rows.some(r=>!r.excluded);
   return <main className="bx-container py-10 space-y-6">
-    <header className="flex justify-between"><Link href="/" className="text-2xl">Lookthrough</Link><Link href="/xray">Current X-Ray</Link></header>
+    <header className="flex justify-between"><Link href="/" className="text-2xl">Aperture</Link><Link href="/xray">Current X-Ray</Link></header>
     <h1 className="text-4xl">Import your portfolio</h1>
     <p>Every row stays visible. Review holdings, resolve missing information, then follow pricing progress. Your X-Ray opens only when the analysis is ready.</p>
     <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>

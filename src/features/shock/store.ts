@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-export type ScenarioId = "cre" | "ai-capex";
+export type { ScenarioId } from "@/types/demo";
+import type { ScenarioId } from "@/types/demo";
 
 type ShockState = {
   scenarioId: ScenarioId;

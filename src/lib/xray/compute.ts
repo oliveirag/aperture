@@ -14,7 +14,7 @@ const MAX_SECTORS = 8;
 
 const PALETTE = ["#76B900", "#B4B4BC", "#5B9BD5", "#C9A66B", "#E2A15B", "#CC7A52", "#6C8EBF", "#8AA86B", "#9AA0A6", "#9C8C6E", "#D98C6A", "#7FB8A4"];
 
-export type LookthroughInput = {
+export type ApertureInput = {
   ticker: string;
   name: string;
   shares: number;
@@ -203,7 +203,7 @@ function buildMap(positions: MapPosition[], exposures: XExposure[], total: numbe
 // The real look-through for any portfolio. Pure: every number comes from the inputs.
 // `names` overrides company names (proper Finnhub names for companies only seen inside ETFs).
 export function computeXray(
-  inputs: LookthroughInput[],
+  inputs: ApertureInput[],
   knownColors: Map<string, string> = new Map(),
   names: Map<string, string> = new Map(),
 ): XrayModel {

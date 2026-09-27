@@ -32,7 +32,7 @@ function connector(i: number) {
 }
 
 // The landing's single orchestrated moment: three holdings resolve into one company. Plays once, ≤ 1.8s.
-export function LookthroughIllustration() {
+export function ApertureIllustration() {
   const reduce = useReducedMotion();
   // Reduced motion: same first paint as the server (no hydration mismatch), then jump straight to the final frame.
   const still = Boolean(reduce);

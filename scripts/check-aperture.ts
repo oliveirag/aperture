@@ -1,4 +1,4 @@
-// Proves the look-through math on a hand-computed portfolio. Run: npx -y tsx scripts/check-lookthrough.ts
+// Proves the look-through math on a hand-computed portfolio. Run: npx -y tsx scripts/check-aperture.ts
 import assert from "node:assert/strict";
 import { cleanName, computeXray } from "../src/lib/xray/compute";
 

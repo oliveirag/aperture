@@ -44,7 +44,7 @@ const EMPTY_MEMO: IcRunData["memo"] = {
 
 function emptyData(input: LiveInput): IcRunData {
   return {
-    ticker: { ticker: input.ticker, name: input.ticker, color: "#E5484D", lookthroughNote: "" },
+    ticker: { ticker: input.ticker, name: input.ticker, color: "#E5484D", apertureNote: "" },
     thesis: input.thesis,
     amount: input.amount,
     date: new Date().toISOString().slice(0, 10),

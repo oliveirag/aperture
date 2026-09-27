@@ -6,12 +6,12 @@ export interface Source { id: string; title: string; docType: SourceDocType; iss
 export interface Holding { ticker: string; name: string; type: "stock" | "etf"; shares: number; price: number; value: number; category: string; color: string }
 export interface ExposureSource { via: "Direct" | "VOO" | "QQQ" | "KRE"; value: number }
 export interface Exposure { ticker: string; name: string; color: string; value: number; sources: ExposureSource[] }
-export interface EtfLookthrough { ticker: string; holdingsCount: number; top: { ticker: string; name: string; weight: number }[]; sourceId: string }
+export interface EtfAperture { ticker: string; holdingsCount: number; top: { ticker: string; name: string; weight: number }[]; sourceId: string }
 export interface SectorSlice { sector: string; weight: number }
 export interface Overlap { a: string; b: string; overlap: number; sharedCompanies: number }
 export interface Flag { id: string; kind: "company" | "sector"; label: string; weight: number; threshold: number }
 export interface PerformancePoint { date: string; value: number }
-export type ScenarioId = "cre" | "ai-capex";
+export type ScenarioId = "cre" | "ai-capex" | "researched";
 export interface ShockNode { id: string; label: string; sublabel?: string; kind: "driver" | "channel" | "holding"; x: number; y: number; ticker?: string }
 export interface ShockEdge { id: string; from: string; to: string; label: string; weight: number; method: string; sourceId: string }
 export interface ShockImpact { ticker: string; baseReturn: number; baseDollar: number; pathEdgeIds: string[]; pathLabel: string }

@@ -1,9 +1,9 @@
 // Server-only: the real look-through for a list of positions (live Finnhub prices and profiles, ETF holdings
-// from the seed or Alpha Vantage). Shared by /api/lookthrough and the IC Room's portfolio fit.
+// from the seed or Alpha Vantage). Shared by /api/aperture and the IC Room's portfolio fit.
 import { HOLDINGS } from "@/data/portfolio";
 import { getEtfProfile, isSeededEtf, normalizeTicker } from "@/lib/etf";
 import { finnhubConfigured, getProfile, getQuote } from "@/lib/finnhub";
-import { computeXray, type LookthroughInput } from "@/lib/xray/compute";
+import { computeXray, type ApertureInput } from "@/lib/xray/compute";
 import type { XrayModel } from "@/lib/xray/types";
 
 const KNOWN_COLORS = new Map(HOLDINGS.map((h) => [h.ticker, h.color]));
@@ -18,13 +18,13 @@ const TICKER = /^[A-Z][A-Z.]{0,5}$/;
 export function parseHoldings(raw: unknown): Map<string, PositionInput> {
   const merged = new Map<string, PositionInput>();
   for (const h of (Array.isArray(raw) ? raw : []) as { ticker?: unknown; shares?: unknown; price?: unknown; name?: unknown }[]) {
-    if (typeof h?.ticker !== "string" || typeof h.shares !== "number" || !(h.shares > 0)) continue;
+    if (typeof h?.ticker !== "string" || typeof h.shares !== "number" || !Number.isFinite(h.shares) || !(h.shares > 0)) continue;
     const ticker = normalizeTicker(h.ticker);
     if (!TICKER.test(ticker)) continue;
     const prev = merged.get(ticker);
     merged.set(ticker, {
       shares: (prev?.shares ?? 0) + h.shares,
-      price: typeof h.price === "number" && h.price > 0 ? h.price : (prev?.price ?? null),
+      price: typeof h.price === "number" && Number.isFinite(h.price) && h.price > 0 ? h.price : (prev?.price ?? null),
       name: typeof h.name === "string" ? h.name : (prev?.name ?? null),
     });
   }
@@ -32,7 +32,7 @@ export function parseHoldings(raw: unknown): Map<string, PositionInput> {
 }
 
 // Prices and classifies each position: a stock (with its Finnhub industry), an ETF with holdings, or opaque.
-export async function lookthroughInputs(merged: Map<string, PositionInput>): Promise<LookthroughInput[]> {
+export async function apertureInputs(merged: Map<string, PositionInput>): Promise<ApertureInput[]> {
   const tickers = [...merged.keys()];
   const live = finnhubConfigured();
   const [quotes, profiles] = await Promise.all([
@@ -41,7 +41,7 @@ export async function lookthroughInputs(merged: Map<string, PositionInput>): Pro
   ]);
 
   // A Finnhub company profile means a stock; no profile, try it as an ETF.
-  const inputs: LookthroughInput[] = await Promise.all(
+  const inputs: ApertureInput[] = await Promise.all(
     tickers.map(async (ticker, i) => {
       const h = merged.get(ticker)!;
       const quote = quotes[i].status === "fulfilled" ? quotes[i].value : null;
@@ -59,11 +59,11 @@ export async function lookthroughInputs(merged: Map<string, PositionInput>): Pro
 }
 
 // Returns null when no position has a price.
-export async function lookthrough(merged: Map<string, PositionInput>): Promise<XrayModel | null> {
-  return modelFor(await lookthroughInputs(merged));
+export async function aperture(merged: Map<string, PositionInput>): Promise<XrayModel | null> {
+  return modelFor(await apertureInputs(merged));
 }
 
-export async function modelFor(inputs: LookthroughInput[]): Promise<XrayModel | null> {
+export async function modelFor(inputs: ApertureInput[]): Promise<XrayModel | null> {
   if (!inputs.some((p) => p.price > 0)) return null;
   const live = finnhubConfigured();
 

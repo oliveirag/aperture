@@ -7,14 +7,14 @@ import { MEMO, PORTFOLIO_FIT } from "../src/data/ic-room";
 import { cleanPoints, isAdvice } from "../src/lib/ic/committee";
 import { fundamentalFacts } from "../src/lib/ic/facts";
 import { computeFit, exposureNote, exposureValue, withPosition } from "../src/lib/ic/fit";
-import { computeXray, type LookthroughInput } from "../src/lib/xray/compute";
+import { computeXray, type ApertureInput } from "../src/lib/xray/compute";
 
 // Portfolio fit equals the X-Ray of the portfolio with and without the position.
-const before: LookthroughInput[] = [
+const before: ApertureInput[] = [
   { ticker: "NVDA", name: "NVIDIA Corp", shares: 100, price: 100, kind: "stock", industry: "Semiconductors" },
   { ticker: "AAA", name: "Fund A", shares: 10, price: 1000, kind: "etf", etf: { asOf: "2026-09-25", holdings: [{ ticker: "NVDA", name: "Nvidia", weight: 0.5 }, { ticker: "AMD", name: "Advanced Micro Devices", weight: 0.1 }, { ticker: "KO", name: "Coca-Cola", weight: 0.4 }], sectors: [{ sector: "Technology", weight: 0.6 }, { sector: "Consumer Staples", weight: 0.4 }] } },
 ];
-const amd: LookthroughInput = { ticker: "AMD", name: "Advanced Micro Devices Inc", shares: 50, price: 200, kind: "stock", industry: "Semiconductors" };
+const amd: ApertureInput = { ticker: "AMD", name: "Advanced Micro Devices Inc", shares: 50, price: 200, kind: "stock", industry: "Semiconductors" };
 const after = withPosition(before, amd);
 const mBefore = computeXray(before);
 const mAfter = computeXray(after);

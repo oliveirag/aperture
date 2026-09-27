@@ -1,7 +1,6 @@
 import type { PriceResponse } from "@/app/api/price/route";
 import type { SnapHolding, SnapResponse } from "@/app/api/snap/route";
 import { HOLDINGS } from "@/data/portfolio";
-import type { MarketResponse } from "@/lib/finnhub";
 
 // `source`: "gemini" when Gemini read a screenshot, "typed" for CSV or manual rows; the sample leaves it unset.
 // `status` mirrors /api/snap: only "matched" and "unpriced" rows count toward the total.
@@ -24,22 +23,11 @@ export const SCAN_MS = 2400;
 // Gemini retries across models server-side; give up a little after the server would.
 const LIVE_TIMEOUT_MS = 55000;
 
-export const counts = (h: ExtractedHolding) => h.status !== "unknown";
+export const counts = (h: ExtractedHolding) => h.status !== "unknown" && Number.isFinite(h.shares) && h.shares > 0 && Number.isFinite(h.value) && h.value > 0;
 
-// The sample screenshot is the demo portfolio. Its values use live Finnhub prices when they're available.
+// The sample is a deterministic, labeled snapshot, matching the demo X-Ray.
 async function readSample(): Promise<ExtractResult> {
-  let quotes: MarketResponse["quotes"] = {};
-  try {
-    const res = await fetch(`/api/market?symbols=${HOLDINGS.map((h) => h.ticker).join(",")}&fields=quote`);
-    if (res.ok) quotes = ((await res.json()) as MarketResponse).quotes;
-  } catch {}
-  return {
-    ok: true,
-    holdings: HOLDINGS.map((h) => {
-      const price = quotes[h.ticker]?.price ?? h.price;
-      return { ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price, value: h.shares * price, status: "matched" };
-    }),
-  };
+  return { ok: true, holdings: HOLDINGS.map(h => ({ ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price: h.price, value: h.value, status: "matched" })) };
 }
 
 // Posts the images (one to three) to /api/snap: Gemini reads them in one request, Finnhub prices the positions.

@@ -56,7 +56,7 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
   const level = useLevel((s) => s.level);
   const motionOn = useAnimated();
   const { ticker, date, memo, assumptions, facts } = useIcData();
-  const showRefs = level !== "beginner";
+  const showRefs = true;
 
   return (
     // scroll-mt-30 leaves room for the top bar plus the 24px the memo is still rising when it scrolls into view.
@@ -133,10 +133,10 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
 
         <div className="grid gap-8 md:grid-cols-2">
           <Section title="Bull case">
-            <Points points={memo.bull} showRefs={showRefs} />
+            <Points points={level === "beginner" ? memo.bull.slice(0, 2) : memo.bull} showRefs={showRefs} />
           </Section>
           <Section title="Bear case">
-            <Points points={memo.bear} showRefs={showRefs} />
+            <Points points={level === "beginner" ? memo.bear.slice(0, 2) : memo.bear} showRefs={showRefs} />
           </Section>
           <Section title="Key risks">
             <Plain items={memo.keyRisks} />
@@ -157,6 +157,7 @@ export function MemoCard({ ref }: { ref?: Ref<HTMLElement> }) {
             ))}
           </div>
         </Section>
+        {level === "advanced" && <Section title="Evidence audit"><p className="text-[13px] text-text-muted">Compare each argument with its underlying evidence. Citations identify the input; the bull and bear interpretations remain analysis.</p>{facts.map(f => <details key={f.id} className="border-t border-border pt-3"><summary className="cursor-pointer text-[14px]">{f.id} · {f.title}</summary><p className="mt-2 text-[14px] leading-6">{f.excerpt}</p><a href={f.url} target="_blank" rel="noreferrer" className="text-[13px] text-accent underline">Open original source</a></details>)}</Section>}
       </div>
 
       <footer className="mt-8 border-t border-border pt-4 text-[12px] text-text-subtle">

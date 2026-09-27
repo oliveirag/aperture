@@ -15,9 +15,9 @@ async function main() {
   assert.equal(usePortfolio.getState().imported?.[0].shares,2);
   assert.equal(useSnapshots.getState().snapshot?.id,snapshot.id);
   // Simulate a refresh: hydrate legacy selection before the independent snapshot.
-  const savedSnapshot = storage.getItem("lookthrough-import-snapshot")!;
+  const savedSnapshot = storage.getItem("aperture-import-snapshot")!;
   useSnapshots.setState({snapshot:null,hydrated:false});
-  storage.setItem("lookthrough-import-snapshot",savedSnapshot);
+  storage.setItem("aperture-import-snapshot",savedSnapshot);
   await usePortfolio.persist.rehydrate();
   await useSnapshots.persist.rehydrate();
   assert.equal(useSnapshots.getState().snapshot?.id,snapshot.id);

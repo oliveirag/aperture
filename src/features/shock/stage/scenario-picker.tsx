@@ -5,7 +5,7 @@ import { SCENARIOS } from "@/data/shock";
 import { cn } from "@/lib/utils";
 import type { ScenarioId } from "@/types/demo";
 
-const ICONS: Record<ScenarioId, LucideIcon> = { cre: Building2, "ai-capex": Cpu };
+const ICONS: Record<ScenarioId, LucideIcon> = { cre: Building2, "ai-capex": Cpu, researched: Cpu };
 
 export function ScenarioPicker({
   activeId,

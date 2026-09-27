@@ -25,13 +25,13 @@ export function SiteFooter() {
           <div>
             <h2 className="text-[17px] font-normal text-text">Disclosure</h2>
             <p className="mt-5 max-w-[26ch] text-[14px] leading-6 text-text-muted">
-              Educational tool. Not investment advice. All figures come from a curated demo dataset.
+              Educational tool. Not investment advice. Live, reference and illustrative data are labeled in each view.
             </p>
           </div>
         </div>
       </div>
       <div className="bx-container">
-        <p className="border-t border-border py-6 text-[13px] text-text-subtle">© 2026 Lookthrough. Investing involves risk, including loss of capital.</p>
+        <p className="border-t border-border py-6 text-[13px] text-text-subtle">© 2026 Aperture. Investing involves risk, including loss of capital.</p>
       </div>
     </footer>
   );

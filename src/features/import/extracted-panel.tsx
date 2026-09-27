@@ -100,7 +100,7 @@ export function ExtractedPanel({
         })}
       </ul>
 
-      <footer aria-live="polite" className="mt-auto flex h-[128px] flex-col justify-center border-t border-border px-5">
+      <footer aria-live="polite" className="mt-auto flex min-h-[128px] flex-col justify-center border-t border-border px-5 py-4">
         {phase === "idle" ? (
           <p className="text-[13px] text-text-subtle">Holdings appear here once your positions are read.</p>
         ) : phase === "scanning" ? (
@@ -127,7 +127,7 @@ function RowStatus({ status }: { status: ExtractedHolding["status"] }) {
   const label = status === "unpriced" ? "No quote" : "Not found";
   return (
     <span
-      title={status === "unpriced" ? "No live price; value read from the screenshot" : "Unknown ticker; left out of the total"}
+      title={status === "unpriced" ? "No live price; using the supplied value" : "Unknown ticker; left out of the total"}
       className="flex items-center justify-end gap-1 text-[12px] text-sev-medium"
     >
       <AlertTriangle aria-hidden className="size-3.5" />
@@ -205,6 +205,7 @@ function Summary({
   onContinue: () => void;
 }) {
   const [shown, setShown] = useState(reduce);
+  const [reviewed, setReviewed] = useState(false);
   const counted = holdings.filter(counts);
   const total = counted.reduce((sum, h) => sum + h.value, 0);
   const matched = holdings.filter((h) => h.status === "matched").length;
@@ -234,13 +235,16 @@ function Summary({
       {holdings[0]?.source ? (
         <p className="-mt-2 flex items-center gap-1.5 text-[12px] text-text-muted">
           <Sparkles aria-hidden className="size-3.5" />
-          {holdings[0].source === "gemini" ? "Read by Gemini · priced live by Finnhub" : "Priced live by Finnhub"}
+          {holdings[0].source === "gemini" ? "Read by Gemini · verify every row" : "Parsed from your entries"} · {matched === holdings.length ? "Finnhub quotes" : "Some quotes unavailable; supplied values are labeled"}
         </p>
       ) : null}
+      {!holdings[0]?.source && <p className="text-[12px] text-text-muted">Illustrative demo snapshot; no screenshot extraction or live pricing was performed.</p>}
+      <label className="flex items-start gap-2 text-[12px] text-text-muted"><input type="checkbox" checked={reviewed} onChange={e => setReviewed(e.target.checked)} className="mt-1" />I checked the tickers, share counts and values against my source.</label>
+      {counted.length < holdings.length && <p role="alert" className="text-[12px] text-sev-medium">Some positions have no valuation. Correct the input and retry so your portfolio is not silently understated.</p>}
       <button
         type="button"
         onClick={onContinue}
-        disabled={!shown || counted.length === 0}
+        disabled={!shown || !reviewed || counted.length === 0 || counted.length !== holdings.length}
         className="group inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-text text-[15px] font-medium text-bg transition-[transform,translate,scale,background-color] duration-150 ease-out hover:bg-text/85 active:scale-[0.97]"
       >
         Look through my portfolio

@@ -4,7 +4,6 @@ import { NAV_ITEMS } from "@/components/shell/nav-items";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { Closing } from "./closing";
 import { Hero } from "./hero";
-import { Marquee } from "./marquee";
 import { Pillars } from "./pillars";
 import { Scale } from "./scale";
 import { Steps } from "./steps";
@@ -17,7 +16,7 @@ export function Landing() {
     <div className="flex min-h-dvh flex-col">
       <div className="theme-dark">
         <header className="bx-container flex h-24 items-center justify-between gap-8 lg:h-[132px]">
-          <Link href="/" aria-label="Lookthrough home">
+          <Link href="/" aria-label="Aperture home">
             <Wordmark />
           </Link>
           <nav aria-label="Primary" className="hidden lg:block">
@@ -42,7 +41,6 @@ export function Landing() {
       </div>
       <Scale />
       <Pillars />
-      <Marquee />
       <Steps />
       <Closing />
       <SiteFooter />

@@ -1,8 +1,8 @@
-import type { EtfLookthrough, Exposure, Flag, LeveledText, Overlap, SectorSlice, Source } from "../types/demo";
+import type { EtfAperture, Exposure, Flag, LeveledText, Overlap, SectorSlice, Source } from "../types/demo";
 import { weightOf } from "./portfolio";
 
 // Top constituents of each ETF the portfolio holds (weights as fractions of the fund).
-export const ETF_LOOKTHROUGH: EtfLookthrough[] = [
+export const ETF_Aperture: EtfAperture[] = [
   {
     ticker: "VOO",
     holdingsCount: 503,
@@ -123,7 +123,7 @@ export const FLAGS: Flag[] = [
 export const AI_LINKED_TICKERS = ["NVDA", "MSFT", "AVGO", "AMD"];
 
 // AMD is not held directly: 0.5% of VOO and 1.3% of QQQ.
-export const AMD_LOOKTHROUGH = {
+export const AMD_Aperture = {
   value: 619.5,
   sources: [
     { via: "VOO" as const, value: 210 },

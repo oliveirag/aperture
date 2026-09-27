@@ -31,7 +31,7 @@ function sourceLine(e: MapExposure, advanced: boolean, total: number) {
 }
 
 // The X-Ray hero: positions open up into what they actually hold. Hand-drawn SVG, positions measured from the DOM.
-export function LookthroughMap({ model }: { model: XrayModel }) {
+export function ApertureMap({ model }: { model: XrayModel }) {
   const MAP = model.map;
   const total = model.total;
   const PIN: Selection = { kind: "exposure", id: MAP.pinId };

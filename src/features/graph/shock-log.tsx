@@ -19,15 +19,15 @@ function entriesOf(graph: ShockGraph, totals: { pct: number; dollar: number }): 
     if (!l.hit || l.kind === "context" || l.kind === "evidence") continue;
     const from = byId.get(l.source)!;
     const to = byId.get(l.target)!;
-    const key = l.kind === "lookthrough" ? `look-${to.id}` : `${from.id}-${l.sourceId}`;
-    const g = groups.get(key) ?? { from: l.kind === "lookthrough" ? to : from, targets: [], sourceId: l.sourceId, kind: l.kind };
-    g.targets.push(l.kind === "lookthrough" ? from : to);
+    const key = l.kind === "aperture" ? `look-${to.id}` : `${from.id}-${l.sourceId}`;
+    const g = groups.get(key) ?? { from: l.kind === "aperture" ? to : from, targets: [], sourceId: l.sourceId, kind: l.kind };
+    g.targets.push(l.kind === "aperture" ? from : to);
     groups.set(key, g);
   }
   for (const [key, g] of groups) {
     const srcNode = g.sourceId ? byId.get(`s:${g.sourceId}`) : undefined;
     const quote = srcNode?.quotes[0] ?? g.targets.flatMap((t) => t.quotes).find((q) => q.sourceId === g.sourceId);
-    if (g.kind === "lookthrough") {
+    if (g.kind === "aperture") {
       const names = g.targets.map((t) => t.label);
       out.push({
         key,
@@ -121,7 +121,7 @@ export function ShockLog({
               <span className="text-[#5c5c5c] tabular-nums">{(e.at / 1000).toFixed(2).padStart(5, "0")}s </span>
               <span className={cn("inline-block w-[44px]", VERB_COLOR[e.verb])}>{e.verb}</span>
               <span className="text-[#dadada]">{e.text}</span>
-              {e.quote ? <span className="block pl-[92px] text-[#c9b6ff]/90 italic">&ldquo;{e.quote}&rdquo;</span> : null}
+              {e.quote ? <span className="block pl-[92px] text-[#c9b6ff]/90">Summary: {e.quote}</span> : null}
               {e.cite ? <span className="block truncate pl-[92px] text-[#8f8f8f]">↳ {e.cite}</span> : null}
             </button>
           </li>

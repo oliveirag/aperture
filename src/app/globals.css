@@ -5,7 +5,7 @@
 @custom-variant dark (&:is(.dark *, .theme-dark *));
 
 /*
-  Lookthrough tokens, after Blackstone's editorial system: paper-white pages, full-bleed black bands,
+  Aperture tokens, after Blackstone's editorial system: paper-white pages, full-bleed black bands,
   light serif display type over a light grotesk, square corners, hairline rules, one copper accent.
   Light is the default; any subtree wrapped in .theme-dark becomes a black band with the same names.
   Token names are a contract used by every feature; values may be tuned, names may not.

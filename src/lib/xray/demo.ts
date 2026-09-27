@@ -1,6 +1,6 @@
 import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import {
-  ETF_LOOKTHROUGH,
+  ETF_Aperture,
   EXPOSURES,
   FLAGS,
   OVERLAPS,
@@ -15,7 +15,7 @@ import { buildDemoMap } from "./demo-map";
 import type { XrayModel } from "./types";
 
 const valueOf = (t: string) => HOLDINGS.find((h) => h.ticker === t)?.value ?? 0;
-const countOf = (t: string) => ETF_LOOKTHROUGH.find((e) => e.ticker === t)?.holdingsCount ?? 0;
+const countOf = (t: string) => ETF_Aperture.find((e) => e.ticker === t)?.holdingsCount ?? 0;
 
 // The curated demo portfolio in the shared model shape. Every number is canon (checked by scripts/check-canon.ts).
 export const DEMO_XRAY: XrayModel = {

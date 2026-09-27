@@ -267,7 +267,7 @@ export function GraphCanvas({ graph, settings, severity, baseSeverity, runStart,
         const d = l.data;
         const inFocus = focus ? focus.has(a.id) && focus.has(b.id) && (a.id === focusId || b.id === focusId) : false;
         const dimmed = (focus && !inFocus) || (needle && !matches(a.data) && !matches(b.data));
-        const baseW = (d.kind === "shock" ? 0.6 + Math.min(1.4, d.weight) : d.kind === "lookthrough" ? 0.5 + d.weight * 12 : 0.5) * s.linkThickness;
+        const baseW = (d.kind === "shock" ? 0.6 + Math.min(1.4, d.weight) : d.kind === "aperture" ? 0.5 + d.weight * 12 : 0.5) * s.linkThickness;
 
         ctx.beginPath();
         ctx.moveTo(ax, ay);
@@ -400,7 +400,9 @@ export function GraphCanvas({ graph, settings, severity, baseSeverity, runStart,
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
       const fs = 11.5 * clamp(Math.sqrt(k), 0.85, 1.35);
-      for (const n of nodes) {
+      const labelBoxes: { x: number; y: number; w: number; h: number }[] = [];
+      const priority = (n: SimNode) => n.id === sel || focus?.has(n.id) ? 0 : ["driver", "channel", "holding"].includes(n.data.kind) ? 1 : 2;
+      for (const n of [...nodes].sort((a, b) => priority(a) - priority(b))) {
         const g = n.data;
         const major = g.kind === "driver" || g.kind === "channel" || g.kind === "holding";
         const inFocus = focus?.has(n.id) ?? false;
@@ -415,7 +417,13 @@ export function GraphCanvas({ graph, settings, severity, baseSeverity, runStart,
         ctx.globalAlpha = a;
         ctx.font = `${g.kind === "driver" ? 600 : major ? 500 : 400} ${g.kind === "driver" ? fs + 1.5 : fs}px ui-sans-serif, system-ui, -apple-system, sans-serif`;
         ctx.fillStyle = g.kind === "source" ? "#c9b6ff" : PALETTE.text;
-        ctx.fillText(g.label, sx, sy);
+        let label = g.label;
+        while (label.length > 8 && ctx.measureText(label).width > 180) label = label.slice(0, -2).trimEnd() + "…";
+        const width = ctx.measureText(label).width;
+        const box = { x: sx - width / 2 - 3, y: sy - 2, w: width + 6, h: fs * 2 + 8 };
+        if (!inFocus && sel !== n.id && labelBoxes.some(b => box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y)) continue;
+        labelBoxes.push(box);
+        ctx.fillText(label, sx, sy);
         // Once the shock lands, the hit shows under the name.
         const landed = g.hit && g.baseReturn !== null && g.kind !== "driver" && elapsed - arrive(g.depth) > 0;
         if (landed && (major || k > s.textFade || inFocus)) {
@@ -591,7 +599,7 @@ export function GraphCanvas({ graph, settings, severity, baseSeverity, runStart,
 }
 
 function applyForces(sim: Simulation<SimNode, SimLink>, links: SimLink[], s: GraphSettings) {
-  const factor: Record<GraphLink["kind"], number> = { shock: 1.25, lookthrough: 0.9, context: 0.8, evidence: 0.7 };
+  const factor: Record<GraphLink["kind"], number> = { shock: 1.25, aperture: 0.9, context: 0.8, evidence: 0.7 };
   sim
     .force(
       "link",

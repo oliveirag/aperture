@@ -20,7 +20,7 @@ export function Wordmark({ className, size = "md" }: { className?: string; size?
         className,
       )}
     >
-      Lookthrough
+      Aperture
     </span>
   );
 }

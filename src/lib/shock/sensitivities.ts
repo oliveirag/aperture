@@ -31,18 +31,18 @@ function rules(tickers: string[], rule: Omit<EntityRule, "sourceId">, sourceFor:
 export const TABLES: Record<Exclude<ScenarioId, "researched">, ScenarioTable> = {
   cre: {
     channels: [
-      { id: "office", label: "Office valuations", sublabel: "Most rate-sensitive property type", weight: 1.1, method: "DER-VALUATION", sourceId: "s-fed-fsr" },
+      { id: "office", label: "Office valuations", sublabel: "Most rate-sensitive property type", weight: 1.1, method: "DER-VALUATION", sourceId: "s-bxp-10k-values" },
       { id: "bankcre", label: "Regional bank CRE loans", sublabel: "Largest CRE lenders", weight: 0.85, method: "DER-CREDIT", sourceId: "s-zion-10k" },
-      { id: "credit", label: "Credit conditions", sublabel: "Lending standards tighten", weight: 0.4, method: "DER-CREDIT", sourceId: "s-fed-sloos" },
+      { id: "credit", label: "Credit conditions", sublabel: "Lending standards tighten", weight: 0.4, method: "DER-CREDIT", sourceId: "s-zion-10k-credit" },
     ],
     entities: {
-      ...rules(OFFICE_REITS, { channel: "office", ret: -0.225, kind: "Office REIT", sector: "Real Estate" }, (t) => (t === "BXP" ? "s-bxp-10k" : "s-fed-fsr")),
+      ...rules(OFFICE_REITS, { channel: "office", ret: -0.225, kind: "Office REIT", sector: "Real Estate" }, (t) => (t === "BXP" ? "s-bxp-10k" : "s-bxp-10k-values")),
       ...rules(REGIONAL_BANKS, { channel: "bankcre", ret: -0.155, kind: "Regional bank", sector: "Financials" }, () => "s-zion-10k"),
       ...rules(BANK_ETFS, { channel: "bankcre", ret: -0.155, kind: "Regional banks ETF", sector: "Financials" }, () => "s-kre-holdings"),
     },
     sectors: {
-      Financials: { channel: "credit", ret: -0.085, sourceId: "s-fed-sloos" },
-      "Real Estate": { channel: "credit", ret: -0.085, sourceId: "s-fed-sloos" },
+      Financials: { channel: "credit", ret: -0.085, sourceId: "s-zion-10k-credit" },
+      "Real Estate": { channel: "credit", ret: -0.085, sourceId: "s-zion-10k-credit" },
     },
   },
   "ai-capex": {

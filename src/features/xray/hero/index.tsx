@@ -73,32 +73,38 @@ function BeginnerExplainer({ demo }: { demo: boolean }) {
 function ImportedNotice({ model }: { model: XrayModel }) {
   const resetToDemo = usePortfolio((s) => s.resetToDemo);
   const practice = usePortfolio((s) => s.kind === "practice");
+  const demo = usePortfolio((s) => s.imported === null);
   if (model.mode !== "live") return null;
   const opaque = model.opaque;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border border-border bg-surface-1 px-4 py-3 text-[13px] text-text-muted">
       <Info aria-hidden className="size-4 shrink-0 text-accent" />
       <span className="min-w-0 flex-1">
-        {practice
-          ? "Practice portfolio: no real money. This is what your pretend dollars would hold, at live prices."
-          : "Look-through of your imported portfolio, from live prices and published ETF holdings."}
+        {demo
+          ? "Demo portfolio: seven sample positions, valued at live prices with published ETF holdings."
+          : practice
+            ? "Practice portfolio: no real money. This is what your pretend dollars would hold, at live prices."
+            : "Look-through of your imported portfolio, from live prices and published ETF holdings."}
         {opaque.length > 0
           ? ` No holdings data for ${opaque.join(", ")}, so ${opaque.length === 1 ? "it counts" : "they count"} as ${opaque.length === 1 ? "a single position" : "single positions"}.`
           : ""}
       </span>
-      <button
-        type="button"
-        onClick={resetToDemo}
-        className="rounded-md font-medium text-text transition-colors duration-150 hover:text-accent"
-      >
-        Switch to demo
-      </button>
+      {!demo && (
+        <button
+          type="button"
+          onClick={resetToDemo}
+          className="rounded-md font-medium text-text transition-colors duration-150 hover:text-accent"
+        >
+          Switch to demo
+        </button>
+      )}
     </div>
   );
 }
 
 export function XrayHero({ model }: { model: XrayModel }) {
   const level = useLevel((s) => s.level);
+  const demoPortfolio = usePortfolio((s) => s.imported === null);
 
   return (
     <section className="flex flex-col gap-6 [@media(max-height:800px)]:gap-5">
@@ -109,7 +115,7 @@ export function XrayHero({ model }: { model: XrayModel }) {
         subline={model.subline[level]}
         actions={<HeaderStats model={model} />}
       />
-      {level === "beginner" ? <BeginnerExplainer demo={model.mode === "demo"} /> : null}
+      {level === "beginner" ? <BeginnerExplainer demo={demoPortfolio} /> : null}
       <ApertureMap model={model} />
       <FlagsStrip flags={model.flags} />
     </section>

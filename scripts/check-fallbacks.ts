@@ -90,6 +90,14 @@ process.env.APERTURE_CACHE_DIR = mkdtempSync(path.join(os.tmpdir(), "aperture-ch
   assert.deepEqual(await memo(key, 30, async () => { throw new Error("sec 503"); }), { price: 123 });
   await assert.rejects(memo(`check:none:${Date.now()}`, 30, async () => { throw new Error("boom"); }), /boom/);
 
+  // Shipped scenario sources: every filing quote links to the filing document itself, never a search page.
+  const { SCENARIOS } = await import("../src/data/shock");
+  for (const src of SCENARIOS.flatMap((sc) => sc.sources)) {
+    if (src.docType !== "10-K") continue;
+    assert.match(src.url, /^https:\/\/www\.sec\.gov\/Archives\/edgar\/data\//, `${src.id} links to the filing`);
+    if (src.highlight) assert.ok(src.excerpt.includes(src.highlight), `${src.id} highlight is in its excerpt`);
+  }
+
   console.log("fallbacks OK");
 })().catch((err) => {
   console.error(err);

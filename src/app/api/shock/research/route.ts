@@ -94,8 +94,9 @@ export async function POST(request: Request) {
     }
     const { base, table, assumption, sensitivities } = researchScenario(plan, evidence);
     const inputs = await apertureInputs(holdings);
-    // Use the same valuation snapshot as the portfolio being displayed, never mix fresh and old totals.
-    for (const input of inputs) {
+    // Use the same valuation snapshot as the portfolio being displayed, never mix fresh and old totals. The demo
+    // portfolio is displayed at live prices, so its snapshot prices only fill in where a quote is missing.
+    if (body.demo !== true) for (const input of inputs) {
       const supplied = holdings.get(input.ticker)?.price;
       if (supplied && Number.isFinite(supplied)) input.price = supplied;
     }

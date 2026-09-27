@@ -5,18 +5,21 @@ import { create } from "zustand";
 import type { ShockResponse } from "@/app/api/shock/route";
 import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { SCENARIOS } from "@/data/shock";
-import { useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
+import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import type { NotModeled } from "@/lib/shock/live";
 import type { ScenarioId, ShockScenario } from "@/types/demo";
 import { useResearch } from "./research-store";
 import { portfolioKey } from "@/lib/shock/research-model";
 
-// What the Shock Test draws: the curated scenarios for the demo, or the same scenarios mapped onto your portfolio.
+// What the Shock Test draws: both scenarios mapped onto the active portfolio at live prices (the demo included).
+// The demo's precomputed scenarios are only a fallback when that fails.
 export type ShockModel = {
   mode: "demo" | "live";
   total: number;
   positions: number;
   colors: Record<string, string>;
+  // Live only: each position's current value, for the graph's holding nodes.
+  values?: Record<string, number>;
   scenarios: ShockScenario[];
   // Live only: holdings without a modeled path (with their weight), and the share of money that has one.
   notModeled: Partial<Record<ScenarioId, NotModeled[]>>;
@@ -57,6 +60,7 @@ const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHold
           total: data.total,
           positions: holdings.length,
           colors: data.colors,
+          values: data.values,
           scenarios: data.scenarios.map((s) => s.scenario),
           notModeled: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.notModeled])),
           modeledShare: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.modeledShare])),
@@ -89,15 +93,18 @@ export function useShockModel(): ShockModelState {
       notModeled: { ...model.notModeled, researched: research.result.notModeled } };
   };
 
+  const holdings = imported ?? DEMO_HOLDINGS;
   useEffect(() => {
-    if (hydrated && imported) load(imported);
-  }, [hydrated, imported, load]);
+    if (hydrated) load(holdings);
+  }, [hydrated, holdings, load]);
 
   if (!hydrated) return { status: "loading" };
-  if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
-  const mine = entry?.key === keyOf(imported) ? entry : null;
+  const mine = entry?.key === keyOf(holdings) ? entry : null;
   if (mine?.status === "ready" && mine.model) return { status: "ready", model: addResearch(mine.model) };
-  if (mine?.status === "error") return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, true) };
+  if (mine?.status === "error") {
+    if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
+    return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, true) };
+  }
   return { status: "loading" };
 }
 

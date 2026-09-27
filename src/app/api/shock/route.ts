@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // A 50-position portfolio can wait on the shared Finnhub rate limit.
 export const maxDuration = 60;
 
-export type ShockResponse = { total: number; colors: Record<string, string>; scenarios: LiveScenario[] };
+export type ShockResponse = { total: number; colors: Record<string, string>; values: Record<string, number>; scenarios: LiveScenario[] };
 
 function fail(error: string, status: number) {
   return Response.json({ error }, { status });
@@ -32,6 +32,7 @@ export async function POST(request: Request) {
   const model = await modelFor(inputs);
   if (!model) return fail("No prices available", 502);
   const colors = Object.fromEntries(model.map.positions.map((p) => [p.ticker, p.color]));
-  const res: ShockResponse = { total: model.total, colors, scenarios: SCENARIOS.map((s) => buildLiveScenario(s, inputs, model.sources)) };
+  const values = Object.fromEntries(model.map.positions.map((p) => [p.ticker, p.value]));
+  const res: ShockResponse = { total: model.total, colors, values, scenarios: SCENARIOS.map((s) => buildLiveScenario(s, inputs, model.sources)) };
   return Response.json(res);
 }

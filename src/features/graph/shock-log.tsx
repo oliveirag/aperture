@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatSignedPct, formatSignedUSD } from "@/lib/format";
 import type { GraphNode, ShockGraph } from "@/lib/shock/graph";
+import { isVerbatim } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 import { HOP_MS } from "./settings";
 
-type Entry = { key: string; at: number; verb: "SHOCK" | "PULL" | "LOOK" | "DONE"; text: string; quote?: string; cite?: string; nodeId?: string };
+type Entry = { key: string; at: number; verb: "SHOCK" | "PULL" | "LOOK" | "DONE"; text: string; quote?: string; verbatim?: boolean; cite?: string; nodeId?: string };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -48,6 +49,7 @@ function entriesOf(graph: ShockGraph, totals: { pct: number; dollar: number }): 
       text: `${g.from.label} → ${what}`,
       // Holdings pages are cited by name; their highlight is about a different company.
       quote: quote?.docType === "ETF holdings" ? undefined : quote?.highlight,
+      verbatim: quote ? isVerbatim(quote) : false,
       cite: quote ? `${quote.title.replace(/ Form /, " ")}${quote.section ? ` · ${quote.section.replace(/^Item 1A\. /, "")}` : ""}` : undefined,
       nodeId: g.targets.length === 1 ? g.targets[0].id : srcNode?.id,
     });
@@ -121,7 +123,7 @@ export function ShockLog({
               <span className="text-[#5c5c5c] tabular-nums">{(e.at / 1000).toFixed(2).padStart(5, "0")}s </span>
               <span className={cn("inline-block w-[44px]", VERB_COLOR[e.verb])}>{e.verb}</span>
               <span className="text-[#dadada]">{e.text}</span>
-              {e.quote ? <span className="block pl-[92px] text-[#c9b6ff]/90">Summary: {e.quote}</span> : null}
+              {e.quote ? <span className="block pl-[92px] text-[#c9b6ff]/90">{e.verbatim ? <>Quote: “{e.quote}”</> : <>Summary: {e.quote}</>}</span> : null}
               {e.cite ? <span className="block truncate pl-[92px] text-[#8f8f8f]">↳ {e.cite}</span> : null}
             </button>
           </li>

@@ -39,7 +39,7 @@ export function Scale() {
             </p>
             <p className="mt-4 text-[18px] font-normal text-text">NVIDIA look-through exposure</p>
             <p className="mt-6 text-[14px] leading-[1.6] text-text-muted">
-              All figures from the curated demo dataset, as of September 25, 2026.
+              Demo portfolio at September 25, 2026 prices. The X-Ray itself uses live prices, so its figures move with the market.
             </p>
           </Reveal>
         </div>

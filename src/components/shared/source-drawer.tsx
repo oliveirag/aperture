@@ -4,12 +4,14 @@ import { Fragment, type ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import { create } from "zustand";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { isVerbatim } from "@/lib/sources";
 import type { Source } from "@/types/demo";
 
 export type SourceLike = Source;
 
 export function sourceDescription(source: Source): string {
-  if (source.url.includes("browse-edgar") || source.id.startsWith("s-fed-") || ["https://www.amd.com/en/newsroom.html", "https://www.tsmc.com/english/news-events"].includes(source.url)) return "Illustrative demo summary. This text has not been verified against a specific filing; the link opens the issuer or agency listing. Do not cite it as a verbatim quotation.";
+  if (isVerbatim(source)) return "Verbatim passage from the filing on SEC EDGAR. Interpretations and scenario sensitivities are separate from the source text.";
+  if (source.url.includes("browse-edgar") || ["https://www.amd.com/en/newsroom.html", "https://www.tsmc.com/english/news-events"].includes(source.url)) return "Illustrative demo summary. This text has not been verified against a specific filing; the link opens the issuer or agency listing. Do not cite it as a verbatim quotation.";
   if (source.docType === "News" || source.docType === "Market data" || source.docType === "ETF holdings") return "Source summary or calculated data, not a verbatim quotation. Check the source date and original document.";
   return "Retrieved filing passage. Interpretations and scenario sensitivities are separate from the source text.";
 }

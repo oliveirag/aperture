@@ -82,14 +82,17 @@ function useGraphHoldings(): GraphHolding[] {
   const model = useShockData();
   const imported = usePortfolio((s) => s.imported);
   return useMemo(() => {
-    if (model.mode === "demo" || !imported) {
+    if (model.mode === "demo") {
       return HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, kind: h.type, value: h.value, color: h.color }));
+    }
+    if (!imported) {
+      return HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, kind: h.type, value: model.values?.[h.ticker] ?? h.value, color: model.colors[h.ticker] ?? h.color }));
     }
     return imported.map((h) => ({
       ticker: h.ticker,
       name: h.name,
       kind: isSeededEtf(h.ticker) ? ("etf" as const) : ("stock" as const),
-      value: h.shares * h.price,
+      value: model.values?.[h.ticker] ?? h.shares * h.price,
       color: model.colors[h.ticker],
     }));
   }, [model, imported]);

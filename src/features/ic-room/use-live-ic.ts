@@ -152,7 +152,6 @@ export function useLiveIc() {
             finished = true;
             update((s) => {
               const data = { ...s.data, memo: { ...s.data.memo, ...e.memo } };
-              useIcMemos.getState().add({ ticker: data.ticker.ticker, date: data.date, memo: data.memo });
               return { ...s, status: "done", data, at: { ...s.at, ...arrived("memo") } };
             });
           } else {
@@ -176,6 +175,12 @@ export function useLiveIc() {
   // "done" once the memo is on screen; the clock stops then (and on errors).
   const status: RunStatus = !state ? "idle" : frame?.memo ? "done" : state.status === "error" ? "done" : "running";
   const settled = status === "done";
+  // Share the finished memo with Ask. Done here, not inside the state updater, so Ask never updates mid-render.
+  const done = state?.status === "done" ? state.data : null;
+  useEffect(() => {
+    if (done) useIcMemos.getState().add({ ticker: done.ticker.ticker, date: done.date, memo: done.memo });
+  }, [done]);
+
   useEffect(() => {
     if (settled) stopClock();
   }, [settled, stopClock]);

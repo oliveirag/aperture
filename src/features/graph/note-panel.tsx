@@ -4,6 +4,7 @@ import { Fragment, type ReactNode } from "react";
 import { ArrowUpRight, Database, FileText, Hash, Link2, Sigma, Waypoints, X, Zap } from "lucide-react";
 import { formatPct, formatSignedPct, formatSignedUSD, formatUSD, scaleShock } from "@/lib/format";
 import type { GraphNode, Quote, ShockGraph } from "@/lib/shock/graph";
+import { isVerbatim } from "@/lib/sources";
 import { cn } from "@/lib/utils";
 import { HOP_MS } from "./settings";
 
@@ -126,7 +127,7 @@ function QuoteCallout({ q }: { q: Quote }) {
       ) : null}
       {q.text ? (
         <div className="mt-2 text-[13px] leading-[1.55] text-[#cfcfcf]">
-          <p className="mb-2 text-[11px] text-[#8f8f8f]">{q.url?.includes("browse-edgar") || q.sourceId.startsWith("s-fed-") ? "Illustrative demo summary; not a verified filing quotation." : "Source summary or data. The stress-test coefficient is an assumption."}</p>
+          <p className="mb-2 text-[11px] text-[#8f8f8f]">{isVerbatim(q) ? "Verbatim passage from the filing on SEC EDGAR. The stress-test coefficient is an assumption." : q.url?.includes("browse-edgar") ? "Illustrative demo summary; not a verified filing quotation." : "Source summary or data. The stress-test coefficient is an assumption."}</p>
           {isData ? q.text : <Highlighted text={q.text} highlight={q.highlight} />}
         </div>
       ) : null}

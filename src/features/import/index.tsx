@@ -1,5 +1,6 @@
 "use client";
 
+import { accountsEnabled } from "@/lib/supabase";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -175,11 +176,11 @@ export function ImportFlow() {
       <section className="bx-container grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-end">
         <h1 className="display text-[40px] leading-[1.08] text-text sm:text-[56px]">Import your portfolio</h1>
         <p className="max-w-[40ch] text-[17px] leading-[1.55] font-light text-text lg:pb-2">
-          Drop a screenshot, upload CSV, XLSX or XLS, or type your positions. Review the extracted rows before opening your analysis. Spreadsheet files stay on your device; screenshots are sent to Gemini to read.
+          Drop a screenshot, upload CSV, XLSX or XLS, or type your positions. Review the extracted rows before opening your analysis. Spreadsheet files stay on your device; screenshots are read by Gemini, or by text recognition on our server when Gemini is unavailable.
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>
-          <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>
+          {accountsEnabled() && <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>}
         </p>
       </section>
 

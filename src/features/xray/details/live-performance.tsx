@@ -39,7 +39,7 @@ const usePerformance = create<{ entry: Entry | null; load: (key: string, holding
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <DetailCard title="Performance" className="lg:col-span-7">
+    <DetailCard title="Performance" className="lg:col-span-12">
       <div className="mt-5 flex min-h-[200px] items-center text-[15px] leading-6 text-text-muted">{children}</div>
     </DetailCard>
   );

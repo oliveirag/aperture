@@ -1,4 +1,5 @@
-// Server-only Gemini client with model racing. Import it from route handlers only: it reads GEMINI_API_KEY.
+// Server-only Gemini client with model racing and key rotation. Import it from route handlers only: it reads
+// GEMINI_API_KEYS (comma-separated) and/or GEMINI_API_KEY.
 import { GoogleGenAI, type Content, type GenerateContentConfig, type Part } from "@google/genai";
 
 // Each wave races its models in parallel and keeps the first valid answer. The free tier often answers 503
@@ -14,14 +15,59 @@ const PREFER_FULL_MS = 4000;
 const WAVE_TIMEOUT_MS = 22000;
 const TOTAL_BUDGET_MS = 45000;
 
-export function geminiConfigured() {
-  return Boolean(process.env.GEMINI_API_KEY);
+// Every configured key, in order. Extra keys only matter when an earlier one is out of quota or rejected.
+function keys() {
+  const list = [...(process.env.GEMINI_API_KEYS ?? "").split(","), process.env.GEMINI_API_KEY ?? ""].map((k) => k.trim()).filter(Boolean);
+  return [...new Set(list)];
 }
 
-function client() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
-  return new GoogleGenAI({ apiKey });
+// Keys that answered with a quota, billing or auth error, benched until the given time so requests fail over at once.
+const benched = new Map<string, number>();
+const clients = new Map<string, GoogleGenAI>();
+
+function usableKeys() {
+  const now = Date.now();
+  return keys().filter((k) => (benched.get(k) ?? 0) <= now);
+}
+
+function clientFor(apiKey: string) {
+  let c = clients.get(apiKey);
+  if (!c) clients.set(apiKey, (c = new GoogleGenAI({ apiKey })));
+  return c;
+}
+
+export function geminiConfigured() {
+  return keys().length > 0;
+}
+
+// False while every configured key is benched. Callers use it to go straight to their non-model path.
+export function geminiAvailable() {
+  return usableKeys().length > 0;
+}
+
+const MINUTE = 60 * 1000;
+
+// How long a key sits out after this error, 0 when the error is about the request rather than the key, or null
+// when it says nothing about the key (a model this key can't use, which other models may still serve).
+function benchFor(err: unknown): number | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/\b404\b|NOT_FOUND/.test(msg)) return null;
+  if (/API key not valid|API_KEY_INVALID|PERMISSION_DENIED|\b40[13]\b/i.test(msg)) return 60 * MINUTE;
+  if (/spending cap|billing|per ?day|PerDay/i.test(msg)) return 60 * MINUTE;
+  if (/\b429\b|RESOURCE_EXHAUSTED|quota/i.test(msg)) return MINUTE;
+  return 0;
+}
+
+function bench(apiKey: string, ms: number, tag: string) {
+  benched.set(apiKey, Date.now() + ms);
+  const left = usableKeys().length;
+  console.error(`[${tag}] Gemini key ${keys().indexOf(apiKey) + 1}/${keys().length} benched for ${Math.round(ms / MINUTE)} min; ${left} usable`);
+}
+
+class KeyFailure extends Error {
+  constructor(readonly benchMs: number) {
+    super("every model rejected this API key");
+  }
 }
 
 export type Answer<T> = { model: string; value: T };
@@ -45,6 +91,8 @@ function raceWave<T>(ai: GoogleGenAI, models: string[], req: Request<T>, timeout
     let pending = models.length;
     let liteAnswer: Answer<T> | null = null;
     let settled = false;
+    // Shortest bench any model asked for; stays 0 unless every model failed because of the key.
+    let keyBench = Infinity;
     const finish = (r: Answer<T>) => {
       if (settled) return;
       settled = true;
@@ -62,6 +110,8 @@ function raceWave<T>(ai: GoogleGenAI, models: string[], req: Request<T>, timeout
           setTimeout(() => finish(r), PREFER_FULL_MS);
         })
         .catch((err) => {
+          const ms = benchFor(err);
+          if (ms !== null) keyBench = Math.min(keyBench, ms);
           if (!settled) console.error(`[${req.tag}] ${model} failed:`, err instanceof Error ? err.message.slice(0, 120) : "unknown");
         })
         .finally(() => {
@@ -69,27 +119,35 @@ function raceWave<T>(ai: GoogleGenAI, models: string[], req: Request<T>, timeout
           if (pending > 0 || settled) return;
           if (liteAnswer) return finish(liteAnswer);
           clearTimeout(timer);
-          reject(new Error("all models in wave failed"));
+          reject(keyBench > 0 && keyBench !== Infinity ? new KeyFailure(keyBench) : new Error("all models in wave failed"));
         });
     }
   });
 }
 
-// Runs a request across the waves until one model returns a value `read` accepts.
+// Runs a request across the waves until one model returns a value `read` accepts. A key that every model
+// rejects (quota, billing cap, invalid) is benched and the request moves on to the next key.
 export async function generate<T>(req: Request<T>): Promise<Answer<T>> {
-  const ai = client();
+  if (!geminiConfigured()) throw new Error("GEMINI_API_KEY is not set");
   const deadline = Date.now() + (req.budgetMs ?? TOTAL_BUDGET_MS);
-  let lastError: unknown;
-  for (const wave of WAVES) {
-    const remaining = deadline - Date.now();
-    if (remaining < 3000) break;
-    try {
-      return await raceWave(ai, wave, req, Math.min(req.waveTimeoutMs ?? WAVE_TIMEOUT_MS, remaining));
-    } catch (err) {
-      lastError = err;
+  let lastError: unknown = new Error("every Gemini key is out of quota or rejected");
+  for (const apiKey of usableKeys()) {
+    const ai = clientFor(apiKey);
+    for (const wave of WAVES) {
+      const remaining = deadline - Date.now();
+      if (remaining < 3000) throw lastError;
+      try {
+        return await raceWave(ai, wave, req, Math.min(req.waveTimeoutMs ?? WAVE_TIMEOUT_MS, remaining));
+      } catch (err) {
+        lastError = err;
+        if (err instanceof KeyFailure) {
+          bench(apiKey, err.benchMs, req.tag);
+          break;
+        }
+      }
     }
   }
-  throw lastError ?? new Error("no model attempted");
+  throw lastError;
 }
 
 // Structured output: the response must be JSON matching `schema`, then pass `validate` (which throws to reject it).
@@ -160,9 +218,10 @@ export async function* streamText(opts: {
   firstTokenMs?: number;
   signal?: AbortSignal;
 }): AsyncGenerator<string> {
-  const ai = client();
-  let lastError: unknown;
-  for (const model of STREAM_ORDER) {
+  let lastError: unknown = new Error("every Gemini key is out of quota or rejected");
+  for (const [apiKey, model] of usableKeys().flatMap((k) => STREAM_ORDER.map((m) => [k, m] as const))) {
+    if ((benched.get(apiKey) ?? 0) > Date.now()) continue;
+    const ai = clientFor(apiKey);
     const controller = new AbortController();
     opts.signal?.addEventListener("abort", () => controller.abort(), { once: true });
     const timer = setTimeout(() => controller.abort(), opts.firstTokenMs ?? 8000);
@@ -190,6 +249,8 @@ export async function* streamText(opts: {
       console.error(`[${opts.tag}] ${model} stream failed:`, err instanceof Error ? err.message.slice(0, 120) : "unknown");
       // Once tokens reached the user a retry would repeat them; surface the error instead.
       if (started || opts.signal?.aborted) throw err;
+      const ms = benchFor(err);
+      if (ms) bench(apiKey, ms, opts.tag);
     }
   }
   throw lastError ?? new Error("no model attempted");

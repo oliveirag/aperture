@@ -6,11 +6,13 @@ export type Driver = "oil" | "import-costs" | "usd" | "chip-supply";
 // basis: "stated" = the user named the driver and direction; "assumed" = proposed from cited sources, never a prediction.
 export type PlanBasis = "stated" | "assumed";
 export type ResearchPlan = { driver: Driver; direction: 1 | -1; severity: number; basis: PlanBasis; trigger: string; rationale?: string; magnitudeStated: boolean };
-export type ResearchEvidence = { text: string; sources: { title: string; url: string }[] };
+// `filing` marks a verbatim 10-K passage (from lib/shock/filing-evidence), shown as a filing source, not a summary.
+export type ResearchEvidence = { text: string; sources: { title: string; url: string }[]; filing?: { issuer: string; form: "10-K"; filedAt: string; quote: string } };
 export type ResearchResult = {
   question: string;
   researchedAt: string;
-  evidenceMode: "web" | "reference";
+  // web: Gemini search with citations; filing: reference plus verbatim 10-K passages; reference: fixed references only.
+  evidenceMode: "web" | "filing" | "reference";
   plan: { driver: Driver; basis: PlanBasis; trigger: string; rationale?: string; magnitudeStated: boolean };
   evidence: ResearchEvidence[];
   assumption: string;
@@ -130,11 +132,15 @@ export function researchScenario(plan: ResearchPlan, evidence: ResearchEvidence[
   const spec = DRIVERS[plan.driver];
   const driver = spec.noun;
   const change = plan.direction > 0 ? "increase" : "decrease";
-  const sources: Source[] = evidence.flatMap((claim, i) => claim.sources.map((source, j) => ({
+  const sources: Source[] = evidence.flatMap((claim, i) => claim.sources.map((source, j) => claim.filing ? {
+    id: `research-${i}-${j}`, title: source.title, issuer: claim.filing.issuer,
+    date: claim.filing.filedAt, docType: claim.filing.form, section: "Item 1A. Risk Factors",
+    excerpt: claim.filing.quote, url: source.url,
+  } : {
     id: `research-${i}-${j}`, title: source.title, issuer: new URL(source.url).hostname,
     date: "", docType: "News" as const, section: "Research summary, not a verbatim quotation",
     excerpt: claim.text, url: source.url,
-  })));
+  }));
   if (!sources.length) throw new Error("No supporting sources");
   const sourceId = sources[0].id;
   const table: ScenarioTable = { channels: [], entities: {}, sectors: {} };

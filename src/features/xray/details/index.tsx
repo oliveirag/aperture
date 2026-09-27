@@ -25,7 +25,7 @@ export function XrayDetails({ model }: { model: XrayModel }) {
         <TopTen model={model} />
         {level !== "beginner" && <SectorDonut sectors={model.sectors} />}
         <OverlapVenn model={model} />
-        {/* Demo: the canon weekly series. Your own portfolio: weekly closes from Alpha Vantage (Finnhub candles are premium). */}
+        {/* Weekly closes from Alpha Vantage (Finnhub candles are premium); the canon series only backs the offline snapshot. */}
         {level === "advanced" && (model.mode === "demo" ? <PerformanceChart series={PERFORMANCE} /> : <LivePerformance />)}
         {level === "advanced" && <HistoricalRange />}
         {level === "beginner" ? <LearnCard /> : null}

@@ -94,12 +94,7 @@ export async function POST(request: Request) {
     }
     const { base, table, assumption, sensitivities } = researchScenario(plan, evidence);
     const inputs = await apertureInputs(holdings);
-    // Use the same valuation snapshot as the portfolio being displayed, never mix fresh and old totals. The demo
-    // portfolio is displayed at live prices, so its snapshot prices only fill in where a quote is missing.
-    if (body.demo !== true) for (const input of inputs) {
-      const supplied = holdings.get(input.ticker)?.price;
-      if (supplied && Number.isFinite(supplied)) input.price = supplied;
-    }
+    // Same valuation as the X-Ray and Shock pages: live quotes, with the supplied price only where a quote is missing.
     if (inputs.some(p => !(p.price > 0))) return Response.json({ error: "Some holdings have no price. Complete portfolio pricing before running a scenario." }, { status: 422 });
     const model = await modelFor(inputs);
     if (!model) return Response.json({ error: "No portfolio valuations available." }, { status: 422 });

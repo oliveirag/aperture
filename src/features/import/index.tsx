@@ -1,5 +1,6 @@
 "use client";
 
+import { accountsEnabled } from "@/lib/supabase";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -179,7 +180,7 @@ export function ImportFlow() {
           <Link href="/practice" className="mt-3 block text-[15px] text-text-muted underline underline-offset-4 hover:text-text">
             Don&apos;t own anything yet? Build a practice portfolio
           </Link>
-          <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>
+          {accountsEnabled() && <Link href="/import/history" className="mt-2 block text-[14px] text-text-muted underline underline-offset-4">Saved imports and account history</Link>}
         </p>
       </section>
 

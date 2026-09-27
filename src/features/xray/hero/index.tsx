@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Term } from "@/components/shared/term";
 import { formatUSD } from "@/lib/format";
 import { useLevel } from "@/lib/level";
+import { AS_OF } from "@/data/portfolio";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { cn } from "@/lib/utils";
 import type { XrayModel } from "@/lib/xray/types";
@@ -18,7 +19,8 @@ function HeaderStats({ model }: { model: XrayModel }) {
   return (
     <div className="flex flex-wrap gap-x-12 gap-y-6">
       <div>
-        <p className="text-[14px] font-normal text-text">Portfolio value</p>
+        {/* The demo's exposure math uses dated snapshot prices; the header total reprices live, so name the date here. */}
+        <p className="text-[14px] font-normal text-text">{model.mode === "demo" ? `Value at ${AS_OF} snapshot` : "Portfolio value"}</p>
         <p className="display mt-1 text-[28px] leading-none text-text tabular-nums sm:text-[36px]">{formatUSD(total)}</p>
       </div>
       <div>

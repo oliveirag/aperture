@@ -11,14 +11,17 @@ import { ShockModelContext, useShockData } from "@/features/shock/model-context"
 import { useShock } from "@/features/shock/store";
 import { scenarioIn, useShockModel } from "@/features/shock/use-shock-model";
 import { formatSignedPct, formatSignedUSD } from "@/lib/format";
-import { useLevel } from "@/lib/level";
+import { DisclosureSection, SectionControls } from "@/components/shared/disclosure";
+import { Term } from "@/components/shared/term";
+import { usePolicy } from "@/lib/experience/store";
+import { ScenarioCompare } from "@/features/shock/compare";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { buildShockGraph, isSeededEtf, type GraphHolding } from "@/lib/shock/graph";
 import { cn } from "@/lib/utils";
 import type { ScenarioId } from "@/types/demo";
 import { GraphCanvas } from "./graph-canvas";
 import { NotePanel } from "./note-panel";
-import { HOP_MS, useGraphUi } from "./settings";
+import { HOP_MS, useEffectiveGraphSettings } from "./settings";
 import { SettingsPanel } from "./settings-panel";
 import { ShockLog } from "./shock-log";
 import { ShockInput } from "@/features/shock/stage/shock-input";
@@ -50,6 +53,14 @@ export function ShockGraphView() {
       <p className="flex items-center gap-3 text-[18px] font-light text-text-muted" aria-busy="true">
         <LoaderCircle aria-hidden className="size-5 animate-spin text-accent" />
         Building the graph of your holdings…
+      </p>
+    );
+  }
+  if (state.status === "blocked") {
+    return (
+      <p role="status" className="flex items-start gap-3 text-[18px] font-light text-text">
+        <AlertTriangle aria-hidden className="mt-1 size-5 shrink-0 text-sev-medium" />
+        {state.message}
       </p>
     );
   }
@@ -85,11 +96,12 @@ function useGraphHoldings(): GraphHolding[] {
     if (model.mode === "demo" || !imported) {
       return HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, kind: h.type, value: h.value, color: h.color }));
     }
+    // Values at the prices the totals use (live quotes, or the saved snapshot's), not the import-time prices.
     return imported.map((h) => ({
       ticker: h.ticker,
       name: h.name,
       kind: isSeededEtf(h.ticker) ? ("etf" as const) : ("stock" as const),
-      value: h.shares * h.price,
+      value: model.values?.[h.ticker] ?? h.shares * h.price,
       color: model.colors[h.ticker],
     }));
   }, [model, imported]);
@@ -101,16 +113,17 @@ function GraphWorkspace() {
   const severity = useShock((s) => s.severity);
   const setScenario = useShock((s) => s.setScenario);
   const setSeverity = useShock((s) => s.setSeverity);
-  const level = useLevel((s) => s.level);
+  const policy = usePolicy();
   const research = useResearch((s) => s.result);
-  const settings = useGraphUi((s) => s.settings);
+  const settings = useEffectiveGraphSettings();
   const reduce = useReducedMotion() ?? false;
   const holdings = useGraphHoldings();
   const wide = useWide();
 
   const scenario = scenarioIn(model, scenarioId);
   const graph = useMemo(() => buildShockGraph(scenario, holdings, model.total, scenario.id === "researched" ? research?.table : undefined), [scenario, holdings, model.total, research]);
-  const visibleSettings = useMemo(() => ({ ...settings, showSources: level === "advanced" && settings.showSources, showContext: level !== "beginner" && settings.showContext, showUnaffected: level !== "beginner" && settings.showUnaffected, arrows: true }), [settings, level]);
+  // The level sets which filters start on; the filter switches always work.
+  const visibleSettings = useMemo(() => ({ ...settings, arrows: true }), [settings]);
   const totals = useMemo(() => scenarioTotals(scenario, severity, model.total), [scenario, severity, model.total]);
 
   const [runStart, setRunStart] = useState(0);
@@ -290,15 +303,29 @@ function GraphWorkspace() {
       {scenario.notModeled.length > 0 && <section aria-label="Unmodeled holdings" className="border border-border p-5 text-[14px]"><h2 className="font-medium">Unknown exposure</h2><p className="mt-2 text-text-muted">These holdings have no modeled path: {scenario.notModeled.join(", ")}. Their risk is unknown, not zero.</p></section>}
       <p className="text-[13px] text-text-muted">Sources support economic relationships. Equity sensitivities are illustrative assumptions, not measured predictions. Unmodeled holdings and exposures are unknown, not unaffected.</p>
 
-      {level === "beginner" ? (
-        <p className="-mt-4 text-[13px] text-text-muted">
-          The red dot is the shock. Glowing dots are the companies it reaches; the brighter, the bigger the hit. Open a company to inspect its sources. This is an estimate, not a prediction.
-        </p>
-      ) : (
-        <p className="-mt-4 text-[13px] text-text-muted">
-          Drag to pan, scroll to zoom, drag a dot to pull it. Hover to light its neighbours. The gear opens filters and forces.
-        </p>
-      )}
+      <SectionControls
+        id="shock-graph"
+        explain={
+          <p>
+            The red dot is the shock. Glowing dots are the companies it reaches; the brighter, the bigger the hit. Open a company to inspect its
+            sources. A source supports the economic link; the size of each move comes from our <Term term="sensitivity">assumptions</Term>. This
+            is an estimate, not a prediction.
+          </p>
+        }
+        calculation={
+          <p>
+            Effect on a holding = its look-through dollars in each company (or sector remainder) × that company&apos;s assumed return at the base
+            size × (chosen size ÷ base size). Fund sector remainders exclude companies already counted by name. Portfolio effect = sum of holding
+            effects ÷ portfolio value.
+          </p>
+        }
+      />
+      <p className="-mt-4 text-[13px] text-text-muted">
+        Drag to pan, scroll to zoom, drag a dot to pull it. Hover to light its neighbours. The gear opens filters and forces.
+      </p>
+      <DisclosureSection id="shock-compare" title="Compare scenarios" summary="Every scenario side by side, each at its own size." fallback={policy.shock.compare}>
+        <ScenarioCompare />
+      </DisclosureSection>
     </div>
   );
 }

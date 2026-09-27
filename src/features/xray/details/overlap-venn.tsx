@@ -1,6 +1,5 @@
 import { formatPct } from "@/lib/format";
 import type { XOverlap, XrayModel } from "@/lib/xray/types";
-import { cn } from "@/lib/utils";
 import { DetailCard } from "./card";
 
 const R_A = 80;
@@ -57,8 +56,7 @@ function Venn({ o }: { o: XOverlap }) {
 
 export function OverlapVenn({ model }: { model: XrayModel }) {
   const [top, ...rest] = model.overlaps;
-  // Without the performance card (imported portfolios) the overlap card takes the full row.
-  const span = model.mode === "demo" ? "lg:col-span-5" : "lg:col-span-12";
+  const span = "lg:col-span-12";
 
   if (!top) {
     return (
@@ -76,7 +74,7 @@ export function OverlapVenn({ model }: { model: XrayModel }) {
       <p className="mt-1 text-[14px] text-text-muted">
         {top.sharedCompanies} of {top.b}&apos;s {top.bCount} companies are also in {top.a}.
       </p>
-      <div className={cn("mt-4 flex items-center gap-6", model.mode === "live" && "lg:gap-12")}>
+      <div className="mt-4 flex items-center gap-6 lg:gap-12">
         <p className="display text-[48px] leading-none text-text tabular-nums">{formatPct(top.overlap, 0)}</p>
         <Venn o={top} />
       </div>

@@ -5,6 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import { create } from "zustand";
 import { TickerMark } from "@/components/shared/ticker-mark";
 import { formatPct, formatSignedPct } from "@/lib/format";
+import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { useLiveHoldings } from "@/lib/market";
 import type { PerformanceResponse } from "@/lib/performance";
 import { cn } from "@/lib/utils";
@@ -14,11 +15,12 @@ import { PerformanceChart } from "./performance-chart";
 type Entry = { key: string; status: "loading" | "ready" | "error"; data: PerformanceResponse | null; error: string | null };
 
 // Keyed by positions (not prices) so live quote ticks don't refetch; the server caches history for a day anyway.
-const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: { ticker: string; shares: number; price: number }[]) => void }>()(
+// A failed load is not retried automatically (the holdings array is rebuilt on every render); "Try again" retries.
+const usePerformance = create<{ entry: Entry | null; load: (key: string, holdings: { ticker: string; shares: number; price: number }[], force?: boolean) => void }>()(
   (set, get) => ({
     entry: null,
-    load: (key, holdings) => {
-      if (get().entry?.key === key && get().entry?.status !== "error") return;
+    load: (key, holdings, force = false) => {
+      if (get().entry?.key === key && !force) return;
       set({ entry: { key, status: "loading", data: null, error: null } });
       fetch("/api/performance", {
         method: "POST",
@@ -39,7 +41,7 @@ const usePerformance = create<{ entry: Entry | null; load: (key: string, holding
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <DetailCard title="Performance" className="lg:col-span-7">
+    <DetailCard title="Performance" className="lg:col-span-12">
       <div className="mt-5 flex min-h-[200px] items-center text-[15px] leading-6 text-text-muted">{children}</div>
     </DetailCard>
   );
@@ -53,10 +55,12 @@ export function LivePerformance() {
   const entry = usePerformance((s) => s.entry);
   const load = usePerformance((s) => s.load);
 
+  const tooMany = positions.length > MAX_POSITIONS;
   useEffect(() => {
-    if (positions.length) load(key, positions);
-  }, [key, positions, load]);
+    if (positions.length && !tooMany) load(key, positions);
+  }, [key, positions, load, tooMany]);
 
+  if (tooMany) return <Empty>{tooManyPositionsMessage(positions.length, "Performance")}</Empty>;
   const mine = entry?.key === key ? entry : null;
   if (!mine || mine.status === "loading") {
     return (
@@ -71,9 +75,16 @@ export function LivePerformance() {
   if (mine.status === "error" || !mine.data || mine.data.series.length < 2) {
     return (
       <Empty>
-        {mine.status === "error"
-          ? `Price history isn't available right now (${mine.error}).`
-          : "No price history for these positions yet, so there's no chart to draw."}
+        {mine.status === "error" ? (
+          <span className="flex flex-wrap items-center gap-3">
+            Price history isn&apos;t available right now ({mine.error}).
+            <button type="button" onClick={() => load(key, positions, true)} className="text-text underline underline-offset-4">
+              Try again
+            </button>
+          </span>
+        ) : (
+          "No price history for these positions yet, so there's no chart to draw."
+        )}
       </Empty>
     );
   }

@@ -3,7 +3,7 @@ import { geminiConfigured, generateGrounded, generateJson } from "@/lib/gemini";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildLiveScenario } from "@/lib/shock/live";
 import { DRIVER_IDS, DRIVERS, knownPlan, planFromProposal, REFERENCES, researchScenario, portfolioKey, type ResearchEvidence, type ResearchPlan, type ResearchResult } from "@/lib/shock/research-model";
-import { apertureInputs, modelFor, parseHoldings, MAX_POSITIONS } from "@/lib/xray/live";
+import { apertureInputs, applySuppliedPrices, modelFor, parseHoldings, MAX_POSITIONS } from "@/lib/xray/live";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -88,12 +88,8 @@ export async function POST(request: Request) {
       evidence = [reference];
     }
     const { base, table, assumption, sensitivities } = researchScenario(plan, evidence);
-    const inputs = await apertureInputs(holdings);
     // Use the same valuation snapshot as the portfolio being displayed, never mix fresh and old totals.
-    for (const input of inputs) {
-      const supplied = holdings.get(input.ticker)?.price;
-      if (supplied && Number.isFinite(supplied)) input.price = supplied;
-    }
+    const inputs = applySuppliedPrices(await apertureInputs(holdings), holdings);
     if (inputs.some(p => !(p.price > 0))) return Response.json({ error: "Some holdings have no price. Complete portfolio pricing before running a scenario." }, { status: 422 });
     const model = await modelFor(inputs);
     if (!model) return Response.json({ error: "No portfolio valuations available." }, { status: 422 });

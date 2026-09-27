@@ -5,6 +5,8 @@ import { create } from "zustand";
 import type { ShockResponse } from "@/app/api/shock/route";
 import { HOLDINGS, PORTFOLIO_TOTAL } from "@/data/portfolio";
 import { SCENARIOS } from "@/data/shock";
+import { useSnapshot, useSnapshots } from "@/lib/imports/snapshot-store";
+import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import type { NotModeled } from "@/lib/shock/live";
 import type { ScenarioId, ShockScenario } from "@/types/demo";
@@ -21,6 +23,8 @@ export type ShockModel = {
   // Live only: holdings without a modeled path (with their weight), and the share of money that has one.
   notModeled: Partial<Record<ScenarioId, NotModeled[]>>;
   modeledShare: Partial<Record<ScenarioId, number>>;
+  // Live only: each position's value at the prices the totals use, so the graph and the totals agree.
+  values?: Record<string, number>;
 };
 
 const DEMO_MODEL: ShockModel = {
@@ -37,17 +41,17 @@ const keyOf = (holdings: ImportedHolding[]) => JSON.stringify(holdings.map((h) =
 
 type Entry = { key: string; status: "loading" | "ready" | "error"; model: ShockModel | null; error: string | null };
 
-const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHolding[], force?: boolean) => void }>()((set, get) => ({
+const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHolding[], priceMode: "live" | "supplied", force?: boolean) => void }>()((set, get) => ({
   entry: null,
-  load: (holdings, force = false) => {
-    const key = keyOf(holdings);
+  load: (holdings, priceMode, force = false) => {
+    const key = `${priceMode}:${keyOf(holdings)}`;
     const current = get().entry;
     if (!force && current?.key === key && current.status !== "error") return;
     set({ entry: { key, status: "loading", model: null, error: null } });
     fetch("/api/shock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ holdings: holdings.map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name })) }),
+      body: JSON.stringify({ holdings: holdings.map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name })), priceMode }),
     })
       .then(async (res) => {
         const data = (await res.json().catch(() => ({}))) as ShockResponse & { error?: string };
@@ -60,6 +64,7 @@ const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHold
           scenarios: data.scenarios.map((s) => s.scenario),
           notModeled: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.notModeled])),
           modeledShare: Object.fromEntries(data.scenarios.map((s) => [s.scenario.id, s.modeledShare])),
+          values: data.values,
         };
         if (get().entry?.key === key) set({ entry: { key, status: "ready", model, error: null } });
       })
@@ -73,12 +78,18 @@ const useLiveShock = create<{ entry: Entry | null; load: (holdings: ImportedHold
 export type ShockModelState =
   | { status: "ready"; model: ShockModel }
   | { status: "loading" }
-  | { status: "error"; error: string; retry: () => void };
+  | { status: "error"; error: string; retry: () => void }
+  // Nothing to retry: the portfolio is outside what the Shock Test can price (see lib/limits.ts).
+  | { status: "blocked"; message: string };
 
 export function useShockModel(): ShockModelState {
   useHydratePortfolio();
   const hydrated = usePortfolio((s) => s.hydrated);
   const imported = usePortfolio((s) => s.imported);
+  // A saved snapshot keeps its own valuation, so the Shock Test uses the same values as its X-Ray.
+  const priceMode = useSnapshot() ? "supplied" : "live";
+  const snapshotReady = useSnapshots((s) => s.hydrated);
+  const tooMany = (imported?.length ?? 0) > MAX_POSITIONS;
   const entry = useLiveShock((s) => s.entry);
   const load = useLiveShock((s) => s.load);
   const research = useResearch((s) => s.result);
@@ -90,14 +101,15 @@ export function useShockModel(): ShockModelState {
   };
 
   useEffect(() => {
-    if (hydrated && imported) load(imported);
-  }, [hydrated, imported, load]);
+    if (hydrated && snapshotReady && imported && !tooMany) load(imported, priceMode);
+  }, [hydrated, snapshotReady, imported, load, priceMode, tooMany]);
 
-  if (!hydrated) return { status: "loading" };
+  if (!hydrated || (imported && !snapshotReady)) return { status: "loading" };
   if (!imported) return { status: "ready", model: addResearch(DEMO_MODEL) };
-  const mine = entry?.key === keyOf(imported) ? entry : null;
+  if (tooMany) return { status: "blocked", message: tooManyPositionsMessage(imported.length, "The Shock Test") };
+  const mine = entry?.key === `${priceMode}:${keyOf(imported)}` ? entry : null;
   if (mine?.status === "ready" && mine.model) return { status: "ready", model: addResearch(mine.model) };
-  if (mine?.status === "error") return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, true) };
+  if (mine?.status === "error") return { status: "error", error: mine.error ?? "Shock Test failed", retry: () => load(imported, priceMode, true) };
   return { status: "loading" };
 }
 

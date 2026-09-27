@@ -151,7 +151,7 @@ export function useLiveIc() {
           } else if (e.type === "memo") {
             finished = true;
             update((s) => {
-              const data = { ...s.data, memo: { ...s.data.memo, ...e.memo } };
+              const data = { ...s.data, memo: { ...s.data.memo, ...e.memo }, runId: e.runId, models: e.models };
               useIcMemos.getState().add({ ticker: data.ticker.ticker, date: data.date, memo: data.memo });
               return { ...s, status: "done", data, at: { ...s.at, ...arrived("memo") } };
             });

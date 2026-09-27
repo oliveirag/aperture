@@ -4,15 +4,25 @@ import type { Source } from "@/types/demo";
 export const STANCES = ["Worth deeper research", "Neutral", "Proceed with caution"] as const;
 export type Stance = (typeof STANCES)[number];
 
+// One cited statement the chair relies on. Every level's summary must state all material claims, so a Beginner and an
+// Advanced reader see the same material points at different depth.
+export type MemoClaim = { id: string; text: string; refs: string[]; kind: "fact" | "calculation" | "assumption" | "interpretation"; material: boolean };
+
 export interface IcMemo {
   stance: Stance;
   summary: Record<IcLevel, string>;
+  // "template": the model's summary for that level failed a check and was replaced by the cited claims.
+  summarySource?: Record<IcLevel, "model" | "template">;
+  claims?: MemoClaim[];
   bull: MemoPoint[];
   bear: MemoPoint[];
-  keyRisks: string[];
-  watch: string[];
+  keyRisks: MemoPoint[];
+  watch: MemoPoint[];
   chairNote: string;
 }
+
+// Which model produced each step of a run (models are raced, so this varies between runs).
+export type RunModels = Partial<Record<"assumptions" | "bull" | "bear" | "chair", string>>;
 
 // Everything the IC Room stage and memo draw. The scripted AMD demo and a live run share this shape.
 export interface IcRunData {
@@ -28,6 +38,9 @@ export interface IcRunData {
   memo: IcMemo;
   fit: FitRow[];
   fitNote: string;
+  // Live runs only: the run's id (inputs hashed with the day) and the models used.
+  runId?: string;
+  models?: RunModels;
 }
 
 // NDJSON lines streamed by POST /api/ic/run, in order: steps, facts, assumptions, bull, bear, memo.
@@ -37,5 +50,5 @@ export type IcEvent =
   | { type: "assumptions"; assumptions: Assumption[] }
   | { type: "bull"; statement: string; points: MemoPoint[] }
   | { type: "bear"; statement: string; points: MemoPoint[] }
-  | { type: "memo"; memo: Omit<IcMemo, "bull" | "bear">; runId: string }
+  | { type: "memo"; memo: Omit<IcMemo, "bull" | "bear">; runId: string; models?: RunModels }
   | { type: "error"; error: string };

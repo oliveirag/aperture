@@ -52,7 +52,7 @@ const edgeIds = new Set(s.edges.map((e) => e.id));
 for (const i of s.impacts) for (const id of i.pathEdgeIds) assert.ok(edgeIds.has(id), `${i.ticker} path ${id}`);
 const nodeIds = new Set(s.nodes.map((n) => n.id));
 for (const e of s.edges) assert.ok(nodeIds.has(e.from) && nodeIds.has(e.to), e.id);
-assert.ok(s.sources.find((x) => x.id === "s-voo-holdings")!.issuer === "Alpha Vantage", "live ETF source wins over the demo canon");
+assert.match(s.sources.find((x) => x.id === "s-voo-holdings")!.issuer, /^Alpha Vantage/, "live ETF source wins over the demo canon");
 assert.match(s.headline.advanced, /3 modeled holdings.*2 holdings have no modeled path/);
 
 // AI capex: NVDA inside VOO and QQQ, MSFT direct.

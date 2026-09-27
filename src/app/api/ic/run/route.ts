@@ -1,5 +1,5 @@
 import { geminiConfigured } from "@/lib/gemini";
-import { auditFor, RunError, runCommittee } from "@/lib/ic/run";
+import { RunError, runCommittee } from "@/lib/ic/run";
 import type { IcEvent } from "@/lib/ic/types";
 import { MAX_POSITIONS, parseHoldings } from "@/lib/xray/live";
 import { rateLimit } from "@/lib/rate-limit";
@@ -50,12 +50,4 @@ export async function POST(request: Request) {
     },
   });
   return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" } });
-}
-
-// Audit trail: GET /api/ic/run?id=<runId> returns the inputs, fact pack and output of a cached run.
-export async function GET(request: Request) {
-  const id = new URL(request.url).searchParams.get("id") ?? "";
-  const record = /^[0-9a-f]{16}$/.test(id) ? await auditFor(id) : null;
-  if (!record) return fail("Run not found (runs are kept for a day)", 404);
-  return Response.json(record);
 }

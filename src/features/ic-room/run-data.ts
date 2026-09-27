@@ -33,8 +33,9 @@ export const DEMO_RUN: IcRunData = {
     summary: MEMO.summary,
     bull: [...MEMO.bull],
     bear: [...MEMO.bear],
-    keyRisks: [...MEMO.keyRisks],
-    watch: [...MEMO.watch],
+    // The scripted replay's risks and watch items are illustrative and uncited.
+    keyRisks: MEMO.keyRisks.map((text) => ({ text, refs: [] })),
+    watch: MEMO.watch.map((text) => ({ text, refs: [] })),
     chairNote: MEMO.chairNote,
   },
   fit: PORTFOLIO_FIT,

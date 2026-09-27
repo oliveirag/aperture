@@ -4,17 +4,23 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowUpRight, CircleCheck, LoaderCircle, RotateCcw } from "lucide-react";
 import { formatSourceDate } from "@/components/shared/source-drawer";
 import { TickerMark } from "@/components/shared/ticker-mark";
-import type { Severity } from "@/data/radar";
-import { useLevel, type Level } from "@/lib/level";
-import type { ImportedHolding } from "@/lib/portfolio-store";
+import { ShowMore } from "@/components/shared/disclosure";
+import { useDisclosure } from "@/lib/experience/disclosure";
+import { isNewFiling, positionsKey, useLastSeen } from "@/lib/experience/last-seen";
+import type { Level } from "@/lib/experience/policy";
+import { usePolicy } from "@/lib/experience/store";
+import { usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import type { RadarFiling } from "@/lib/radar/types";
 import type { XrayModel } from "@/lib/xray/types";
 import { CoverageRail } from "./coverage-rail";
 import { RadarHeader } from "./header";
-import { coveredCompanies, highExposure, liveHeadline, sortCards, toCard, type Covered } from "./live-model";
+import { coveredCompanies, highExposure, liveHeadline, MAX_COVERED, sortCards, toCard, uncoveredCompanies, type Covered } from "./live-model";
 import { RadarCard } from "./radar-card";
 import { SeverityFilter, type FilterValue } from "./severity-filter";
+import { feedView } from "./view";
 import { useLiveRadar, type LiveEntry } from "./use-live-radar";
+
+const filingId = (f: RadarFiling) => `${f.filingType}:${f.filedAt}`;
 
 function formatChecked(iso: string | null) {
   if (!iso) return "not yet";
@@ -81,21 +87,22 @@ function Quiet({ company, filing }: { company: Covered; filing: RadarFiling }) {
   );
 }
 
-function defaultExpanded(level: Level, ids: string[]) {
-  if (level === "advanced") return ids;
-  if (level === "intermediate") return ids.slice(0, 1);
-  return [];
-}
-
 // Filing Radar for an imported or practice portfolio: real SEC filings, compared by Gemini, quotes verified server-side.
 export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: ImportedHolding[] }) {
-  const level = useLevel((s) => s.level);
+  const policy = usePolicy();
+  const level = policy.level;
   const entries = useLiveRadar((s) => s.entries);
   const load = useLiveRadar((s) => s.load);
   const covered = useMemo(() => coveredCompanies(model, holdings), [model, holdings]);
+  const uncovered = useMemo(() => uncoveredCompanies(model, holdings), [model, holdings]);
   const [filter, setFilter] = useState<FilterValue>("all");
   const [toggled, setToggled] = useState<{ level: Level; ids: string[] } | null>(null);
+  const [showLow, setShowLow] = useDisclosure("radar-low", policy.radar.lowSeverity);
   const [rechecked, setRechecked] = useState(false);
+  const seenKey = positionsKey(usePortfolio((s) => s.imported));
+  const seen = useLastSeen((s) => s.portfolios[seenKey]);
+  const markReviewed = useLastSeen((s) => s.markReviewed);
+  const noteFiling = useLastSeen((s) => s.noteFiling);
 
   const tickers = useMemo(() => covered.map((c) => c.ticker), [covered]);
   useEffect(() => {
@@ -105,10 +112,17 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
   const rows = covered.map((company) => ({ company, entry: entries[company.ticker] as LiveEntry | undefined }));
   const shownFiling = (e: LiveEntry | undefined) => (e?.status === "ready" ? e.filing : e?.status === "loading" ? e.previous : undefined);
 
+  // The first filing seen for each company is the baseline for "new since your last visit".
+  useEffect(() => {
+    for (const [ticker, e] of Object.entries(entries)) if (e.status === "ready") noteFiling(seenKey, ticker, filingId(e.filing));
+  }, [entries, seenKey, noteFiling]);
+
   const allCards = sortCards(
     rows.flatMap(({ company, entry }) => {
       const filing = shownFiling(entry);
-      return filing && filing.severity ? [{ ...toCard(filing, company), refreshing: entry?.status === "loading" }] : [];
+      return filing && filing.severity
+        ? [{ ...toCard(filing, company), refreshing: entry?.status === "loading", isNew: isNewFiling(seen, filing.ticker, filingId(filing)), filingKey: filingId(filing) }]
+        : [];
     }),
   );
   const quiet = rows.flatMap(({ company, entry }) => {
@@ -121,20 +135,19 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
   const checking = rows.some(({ entry }) => !entry || entry.status === "loading");
   const filingsReviewed = allCards.length + quiet.length;
 
-  // Beginners see high and medium only.
-  const pool = allCards.filter((c) => level !== "beginner" || c.severity !== "low");
-  const counts: Partial<Record<Severity, number>> = {};
-  for (const c of pool) counts[c.severity] = (counts[c.severity] ?? 0) + 1;
+  // Counts cover every filing; a level can only fold lower-severity cards behind a counted row.
+  const feed = feedView(allCards, policy, showLow || filter === "low");
+  const counts = feed.counts;
   const activeFilter: FilterValue = filter !== "all" && !counts[filter] ? "all" : filter;
-  const cards = pool.filter((c) => activeFilter === "all" || c.severity === activeFilter);
+  const cards = feed.visible.filter((c) => activeFilter === "all" || c.severity === activeFilter);
   const options: { value: FilterValue; label: string; count: number }[] = [
-    { value: "all", label: "All", count: pool.length },
+    { value: "all", label: "All", count: allCards.length },
     ...(["high", "medium", "low"] as const)
       .filter((s) => counts[s])
       .map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), count: counts[s] ?? 0 })),
   ];
 
-  const expandedIds = toggled?.level === level ? toggled.ids : defaultExpanded(level, pool.map((c) => c.id));
+  const expandedIds = toggled?.level === level ? toggled.ids : feed.expanded;
   const toggle = (id: string) =>
     setToggled({ level, ids: expandedIds.includes(id) ? expandedIds.filter((x) => x !== id) : [...expandedIds, id] });
 
@@ -162,7 +175,7 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
 
       <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,760px)_280px] xl:justify-between">
         <section aria-label="Filing changes" className="flex min-w-0 flex-col gap-4">
-          {pool.length > 0 ? <SeverityFilter options={options} value={activeFilter} onChange={setFilter} /> : null}
+          {allCards.length > 0 ? <SeverityFilter options={options} value={activeFilter} onChange={setFilter} /> : null}
 
           <div className="flex flex-col gap-4">
             {cards.map((card, i) => (
@@ -174,8 +187,18 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
                 onToggle={() => toggle(card.id)}
                 onRefresh={() => load([card.ticker], { fresh: true })}
                 refreshing={card.refreshing}
+                isNew={card.isNew && policy.radar.changes === "open"}
+                onReviewed={() => markReviewed(seenKey, card.ticker, card.filingKey)}
               />
             ))}
+            {feed.collapsed.length > 0 && activeFilter === "all" ? (
+              <div className="flex items-center justify-between gap-3 bg-surface-1 px-5 py-4 text-[14px] text-text-muted">
+                <span>
+                  {feed.collapsed.length} lower-severity {feed.collapsed.length === 1 ? "change" : "changes"} ({feed.collapsed.map((c) => c.company).join(", ")})
+                </span>
+                <ShowMore open={false} onToggle={() => setShowLow(true)} more="Show" />
+              </div>
+            ) : null}
             <div role="status" aria-live="polite" className="flex flex-col gap-4">
               {pending.map(({ company, entry }) => (
                 <Pending key={company.ticker} company={company} message={entry?.status === "loading" ? entry.message : "Waiting for SEC EDGAR"} />
@@ -208,7 +231,7 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
           lastChecked={formatChecked(lastChecked)}
           checkedMessage="Checked SEC EDGAR for newer filings."
         >
-          {unsupported.length > 0 ? (
+          {unsupported.length > 0 || uncovered.length > 0 ? (
             <div className="text-[12px] leading-5 text-text-subtle">
               <p className="font-medium text-text-muted">Not covered</p>
               <ul className="mt-1 flex flex-col gap-1">
@@ -217,6 +240,11 @@ export function LiveRadar({ model, holdings }: { model: XrayModel; holdings: Imp
                     <span className="text-text-muted">{company.ticker}</span> · {reason}
                   </li>
                 ))}
+                {uncovered.length > 0 ? (
+                  <li>
+                    <span className="text-text-muted">{uncovered.map((c) => c.ticker).join(", ")}</span> · beyond the {MAX_COVERED} largest companies Radar reads
+                  </li>
+                ) : null}
               </ul>
             </div>
           ) : null}

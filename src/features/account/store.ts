@@ -2,7 +2,8 @@
 
 import { create } from "zustand";
 import { deletePortfolio, listPortfolios, loadLevel, samePositions, savePortfolio, saveLevel, type SavedPortfolio } from "@/lib/accounts";
-import { useLevel } from "@/lib/level";
+import { resolveLevel } from "@/lib/experience/resolve";
+import { useExperience } from "@/lib/experience/store";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { supabase } from "@/lib/supabase";
 import { cancelImportDrafts } from "@/lib/imports/client";
@@ -56,6 +57,7 @@ export const useAccount = create<AccountState>()((set, get) => ({
     try { await cancelImportDrafts(); }
     catch (error) { set({error:message(error)}); return; }
     await supabase()?.auth.signOut();
+    // The device keeps its level (a preference); account-scoped work is cleared by the scope sync when userId changes.
     useSnapshots.setState({snapshot:null});
     set({ status: "signed-out", email: null, userId: null, saved: [], offerSave: false });
   },
@@ -96,9 +98,15 @@ async function onSignedIn(userId: string, email: string | null) {
   if (!db) return;
   useAccount.setState({ status: "signed-in", userId, email, error: null });
   try {
-    const [level, saved] = await Promise.all([loadLevel(db), listPortfolios(db)]);
-    if (level) useLevel.getState().setLevel(level);
-    else await saveLevel(db, userId, useLevel.getState().level);
+    const [profile, saved] = await Promise.all([loadLevel(db), listPortfolios(db)]);
+    const local = useExperience.getState();
+    const resolved = resolveLevel({ level: local.level, chosenAt: local.chosenAt }, profile);
+    if (resolved.level !== local.level) {
+      adopting = true;
+      useExperience.getState().adoptLevel(resolved.level, profile.updatedAt);
+      adopting = false;
+    }
+    if (resolved.writeProfile) await persistLevel(db, userId);
     const session = usePortfolio.getState();
     if (!session.imported && !session.stashed && saved[0]) session.setImported(saved[0].holdings, saved[0].kind);
     useAccount.setState({ saved, offerSave: unsavedPortfolio(saved) !== null });
@@ -107,7 +115,23 @@ async function onSignedIn(userId: string, email: string | null) {
   }
 }
 
+// Saves the device's current level to the profile, retrying once; a second failure shows a quiet notice.
+async function persistLevel(db: NonNullable<ReturnType<typeof supabase>>, userId: string) {
+  const { level, chosenAt } = useExperience.getState();
+  try {
+    await saveLevel(db, userId, level, chosenAt);
+  } catch {
+    try {
+      await saveLevel(db, userId, level, chosenAt);
+    } catch (err) {
+      useAccount.setState({ error: `Couldn't save your experience level to your account (${message(err)}). It's still saved on this device.` });
+    }
+  }
+}
+
 let started = false;
+// True while the account's saved level is being adopted, so that change isn't written straight back.
+let adopting = false;
 
 // Called once on the client. Never throws: a misconfigured project leaves accounts off and the demo untouched.
 export function startAccounts() {
@@ -127,6 +151,16 @@ export function startAccounts() {
         resolve();
       });
     });
+  // The device's saved level must be loaded before it's compared with the account's.
+  const experienceReady = () =>
+    new Promise<void>((resolve) => {
+      if (useExperience.getState().hydrated) return resolve();
+      const unsub = useExperience.subscribe((s) => {
+        if (!s.hydrated) return;
+        unsub();
+        resolve();
+      });
+    });
   let current: string | null = null;
   db.auth.onAuthStateChange((_event, session) => {
     const user = session?.user ?? null;
@@ -137,13 +171,14 @@ export function startAccounts() {
       return;
     }
     // Supabase runs this callback under its auth lock; do the follow-up work outside it.
-    setTimeout(() => portfolioReady().then(() => onSignedIn(user.id, user.email ?? null)), 0);
+    setTimeout(() => Promise.all([portfolioReady(), experienceReady()]).then(() => onSignedIn(user.id, user.email ?? null)), 0);
   });
   // Keep the saved level in step with the level switcher.
-  useLevel.subscribe((s, prev) => {
+  useExperience.subscribe((s, prev) => {
     const { status, userId } = useAccount.getState();
-    if (s.level === prev.level || status !== "signed-in" || !userId) return;
-    saveLevel(db, userId, s.level).catch(() => {});
+    // Only explicit choices are written; adopting the saved level or rehydrating doesn't change chosenAt.
+    if (adopting || s.chosenAt === prev.chosenAt || !s.hydrated || status !== "signed-in" || !userId) return;
+    void persistLevel(db, userId);
   });
   // A new import or practice portfolio in this session: offer to save it.
   usePortfolio.subscribe((s, prev) => {

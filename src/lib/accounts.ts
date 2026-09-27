@@ -18,15 +18,34 @@ type Row = {
 const toKind = (k: Row["kind"]): PortfolioKind => (k === "practice" ? "practice" : "imported");
 const fromKind = (k: PortfolioKind) => (k === "practice" ? "practice" : "real");
 
-export async function loadLevel(db: SupabaseClient): Promise<Level | null> {
+export type SavedLevel = { level: Level | null; updatedAt: string | null };
+
+// Postgres "undefined column" (select) or PostgREST "column not in schema cache" (write): the experience migration
+// isn't applied yet, so fall back to the original columns.
+const missingColumn = (e: { code?: string } | null) => e?.code === "42703" || e?.code === "PGRST204";
+
+export async function loadLevel(db: SupabaseClient): Promise<SavedLevel> {
+  const first = await db.from("profiles").select("experience_level, experience_level_updated_at").maybeSingle();
+  if (!first.error) {
+    const row = first.data as { experience_level: Level | null; experience_level_updated_at: string | null } | null;
+    return { level: row?.experience_level ?? null, updatedAt: row?.experience_level_updated_at ?? null };
+  }
+  if (!missingColumn(first.error)) throw first.error;
   const { data, error } = await db.from("profiles").select("experience_level").maybeSingle();
   if (error) throw error;
-  return (data?.experience_level as Level | null) ?? null;
+  return { level: (data?.experience_level as Level | null) ?? null, updatedAt: null };
 }
 
-export async function saveLevel(db: SupabaseClient, userId: string, level: Level) {
-  const { error } = await db.from("profiles").upsert({ id: userId, experience_level: level, updated_at: new Date().toISOString() });
-  if (error) throw error;
+// `chosenAt` is when the user picked the level, so a slower write from another tab can't overwrite a newer choice
+// (the experience migration's trigger keeps the newest).
+export async function saveLevel(db: SupabaseClient, userId: string, level: Level, chosenAt: string | null) {
+  const now = new Date().toISOString();
+  const row = { id: userId, experience_level: level, updated_at: now, experience_level_updated_at: chosenAt ?? now };
+  const { error } = await db.from("profiles").upsert(row);
+  if (!error) return;
+  if (!missingColumn(error)) throw error;
+  const { error: legacy } = await db.from("profiles").upsert({ id: userId, experience_level: level, updated_at: now });
+  if (legacy) throw legacy;
 }
 
 export async function listPortfolios(db: SupabaseClient): Promise<SavedPortfolio[]> {

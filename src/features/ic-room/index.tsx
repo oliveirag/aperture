@@ -5,6 +5,7 @@ import { useReducedMotion } from "motion/react";
 import { PageHeader } from "@/components/shared/page-header";
 import { HOLDINGS } from "@/data/portfolio";
 import { IC_AMOUNT, IC_THESIS, IC_TICKER } from "@/data/ic-room";
+import { MAX_POSITIONS, tooManyPositionsMessage } from "@/lib/limits";
 import { useHydratePortfolio, usePortfolio } from "@/lib/portfolio-store";
 import { Composer, type IdeaForm } from "./composer";
 import { InstantContext } from "./enter";
@@ -27,6 +28,7 @@ export function IcRoom() {
   const live = useLiveIc();
   const [form, setForm] = useState<IdeaForm>(DEMO_FORM);
   const [mode, setMode] = useState<"demo" | "live">("demo");
+  const [blocked, setBlocked] = useState<string | null>(null);
   const reduce = useReducedMotion();
   const memoRef = useRef<HTMLElement>(null);
 
@@ -34,13 +36,20 @@ export function IcRoom() {
     mode === "demo"
       ? { data: DEMO_RUN, frame: demo.t === null ? null : frameAt(demo.t), status: demo.status, instant: demo.instant, elapsed: demo.t ?? 0, skip: demo.skip }
       : { data: live.state?.data ?? DEMO_RUN, frame: live.frame, status: live.status, instant: live.instant, elapsed: live.elapsed, skip: live.skip };
-  const failed = mode === "live" && live.state?.status === "error" ? live.state.error : null;
+  const failed = blocked ?? (mode === "live" && live.state?.status === "error" ? live.state.error : null);
   const memoShown = active.frame?.memo ?? false;
   const debateShown = active.frame?.debate ?? false;
 
   function run() {
     setMode("live");
     const holdings = (imported ?? HOLDINGS).map(({ ticker, shares, price, name }) => ({ ticker, shares, price, name }));
+    // The portfolio-fit step prices every position; say so up front instead of failing mid-run.
+    if (holdings.length > MAX_POSITIONS) {
+      live.reset();
+      setBlocked(tooManyPositionsMessage(holdings.length, "The IC Room's portfolio fit"));
+      return;
+    }
+    setBlocked(null);
     live.run({ ticker: form.ticker, thesis: form.thesis.trim(), amount: form.amount, holdings });
   }
 
@@ -70,7 +79,7 @@ export function IcRoom() {
         headline="Pressure-test an idea before you buy it."
         subline="IC means investment committee. Research a thesis with a bull case, a bear case, source evidence, and the effect on your portfolio."
       />
-      <div className="flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{mode === "demo" && active.status !== "idle" ? "Illustrative AMD replay. Sample claims are not current research." : "New runs retrieve source facts for your thesis. Bull and bear arguments are interpretations, not verified facts or predictions."}</span><button type="button" className="underline underline-offset-4" onClick={() => { live.reset(); setMode("demo"); demo.run(); }}>Replay labeled AMD example</button></div>
+      <div className="flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{mode === "demo" && active.status !== "idle" ? "Illustrative AMD replay. Sample claims are not current research." : "New runs retrieve source facts for your thesis. Bull and bear arguments are interpretations, not verified facts or predictions."}</span><button type="button" className="underline underline-offset-4" onClick={() => { live.reset(); setBlocked(null); setMode("demo"); demo.run(); }}>Replay labeled AMD example</button></div>
 
       <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[340px_minmax(0,1fr)]">
         <aside aria-label="Idea" className="min-w-0 lg:sticky lg:top-24">

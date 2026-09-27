@@ -7,7 +7,7 @@ import { apertureInputs, modelFor, type PositionInput } from "@/lib/xray/live";
 import { argue, chair, testAssumptions, type Context } from "./committee";
 import { buildFactPack, factSteps, type Fact } from "./facts";
 import { computeFit, exposureNote, FIT_NOTE, withPosition } from "./fit";
-import type { IcEvent } from "./types";
+import type { IcEvent, RunModels } from "./types";
 
 const HOUR = 60 * 60 * 1000;
 const RUN_TTL = 24 * HOUR;
@@ -16,16 +16,13 @@ export const FIT_STEP = "Checking your look-through exposure";
 
 export type RunInput = { ticker: string; thesis: string; amount: number; holdings: Map<string, PositionInput> };
 // The portfolio itself is not stored: the run id hashes it, and the fit rows in `events` carry what the memo used.
+// Records are server-side only (replayed for an identical run the same day); there is no unauthenticated read route.
 export type AuditRecord = { runId: string; createdAt: string; input: { ticker: string; thesis: string; amount: number }; facts: Fact[]; events: IcEvent[] };
 
 export function runIdFor(input: RunInput) {
   const day = new Date().toISOString().slice(0, 10);
   const holdings = [...input.holdings].sort(([a], [b]) => a.localeCompare(b)).map(([t, h]) => [t, h.shares]);
   return createHash("sha256").update(JSON.stringify([input.ticker, input.thesis.trim(), input.amount, day, holdings])).digest("hex").slice(0, 16);
-}
-
-export async function auditFor(runId: string) {
-  return (await recall<AuditRecord>(`ic:audit:${runId}`)) ?? null;
 }
 
 async function portfolioFit(input: RunInput, name: string) {
@@ -55,7 +52,7 @@ function toSource(f: Fact) {
 // Streams a run. A cached run replays its events at once, so the AMD-style instant replay works for any ticker.
 export async function runCommittee(input: RunInput, send: (e: IcEvent) => void): Promise<void> {
   const runId = runIdFor(input);
-  const cached = await recall<AuditRecord>(`ic:audit:${runId}`);
+  const cached = await recall<AuditRecord>(`ic:audit:v2:${runId}`);
   if (cached) {
     cached.events.forEach(send);
     return;
@@ -103,7 +100,7 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
   const ctx: Context = { ticker: input.ticker, name, thesis: input.thesis.trim(), amount: input.amount, facts: pack.facts, fit: fit.fit };
   const assumptions = testAssumptions(ctx).catch((err) => {
     console.error("[ic] assumptions failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
-    return [];
+    return { assumptions: [], model: undefined };
   });
   const bull = argue("bull", ctx);
   const bear = argue("bear", ctx);
@@ -113,20 +110,22 @@ export async function runCommittee(input: RunInput, send: (e: IcEvent) => void):
 
   try {
     const a = await assumptions;
-    emit({ type: "assumptions", assumptions: a });
+    emit({ type: "assumptions", assumptions: a.assumptions });
     const b = await bull;
     emit({ type: "bull", statement: b.statement, points: b.points });
     const r = await bear;
     emit({ type: "bear", statement: r.statement, points: r.points });
-    const m = await chair(ctx, b, r, a);
-    emit({ type: "memo", memo: m, runId });
+    const { model, ...m } = await chair(ctx, b, r, a.assumptions);
+    // Models are raced, so the run record names which one wrote each step.
+    const models: RunModels = { assumptions: a.model, bull: b.model, bear: r.model, chair: model };
+    emit({ type: "memo", memo: m, runId, models });
   } catch (err) {
     console.error("[ic] committee failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
     throw new RunError("The committee couldn't meet: Gemini is busy right now. Try again in a moment.");
   }
 
   put<AuditRecord>(
-    `ic:audit:${runId}`,
+    `ic:audit:v2:${runId}`,
     {
       runId,
       createdAt: new Date().toISOString(),

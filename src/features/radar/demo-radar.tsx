@@ -2,49 +2,46 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { HIGH_SEVERITY_EXPOSURE, RADAR_CARDS, RADAR_HEADLINE, RADAR_LAST_CHECKED, type Severity } from "@/data/radar";
-import { useLevel, type Level } from "@/lib/level";
+import { HIGH_SEVERITY_EXPOSURE, RADAR_CARDS, RADAR_HEADLINE, RADAR_LAST_CHECKED } from "@/data/radar";
+import { ShowMore } from "@/components/shared/disclosure";
+import { useDisclosure } from "@/lib/experience/disclosure";
+import { usePolicy } from "@/lib/experience/store";
 import { cn } from "@/lib/utils";
 import { CoverageRail } from "./coverage-rail";
 import { RadarHeader } from "./header";
 import { RadarCard } from "./radar-card";
 import { SeverityFilter, type FilterValue } from "./severity-filter";
+import { feedView } from "./view";
 
 const RECHECK_MS = 1200;
 
-function defaultExpanded(level: Level): string[] {
-  if (level === "advanced") return RADAR_CARDS.map((c) => c.id);
-  if (level === "intermediate") return [RADAR_CARDS[0].id];
-  return [];
-}
-
 // The curated demo portfolio's Radar: four hand-checked cards (canon, see scripts/check-canon.ts).
 export function DemoRadar() {
-  const level = useLevel((s) => s.level);
+  const policy = usePolicy();
+  const level = policy.level;
   const reduce = useReducedMotion();
   const [filter, setFilter] = useState<FilterValue>("all");
-  const [expanded, setExpanded] = useState(() => ({ level, ids: defaultExpanded(level) }));
+  const [showLow, setShowLow] = useDisclosure("radar-low", policy.radar.lowSeverity);
+  const feed = feedView(RADAR_CARDS, policy, showLow || filter === "low");
+  const [expanded, setExpanded] = useState(() => ({ level, ids: feed.expanded }));
   const [checking, setChecking] = useState(false);
   const [checked, setChecked] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Each level has its own reading depth: re-apply the default expansion when the level changes.
-  if (expanded.level !== level) setExpanded({ level, ids: defaultExpanded(level) });
+  if (expanded.level !== level) setExpanded({ level, ids: feed.expanded });
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
-  // Beginners see high and medium only.
-  const pool = RADAR_CARDS.filter((c) => level !== "beginner" || c.severity !== "low");
-  const counts: Partial<Record<Severity, number>> = {};
-  for (const c of pool) counts[c.severity] = (counts[c.severity] ?? 0) + 1;
-
+  // Counts always cover all four filings; Beginner folds the low-severity one behind a counted row.
+  const counts = feed.counts;
   const activeFilter: FilterValue = filter !== "all" && !counts[filter] ? "all" : filter;
-  const cards = pool.filter((c) => activeFilter === "all" || c.severity === activeFilter);
+  const cards = feed.visible.filter((c) => activeFilter === "all" || c.severity === activeFilter);
 
   const options: { value: FilterValue; label: string; count: number }[] = [
-    { value: "all", label: "All", count: pool.length },
+    { value: "all", label: "All", count: RADAR_CARDS.length },
     ...(["high", "medium", "low"] as const)
       .filter((s) => counts[s])
       .map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1), count: counts[s] ?? 0 })),
@@ -91,6 +88,14 @@ export function DemoRadar() {
                   onToggle={() => toggle(card.id)}
                 />
               ))}
+              {feed.collapsed.length > 0 && activeFilter === "all" ? (
+                <div className="flex items-center justify-between gap-3 bg-surface-1 px-5 py-4 text-[14px] text-text-muted">
+                  <span>
+                    {feed.collapsed.length} lower-severity {feed.collapsed.length === 1 ? "change" : "changes"} ({feed.collapsed.map((c) => c.company).join(", ")})
+                  </span>
+                  <ShowMore open={false} onToggle={() => setShowLow(true)} more="Show" />
+                </div>
+              ) : null}
             </div>
 
             <AnimatePresence>
@@ -117,7 +122,7 @@ export function DemoRadar() {
 
         <CoverageRail
           counts={counts}
-          filings={pool.length}
+          filings={RADAR_CARDS.length}
           checking={checking}
           checked={checked}
           onRecheck={recheck}

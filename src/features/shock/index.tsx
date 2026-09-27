@@ -21,6 +21,14 @@ export function ShockTest() {
       </div>
     );
   }
+  if (state.status === "blocked") {
+    return (
+      <p role="status" className="flex items-start gap-3 text-[18px] font-light text-text">
+        <AlertTriangle aria-hidden className="mt-1 size-5 shrink-0 text-sev-medium" />
+        {state.message}
+      </p>
+    );
+  }
   if (state.status === "error") {
     return (
       <div className="flex flex-col gap-6">

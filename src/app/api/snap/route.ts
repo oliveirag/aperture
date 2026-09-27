@@ -1,5 +1,5 @@
 import { generate, geminiConfigured } from "@/lib/gemini";
-import { dedupeOverlap, priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
+import { dedupeOverlap, MAX_HOLDINGS, normalizeTicker, priceHoldings, type RawHolding, type SnapHolding } from "@/lib/price-holdings";
 import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -95,7 +95,13 @@ export async function POST(request: Request) {
   }
 
   // One screenshot keeps summing repeated rows (separate lots); overlapping screenshots keep one copy per ticker.
-  const holdings = await priceHoldings(many ? dedupeOverlap(read.value) : read.value);
+  const raw = many ? dedupeOverlap(read.value) : read.value;
+  // Never price only the first 50 and silently drop the rest: an understated portfolio is worse than a refusal.
+  const distinct = new Set(raw.filter((h) => typeof h?.ticker === "string").map((h) => normalizeTicker(h.ticker))).size;
+  if (distinct > MAX_HOLDINGS) {
+    return fail(`We read ${distinct} positions; quick import supports ${MAX_HOLDINGS}. Nothing was imported. Use Saved imports (up to 2,000 rows) or a smaller screenshot.`, 413);
+  }
+  const holdings = await priceHoldings(raw);
   if (holdings.length === 0) return fail(`No positions found in ${many ? "these screenshots" : "this screenshot"}`, 422);
   const body: SnapResponse = { holdings, model: read.model };
   return Response.json(body);

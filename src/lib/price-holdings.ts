@@ -64,6 +64,7 @@ export async function priceHoldings(raw: RawHolding[]): Promise<SnapHolding[]> {
       name: prev?.name ?? (typeof h.name === "string" && h.name.trim() ? h.name.trim() : null),
     });
   }
+  // Routes refuse more than MAX_HOLDINGS before calling this; the cap here only bounds provider calls.
   const rows = [...merged.values()].slice(0, MAX_HOLDINGS);
 
   const live = finnhubConfigured();

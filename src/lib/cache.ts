@@ -113,6 +113,40 @@ export type MemoOptions = {
   persistMs?: number;
 };
 
+let storeWarned = false;
+
+// Loads through the shared Supabase limiter and cache. If that store is unreachable or its migration is not applied,
+// calls the provider directly (the provider still enforces its own rate limit) instead of failing every request.
+async function sharedLoad<T>(key: string, ttlMs: number, provider: "finnhub" | "alpha", load: () => Promise<T>): Promise<T> {
+  const { cachedProvider, reserve, cooldown, ProviderStoreError } = await import("./imports/provider");
+  const attempt: { done: boolean; value?: T; error?: unknown } = { done: false };
+  try {
+    return await cachedProvider(key, ttlMs, async () => {
+      // Reserve both possible Finnhub attempts up front.
+      await reserve(provider, provider === "finnhub" && !key.startsWith("finnhub:quote:"));
+      if (provider === "finnhub") await reserve(provider, !key.startsWith("finnhub:quote:"));
+      try {
+        const value = await load();
+        Object.assign(attempt, { done: true, value });
+        return value;
+      } catch (error) {
+        Object.assign(attempt, { done: true, error });
+        if (error instanceof Error && /429|alphavantage limit/.test(error.message)) await cooldown(provider, provider === "finnhub" ? 60 : 86400);
+        throw error;
+      }
+    });
+  } catch (error) {
+    if (!(error instanceof ProviderStoreError)) throw error;
+    if (!storeWarned) {
+      storeWarned = true;
+      console.error("[cache] shared provider store unavailable, calling providers directly:", error.message);
+    }
+    if (!attempt.done) return load();
+    if (attempt.error !== undefined) throw attempt.error;
+    return attempt.value as T;
+  }
+}
+
 // Returns the cached value, or runs `load` once (concurrent callers share it) and caches what it returns.
 // With `persist`, a key this instance has never loaded is first looked up in the persistent store (a cold start),
 // while an expired key on a warm instance is reloaded, so short in-memory TTLs stay fresh.
@@ -131,19 +165,10 @@ export async function memo<T>(key: string, ttlMs: number, load: () => Promise<T>
       }
     }
     // Keep legacy provider modules unchanged while sharing their cache misses
-    // with durable imports. Reserve both possible Finnhub attempts up front.
+    // with durable imports.
     const provider = key.startsWith("finnhub:") ? "finnhub" : key.startsWith("etf:") ? "alpha" : null;
     const value = provider && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY && process.env.SUPABASE_SERVICE_ROLE_KEY
-      ? await (await import("./imports/provider")).cachedProvider(key, ttlMs, async () => {
-          const { reserve, cooldown } = await import("./imports/provider");
-          await reserve(provider, provider === "finnhub" && !key.startsWith("finnhub:quote:"));
-          if (provider === "finnhub") await reserve(provider, !key.startsWith("finnhub:quote:"));
-          try { return await load(); }
-          catch (error) {
-            if (error instanceof Error && /429|alphavantage limit/.test(error.message)) await cooldown(provider, provider === "finnhub" ? 60 : 86400);
-            throw error;
-          }
-        })
+      ? await sharedLoad(key, ttlMs, provider, load)
       : await load();
     store.set(key, { expires: Date.now() + ttlMs, value });
     seen.add(key);

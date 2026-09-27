@@ -306,10 +306,3 @@
     scroll-behavior: auto !important;
   }
 }
-
-@media (prefers-reduced-transparency: reduce) {
-  .material-glass {
-    background: var(--bg) !important;
-    backdrop-filter: none !important;
-  }
-}

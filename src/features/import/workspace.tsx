@@ -1,4 +1,5 @@
 "use client";
+import { accountsEnabled } from "@/lib/supabase";
 import { activateSnapshot } from "@/lib/imports/snapshot-store";
 import { importFetch } from "@/lib/imports/client";
 import { useEffect, useRef, useState } from "react";
@@ -112,7 +113,7 @@ export function ImportFlow() {
     <p className="text-sm text-text-muted">Screenshots are kept privately during review, for up to one hour, and deleted when you confirm or log out. Reviewed CSV records remain in your audit history.</p>
     <p><Link href="/xray" className="underline" onClick={()=>usePortfolio.getState().resetToDemo()}>Explore the sample portfolio</Link></p>
     {error&&<p role="alert" className="border border-red-500 p-3">{error}</p>}
-    {!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
+    {!accountsEnabled()?<p className="max-w-lg">Saved imports are turned off on this deployment. Use <Link href="/import" className="underline">Import</Link> for a session portfolio; nothing is stored.</p>:!loaded?<p>Loading account…</p>:!signedIn?<section className="space-y-3 max-w-lg">
       <p>Sign in to see your saved imports.</p>
       <label className="block">Email address<input aria-label="Email" placeholder="you@example.com" className={`${style} block w-full mt-2`} type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>
       {!sent?<button className={style} disabled={busy} onClick={()=>act(async()=>{const client=browserClient();if(!client)throw new Error("Supabase is not configured. See docs/IMPORTS.md.");const {error}=await client.auth.signInWithOtp({email});if(error)throw error;setSent(true);})}>Send sign-in code</button>:<>

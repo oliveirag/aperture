@@ -16,6 +16,10 @@ export interface ImportedHolding {
   price: number;
 }
 
+// The demo portfolio in the same shape, so it goes through the same live pricing and look-through as an import.
+// The snapshot prices are only a fallback for positions Finnhub can't quote.
+export const DEMO_HOLDINGS: ImportedHolding[] = HOLDINGS.map((h) => ({ ticker: h.ticker, name: h.name, industry: h.category, shares: h.shares, price: h.price }));
+
 // "practice" is a beginner's pretend portfolio: hypothetical dollars, never real money.
 export type PortfolioKind = "imported" | "practice";
 

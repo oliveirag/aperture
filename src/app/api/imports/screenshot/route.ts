@@ -1,4 +1,5 @@
-import { generate } from "@/lib/gemini";
+import { geminiAvailable, generate } from "@/lib/gemini";
+import { ocrHoldings } from "@/lib/imports/ocr";
 import { rateLimit } from "@/lib/rate-limit";
 import { type RawHolding, type SnapHolding } from "@/lib/price-holdings";
 import { admin, apiError, requireUser, sameOrigin } from "@/lib/supabase/server";
@@ -8,7 +9,7 @@ import { after } from "next/server";
 import { processImports } from "@/lib/imports/worker";
 
 export const runtime = "nodejs";
-// Gemini retries plus pricing can run past the default on busy days.
+// Gemini retries (or local OCR) plus pricing can run past the default on busy days.
 export const maxDuration = 60;
 
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -66,8 +67,6 @@ export async function POST(request: Request) {
   if(limited)return limited;
   const epoch=await admin().rpc("import_epoch",{p_owner:owner.id});
   if(epoch.error)return fail("Unable to start screenshot review.",503);
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return fail("Screenshot import is not configured", 503);
 
   let form: FormData;
   try {
@@ -83,12 +82,16 @@ export async function POST(request: Request) {
   if (file.size === 0) return fail("Image is empty", 400);
   if (file.size > MAX_BYTES) return fail("Image is larger than 4MB", 413);
 
-  let read: { model: string; raw: RawHolding[] };
-  const imageData=Buffer.from(await file.arrayBuffer()).toString("base64");
-  try {
-    read = await readImage(file.type, imageData);
-  } catch {
-    return fail("Gemini couldn't read the screenshot right now. Try again in a moment.", 502);
+  const buffer=Buffer.from(await file.arrayBuffer());
+  const imageData=buffer.toString("base64");
+  let read: { model: string; raw: RawHolding[] } | null = null;
+  if (geminiAvailable()) {
+    try { read = await readImage(file.type, imageData); }
+    catch (err) { console.error("[import-review] Gemini unavailable, using OCR:", err instanceof Error ? err.message.slice(0, 120) : "unknown"); }
+  }
+  if (!read) {
+    try { read = { model: "Tesseract OCR", raw: await ocrHoldings([buffer]) }; }
+    catch { return fail("Couldn't read the screenshot right now. Try CSV or typing the positions.", 502); }
   }
 
   try {

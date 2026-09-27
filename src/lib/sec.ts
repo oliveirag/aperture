@@ -38,12 +38,27 @@ function throttled<T>(run: () => Promise<T>): Promise<T> {
   return result;
 }
 
+// EDGAR answers bursts with 429 or 503 and occasionally drops a connection; retry those twice with backoff.
+const RETRY_MS = [800, 2500];
+
 async function secFetch(url: string): Promise<Response> {
-  const res = await throttled(() =>
-    fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json, text/html" }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" }),
-  );
-  if (!res.ok) throw new Error(`sec ${new URL(url).pathname} ${res.status}`);
-  return res;
+  for (let attempt = 0; ; attempt++) {
+    let res: Response | null = null;
+    let error: unknown = null;
+    try {
+      res = await throttled(() =>
+        fetch(url, { headers: { "User-Agent": USER_AGENT, Accept: "application/json, text/html" }, signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store" }),
+      );
+    } catch (err) {
+      error = err;
+    }
+    if (res?.ok) return res;
+    const retryable = error !== null || res?.status === 429 || (res?.status ?? 0) >= 500;
+    if (!retryable || attempt >= RETRY_MS.length) {
+      throw new Error(`sec ${new URL(url).pathname} ${res?.status ?? (error instanceof Error ? error.message : "network error")}`);
+    }
+    await new Promise((r) => setTimeout(r, RETRY_MS[attempt]));
+  }
 }
 
 type TickerRow = { cik_str: number; ticker: string; title: string };

@@ -6,7 +6,7 @@ import { useSnapshots, useSnapshot } from "@/lib/imports/snapshot-store";
 import { useEffect, useState } from "react";
 import { browserClient } from "@/lib/supabase/browser";
 import { create } from "zustand";
-import { useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
+import { DEMO_HOLDINGS, useHydratePortfolio, usePortfolio, type ImportedHolding } from "@/lib/portfolio-store";
 import { DEMO_XRAY } from "@/lib/xray/demo";
 import type { XrayModel } from "@/lib/xray/types";
 
@@ -44,7 +44,8 @@ export type XrayState =
   | { status: "loading" }
   | { status: "error"; error: string; retry: () => void };
 
-// The X-Ray for the active portfolio: curated canon for the demo, computed from real data for an imported one.
+// The X-Ray for the active portfolio, computed from live prices and ETF holdings. The demo portfolio goes through the
+// same path; only if that fails does it fall back to its dated snapshot (DEMO_XRAY, labeled as such).
 export function useXray(): XrayState {
   useHydratePortfolio();
   const hydrated = usePortfolio((s) => s.hydrated);
@@ -56,9 +57,10 @@ export function useXray(): XrayState {
   const entry = useAperture((s) => s.entry);
   const load = useAperture((s) => s.load);
 
+  const holdings = imported ?? DEMO_HOLDINGS;
   useEffect(() => {
-    if (hydrated && snapshotReady && imported && !snapshot) load(imported);
-  }, [hydrated, snapshotReady, imported, load, snapshot]);
+    if (hydrated && snapshotReady && !snapshot) load(holdings);
+  }, [hydrated, snapshotReady, holdings, load, snapshot]);
   useEffect(()=>{
     if(!hydrated || !snapshot)return;
     const controller=new AbortController();
@@ -77,9 +79,11 @@ export function useXray(): XrayState {
     if(verified.model)return {status:"ready",model:verified.model};
     return {status:"loading"};
   }
-  if (!imported) return { status: "ready", model: DEMO_XRAY };
-  const mine = entry?.key === keyOf(imported) ? entry : null;
+  const mine = entry?.key === keyOf(holdings) ? entry : null;
   if (mine?.status === "ready" && mine.model) return { status: "ready", model: mine.model };
-  if (mine?.status === "error") return { status: "error", error: mine.error ?? "Look-through failed", retry: () => load(imported, true) };
+  if (mine?.status === "error") {
+    if (!imported) return { status: "ready", model: DEMO_XRAY };
+    return { status: "error", error: mine.error ?? "Look-through failed", retry: () => load(imported, true) };
+  }
   return { status: "loading" };
 }

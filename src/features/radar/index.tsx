@@ -1,18 +1,15 @@
 "use client";
 
 import { AlertTriangle, LoaderCircle, RotateCcw } from "lucide-react";
-import { useState } from "react";
 import { HOLDINGS } from "@/data/portfolio";
 import { useXray } from "@/features/xray/use-xray";
 import { usePortfolio } from "@/lib/portfolio-store";
-import { DemoRadar } from "./demo-radar";
 import { LiveRadar } from "./live-radar";
 
-// Curated cards for the demo portfolio; real SEC filing comparisons for an imported or practice one.
+// Real SEC filing comparisons for whichever portfolio is active, the demo one included.
 export function RadarPage() {
   const xray = useXray();
   const imported = usePortfolio((s) => s.imported);
-  const [example, setExample] = useState(false);
 
   if (xray.status === "loading") {
     return (
@@ -45,7 +42,7 @@ export function RadarPage() {
     );
   }
   return <div className="flex flex-col gap-6">
-    <div className="order-last flex flex-wrap items-center gap-3 text-[13px] text-text-muted"><span>{example ? "Illustrative filing feed. Sample wording has not been verified against SEC filings." : "SEC filings. Quotes are checked against the retrieved filing text; summaries are AI interpretations."}</span>{!imported && <button className="underline underline-offset-4" onClick={() => setExample(!example)}>{example ? "Read live filings" : "View labeled example feed"}</button>}</div>
-    {example && !imported ? <DemoRadar /> : <LiveRadar model={xray.model} holdings={imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))} />}
+    <p className="order-last text-[13px] text-text-muted">SEC filings. Quotes are checked against the retrieved filing text. Summaries are AI interpretations when Gemini is available, otherwise a sentence-by-sentence comparison.</p>
+    <LiveRadar model={xray.model} holdings={imported ?? HOLDINGS.map(h => ({ ...h, industry: h.category }))} />
   </div>;
 }

@@ -1,0 +1,8 @@
+{
+  "provider": "openfigi",
+  "endpoint": "https://api.openfigi.com/v3/mapping",
+  "retrievedAt": "2026-09-27T07:45:24.734Z",
+  "body": "[{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"}]",
+  "schemaVersion": 1,
+  "sha256": "209e28098ceca9f91dff64dfab423ea3267f40f4943a3e8bd5a77b9dd07591cb"
+}

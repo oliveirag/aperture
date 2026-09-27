@@ -1,0 +1,8 @@
+{
+  "provider": "openfigi",
+  "endpoint": "https://api.openfigi.com/v3/mapping",
+  "retrievedAt": "2026-09-27T07:42:10.363Z",
+  "body": "[{\"data\":[{\"figi\":\"BBG019XSYC89\",\"name\":\"ZYMEWORKS INC\",\"ticker\":\"ZYME\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG019XSYC89\",\"securityType\":\"Common Stock\",\"marketSector\":\"Equity\",\"shareClassFIGI\":\"BBG019XSYC98\",\"securityType2\":\"Common Stock\",\"securityDescription\":\"ZYME\"}]},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"},{\"warning\":\"No identifier found.\"}]",
+  "schemaVersion": 1,
+  "sha256": "ff3716e2606ac41742fdf2994f8c3976f44ff76007fe1fc51f02afce7e6ecdb8"
+}

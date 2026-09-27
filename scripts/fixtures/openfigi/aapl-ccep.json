@@ -1,0 +1,8 @@
+{
+  "provider": "openfigi",
+  "endpoint": "https://api.openfigi.com/v3/mapping",
+  "retrievedAt": "2026-09-27T07:19:32.057Z",
+  "body": "[{\"data\":[{\"figi\":\"BBG000B9XRY4\",\"name\":\"APPLE INC\",\"ticker\":\"AAPL\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG000B9XRY4\",\"securityType\":\"Common Stock\",\"marketSector\":\"Equity\",\"shareClassFIGI\":\"BBG001S5N8V8\",\"securityType2\":\"Common Stock\",\"securityDescription\":\"AAPL\"}]},{\"data\":[{\"figi\":\"BBG00B6BFWH9\",\"name\":\"COCA-COLA EUROPACIFIC PARTNE\",\"ticker\":\"CCEP\",\"exchCode\":\"US\",\"compositeFIGI\":\"BBG00B6BFWH9\",\"securityType\":\"Common Stock\",\"marketSector\":\"Equity\",\"shareClassFIGI\":\"BBG00B6BFX96\",\"securityType2\":\"Common Stock\",\"securityDescription\":\"CCEP\"}]}]",
+  "schemaVersion": 1,
+  "sha256": "2317dbf120cf5d002f529ef62790146b6452f573e278ddd09a5b49719c375122"
+}

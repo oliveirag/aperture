@@ -1,5 +1,6 @@
+import { answerFromData } from "@/lib/ask/offline";
 import { DECLINE, DISCLAIMER, isBuySellQuestion, systemPrompt } from "@/lib/ask/prompt";
-import { geminiConfigured, streamText } from "@/lib/gemini";
+import { geminiAvailable, streamText } from "@/lib/gemini";
 import type { Level } from "@/lib/level";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -43,11 +44,13 @@ export async function POST(request: Request) {
   if (isBuySellQuestion(question)) {
     return new Response(`${DECLINE}\n\n${DISCLAIMER}`, { headers: { ...TEXT, "X-Ask-Declined": "1" } });
   }
-  if (!geminiConfigured()) return fail("Ask is not configured", 503);
+  // Without Gemini, answer from the portfolio data itself rather than failing.
+  if (!geminiAvailable()) return new Response(answerFromData(question, body.context), { headers: { ...TEXT, "X-Ask-Offline": "1" } });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let started = false;
       try {
         for await (const chunk of streamText({
           tag: "ask",
@@ -56,11 +59,13 @@ export async function POST(request: Request) {
           firstTokenMs: 6000,
           signal: request.signal,
         })) {
+          started = true;
           controller.enqueue(encoder.encode(chunk));
         }
       } catch (err) {
         console.error("[ask] failed:", err instanceof Error ? err.message.slice(0, 120) : "unknown");
-        controller.enqueue(encoder.encode("\n\nSorry, I couldn't finish that answer. Gemini is busy right now; try again in a moment."));
+        // Before any text reached the user, a data answer replaces the failed one; mid-answer, say it was cut off.
+        controller.enqueue(encoder.encode(started ? "\n\nSorry, I couldn't finish that answer. Try again in a moment." : answerFromData(question, body.context)));
       }
       controller.close();
     },
